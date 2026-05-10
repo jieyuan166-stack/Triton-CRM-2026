@@ -2,8 +2,8 @@
 // Shared compose dialog used by both UpcomingPremiums and UpcomingBirthdays.
 "use client";
 
-import { useEffect, useState } from "react";
-import { Loader2, Send, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { FileText, ImageIcon, Loader2, Paperclip, Send, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -19,12 +19,21 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useData } from "@/components/providers/DataProvider";
 import { useSettings } from "@/components/providers/SettingsProvider";
-import { getEmailService } from "@/lib/email-service";
 import {
   plainTextToEmailHtml,
   renderEmailBody,
   renderEmailHtml,
 } from "@/lib/templates";
+
+const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
+
+interface ComposeAttachment {
+  id: string;
+  filename: string;
+  contentType: string;
+  size: number;
+  content: string;
+}
 
 export interface EmailPreviewPayload {
   /** Single client name | "Bulk" | label for header */
@@ -92,7 +101,9 @@ export function EmailPreviewDialog({
   const [bcc, setBcc] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  const [attachments, setAttachments] = useState<ComposeAttachment[]>([]);
   const [sending, setSending] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (open && payload) {
@@ -100,6 +111,7 @@ export function EmailPreviewDialog({
       setBcc(payload.bcc ?? "");
       setSubject(payload.subject);
       setBody(payload.body);
+      setAttachments([]);
       setSending(false);
     }
   }, [open, payload]);
@@ -116,6 +128,57 @@ export function EmailPreviewDialog({
       : settings.signature.enabled && settings.signature.text.trim()
       ? plainTextToEmailHtml(settings.signature.text)
       : "";
+
+  const totalAttachmentBytes = attachments.reduce((sum, file) => sum + file.size, 0);
+
+  function formatBytes(bytes: number) {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function arrayBufferToBase64(buffer: ArrayBuffer) {
+    const bytes = new Uint8Array(buffer);
+    let binary = "";
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    return window.btoa(binary);
+  }
+
+  async function handleAttachmentChange(files: FileList | null) {
+    if (!files || files.length === 0) return;
+
+    const nextFiles = Array.from(files);
+    const nextTotal =
+      totalAttachmentBytes + nextFiles.reduce((sum, file) => sum + file.size, 0);
+
+    if (nextTotal > MAX_ATTACHMENT_BYTES) {
+      toast.error("Attachments are too large", {
+        description: `Please keep total attachments under ${formatBytes(MAX_ATTACHMENT_BYTES)}.`,
+      });
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    const encoded = await Promise.all(
+      nextFiles.map(async (file) => ({
+        id: `${file.name}-${file.size}-${file.lastModified}-${crypto.randomUUID()}`,
+        filename: file.name,
+        contentType: file.type || "application/octet-stream",
+        size: file.size,
+        content: arrayBufferToBase64(await file.arrayBuffer()),
+      }))
+    );
+
+    setAttachments((prev) => [...prev, ...encoded]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function removeAttachment(id: string) {
+    setAttachments((prev) => prev.filter((file) => file.id !== id));
+  }
 
   /** Direct send via the /api/send-email route. The server reads
    *  SMTP_PASSWORD from env (never shipped to the browser) and relays
@@ -137,6 +200,11 @@ export function EmailPreviewDialog({
           body: bodyWithSignature,
           html: htmlWithSignature,
           clientId: payload?.clientId,
+          attachments: attachments.map(({ filename, contentType, content }) => ({
+            filename,
+            contentType,
+            content,
+          })),
         }),
       });
       const json = (await res.json().catch(() => ({}))) as {
@@ -214,41 +282,6 @@ export function EmailPreviewDialog({
     } finally {
       setSending(false);
     }
-  }
-
-  /** Fallback paths — open Gmail compose in a new tab, or fire a mailto:
-   *  link. Used when the SMTP route is misconfigured / down or the user
-   *  wants to send from a different account. These don't write to the
-   *  Communication Log because we can't confirm whether the user
-   *  ultimately clicked Send in the external compose window. */
-  async function handleSendExternal(via: "gmail" | "mailto") {
-    const result = await getEmailService(via).send({
-      to: to.trim(),
-      bcc: bcc.split(",").map((s) => s.trim()).filter(Boolean),
-      subject,
-      body: renderEmailBody(body, {}, settings.signature),
-    });
-    if (!result.ok) {
-      toast.error(
-        via === "gmail" ? "Could not open Gmail" : "Could not open email client",
-        { description: result.error }
-      );
-      return;
-    }
-    toast.success(`Email draft prepared for ${payload?.contextLabel ?? "client"}`, {
-      description:
-        via === "gmail"
-          ? "Gmail compose opened in a new tab. Review and click Send."
-          : "Your default mail client opened with the draft.",
-    });
-    onSent?.({
-      via,
-      to: to.trim(),
-      subject,
-      body,
-      clientId: payload?.clientId,
-    });
-    onOpenChange(false);
   }
 
   function recipientPills() {
@@ -359,39 +392,72 @@ export function EmailPreviewDialog({
               </div>
             ) : null}
           </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <Label>Attachments</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={sending}
+              >
+                <Paperclip className="mr-1.5 h-3.5 w-3.5" />
+                Attach
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="application/pdf,image/*"
+                className="hidden"
+                onChange={(event) => void handleAttachmentChange(event.target.files)}
+              />
+            </div>
+            {attachments.length > 0 ? (
+              <div className="space-y-1.5 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                {attachments.map((file) => {
+                  const isImage = file.contentType.startsWith("image/");
+                  return (
+                    <div
+                      key={file.id}
+                      className="flex items-center gap-2 rounded-md bg-white px-2.5 py-2 text-xs text-slate-700 ring-1 ring-slate-100"
+                    >
+                      {isImage ? (
+                        <ImageIcon className="h-3.5 w-3.5 text-slate-400" />
+                      ) : (
+                        <FileText className="h-3.5 w-3.5 text-slate-400" />
+                      )}
+                      <span className="min-w-0 flex-1 truncate">{file.filename}</span>
+                      <span className="shrink-0 text-[11px] text-slate-400">
+                        {formatBytes(file.size)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeAttachment(file.id)}
+                        className="shrink-0 rounded p-1 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
+                        aria-label={`Remove ${file.filename}`}
+                        disabled={sending}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  );
+                })}
+                <p className="px-1 text-[11px] text-slate-400">
+                  Total: {formatBytes(totalAttachmentBytes)} / {formatBytes(MAX_ATTACHMENT_BYTES)}
+                </p>
+              </div>
+            ) : (
+              <p className="text-[11px] text-triton-muted">
+                Attach PDFs or images for this send only. Files are not saved in CRM storage.
+              </p>
+            )}
+          </div>
         </div>
 
-        <DialogFooter className="flex-wrap gap-2">
-          <Button
-            variant="ghost"
-            onClick={() => onOpenChange(false)}
-            disabled={sending}
-          >
-            Cancel
-          </Button>
-          {/* Fallback paths — visible but de-emphasised. Useful when SMTP
-              isn't configured yet or the user wants to send from a different
-              account / their OS default mail app. */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handleSendExternal("mailto")}
-            disabled={!subject.trim() || !body.trim() || sending}
-            title="Open the OS default mail client with this draft"
-            className="text-slate-500 hover:text-slate-700"
-          >
-            Mail Client
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleSendExternal("gmail")}
-            disabled={!subject.trim() || !body.trim() || sending}
-            title="Open mail.google.com compose with this draft prefilled"
-          >
-            Open in Gmail
-          </Button>
-          {/* Primary action — direct SMTP send via /api/send-email. */}
+        <DialogFooter>
           <Button
             className="bg-navy hover:bg-navy/90 text-white min-w-[140px]"
             onClick={handleSendDirect}

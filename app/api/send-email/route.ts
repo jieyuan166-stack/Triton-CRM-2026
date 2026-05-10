@@ -45,7 +45,19 @@ const sendSchema = z.object({
   clientId: z.string().optional(),
   fromName: z.string().optional(),
   fromEmail: z.string().email().optional(),
+  attachments: z
+    .array(
+      z.object({
+        filename: z.string().min(1),
+        contentType: z.string().min(1).optional(),
+        content: z.string().min(1),
+      })
+    )
+    .max(10)
+    .optional(),
 });
+
+const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
 
 function escapeHtml(text: string): string {
   return text
@@ -134,6 +146,25 @@ export async function POST(request: Request) {
   try {
     const fullHtml = data.html?.trim() ? sanitizeEmailHtml(data.html) : plainTextToHtml(data.body);
     const { html: htmlWithCids, attachments } = attachInlineImages(fullHtml);
+    const userAttachments = (data.attachments ?? []).map((attachment) => {
+      const content = Buffer.from(attachment.content, "base64");
+      return {
+        filename: attachment.filename.replace(/[\\/:*?"<>|]/g, "-"),
+        contentType: attachment.contentType ?? "application/octet-stream",
+        content,
+      };
+    });
+    const totalAttachmentBytes = userAttachments.reduce(
+      (sum, attachment) => sum + attachment.content.length,
+      0
+    );
+    if (totalAttachmentBytes > MAX_ATTACHMENT_BYTES) {
+      return NextResponse.json(
+        { ok: false, error: "Attachments exceed the 20MB limit" },
+        { status: 413 }
+      );
+    }
+    const allAttachments = [...attachments, ...userAttachments];
     const info = await transporter.sendMail({
       from,
       to: data.to,
@@ -142,7 +173,7 @@ export async function POST(request: Request) {
       subject: data.subject,
       text: data.body,
       html: htmlWithCids,
-      attachments: attachments.length > 0 ? attachments : undefined,
+      attachments: allAttachments.length > 0 ? allAttachments : undefined,
     });
     await auditLog({
       action: "send_email",

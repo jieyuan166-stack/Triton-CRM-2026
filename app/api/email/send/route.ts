@@ -34,7 +34,19 @@ const sendSchema = z.object({
   fromName: z.string().optional(),
   fromEmail: z.string().email().optional(),
   signatureHtml: z.string().optional(),
+  attachments: z
+    .array(
+      z.object({
+        filename: z.string().min(1),
+        contentType: z.string().min(1).optional(),
+        content: z.string().min(1),
+      })
+    )
+    .max(10)
+    .optional(),
 });
+
+const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
 
 function toRecipientList(v: unknown): string[] {
   if (!v) return [];
@@ -123,6 +135,25 @@ export async function POST(request: Request) {
       ? `<div style="font-family:Arial,sans-serif;font-size:14px;color:#333;line-height:1.6;">${data.body.replace(/\n/g, "<br/>")}</div><div style="margin-top:24px;border-top:1px solid #e2e8f0;padding-top:16px;">${data.signatureHtml}</div>`
       : `<div style="font-family:Arial,sans-serif;font-size:14px;color:#333;line-height:1.6;">${data.body.replace(/\n/g, "<br/>")}</div>`;
     const { html: htmlWithCids, attachments } = attachInlineImages(sanitizeEmailHtml(fullHtml));
+    const userAttachments = (data.attachments ?? []).map((attachment) => {
+      const content = Buffer.from(attachment.content, "base64");
+      return {
+        filename: attachment.filename.replace(/[\\/:*?"<>|]/g, "-"),
+        contentType: attachment.contentType ?? "application/octet-stream",
+        content,
+      };
+    });
+    const totalAttachmentBytes = userAttachments.reduce(
+      (sum, attachment) => sum + attachment.content.length,
+      0
+    );
+    if (totalAttachmentBytes > MAX_ATTACHMENT_BYTES) {
+      return NextResponse.json(
+        { ok: false, error: "Attachments exceed the 20MB limit" },
+        { status: 413 }
+      );
+    }
+    const allAttachments = [...attachments, ...userAttachments];
     const info = await transporter.sendMail({
       from,
       to: data.to,
@@ -131,7 +162,7 @@ export async function POST(request: Request) {
       subject: data.subject,
       text: data.body,
       html: htmlWithCids,
-      attachments: attachments.length > 0 ? attachments : undefined,
+      attachments: allAttachments.length > 0 ? allAttachments : undefined,
     });
     await auditLog({
       action: "send_email",
