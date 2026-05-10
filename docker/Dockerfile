@@ -7,6 +7,8 @@ RUN corepack enable && corepack prepare pnpm@10.33.4 --activate && pnpm install 
 FROM node:22-alpine AS builder
 RUN apk add --no-cache openssl
 WORKDIR /app
+ARG NEXT_PUBLIC_GOOGLE_MAPS_KEY
+ENV NEXT_PUBLIC_GOOGLE_MAPS_KEY=$NEXT_PUBLIC_GOOGLE_MAPS_KEY
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN corepack enable && corepack prepare pnpm@10.33.4 --activate && pnpm prisma generate && pnpm build
