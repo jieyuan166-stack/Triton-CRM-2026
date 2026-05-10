@@ -17,6 +17,13 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Triton CRM | 富瑞财富",
   description: "Wealth management CRM for licensed advisors",
+  icons: {
+    icon: [
+      { url: "/favicon.ico?v=20260510", sizes: "any" },
+      { url: "/icon.png?v=20260510", type: "image/png", sizes: "512x512" },
+    ],
+    apple: [{ url: "/apple-icon.png?v=20260510", type: "image/png", sizes: "180x180" }],
+  },
 };
 
 export default function RootLayout({
