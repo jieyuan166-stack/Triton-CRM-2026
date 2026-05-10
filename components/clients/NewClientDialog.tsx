@@ -189,24 +189,15 @@ export function NewClientDialog({
       return;
     }
 
-    // Create flow — hit the API for server-side validation + uniqueness check.
-    let serverError: string | null = null;
-    try {
-      const res = await fetch("/api/clients", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        serverError = data.error ?? `Request failed (${res.status})`;
-      }
-    } catch (e) {
-      serverError = (e as Error).message;
-    }
+    const emailLower = values.email.toLowerCase();
+    const emailExists = clients.some(
+      (existing) => existing.email.toLowerCase() === emailLower
+    );
 
-    if (serverError) {
-      toast.error("Could not create client", { description: serverError });
+    if (emailExists) {
+      toast.error("Could not create client", {
+        description: "Email already exists in Triton CRM.",
+      });
       return;
     }
 

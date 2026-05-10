@@ -27,6 +27,8 @@ import type {
   Policy,
 } from "@/lib/types";
 
+const DATA_STORAGE_KEY = "triton:crm-data-v1";
+
 // === Public context shape ===
 
 interface DataContextValue {
@@ -130,6 +132,47 @@ function pruneOrphans<T extends { clientId: string }>(
   return list.filter((x) => live.has(x.clientId));
 }
 
+function sanitizeSnapshot(snapshot: {
+  clients?: unknown[];
+  policies?: unknown[];
+  followUps?: unknown[];
+}): {
+  clients: Client[];
+  policies: Policy[];
+  followUps: FollowUp[];
+} {
+  const clients = Array.isArray(snapshot.clients)
+    ? (snapshot.clients.filter(
+        (c): c is Client =>
+          !!c && typeof c === "object" && typeof (c as Client).id === "string"
+      ) as Client[])
+    : [];
+  const policies = Array.isArray(snapshot.policies)
+    ? (snapshot.policies.filter(
+        (p): p is Policy =>
+          !!p &&
+          typeof p === "object" &&
+          typeof (p as Policy).id === "string" &&
+          typeof (p as Policy).clientId === "string"
+      ) as Policy[])
+    : [];
+  const followUps = Array.isArray(snapshot.followUps)
+    ? (snapshot.followUps.filter(
+        (f): f is FollowUp =>
+          !!f &&
+          typeof f === "object" &&
+          typeof (f as FollowUp).id === "string" &&
+          typeof (f as FollowUp).clientId === "string"
+      ) as FollowUp[])
+    : [];
+
+  return {
+    clients,
+    policies: pruneOrphans(policies, clients),
+    followUps: pruneOrphans(followUps, clients),
+  };
+}
+
 /** Lazy initial state. Returns either:
  *   - the seed (with a one-time orphan sweep), or
  *   - the snapshot stashed in localStorage right before a window.reload()
@@ -156,43 +199,40 @@ function readPendingRestore(): {
   }
   if (!raw) return null;
   try {
-    const parsed = JSON.parse(raw) as {
-      clients?: unknown[];
-      policies?: unknown[];
-      followUps?: unknown[];
-    };
-    const clients = Array.isArray(parsed.clients)
-      ? (parsed.clients.filter(
-          (c): c is Client =>
-            !!c && typeof c === "object" && typeof (c as Client).id === "string"
-        ) as Client[])
-      : [];
-    const policies = Array.isArray(parsed.policies)
-      ? (parsed.policies.filter(
-          (p): p is Policy =>
-            !!p &&
-            typeof p === "object" &&
-            typeof (p as Policy).id === "string" &&
-            typeof (p as Policy).clientId === "string"
-        ) as Policy[])
-      : [];
-    const followUps = Array.isArray(parsed.followUps)
-      ? (parsed.followUps.filter(
-          (f): f is FollowUp =>
-            !!f &&
-            typeof f === "object" &&
-            typeof (f as FollowUp).id === "string" &&
-            typeof (f as FollowUp).clientId === "string"
-        ) as FollowUp[])
-      : [];
-    return {
-      clients,
-      policies: pruneOrphans(policies, clients),
-      followUps: pruneOrphans(followUps, clients),
-    };
+    return sanitizeSnapshot(JSON.parse(raw) as BackupSnapshot);
   } catch {
     return null;
   }
+}
+
+function readPersistedData(): {
+  clients: Client[];
+  policies: Policy[];
+  followUps: FollowUp[];
+} | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(DATA_STORAGE_KEY);
+    if (!raw) return null;
+    return sanitizeSnapshot(JSON.parse(raw) as BackupSnapshot);
+  } catch {
+    return null;
+  }
+}
+
+function readInitialData(): {
+  clients: Client[];
+  policies: Policy[];
+  followUps: FollowUp[];
+} {
+  return (
+    readPendingRestore() ??
+    readPersistedData() ?? {
+      clients: seedClients,
+      policies: pruneOrphans(seedPolicies, seedClients),
+      followUps: pruneOrphans(seedFollowUps, seedClients),
+    }
+  );
 }
 
 export function DataProvider({ children }: { children: ReactNode }) {
@@ -200,19 +240,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // points at a client id no longer present in seedClients gets dropped here.
   // This makes the invariant "no policy without a parent client" true from
   // the very first render, instead of relying on cascade-on-delete alone.
-  const [clients, setClients] = useState<Client[]>(
-    () => readPendingRestore()?.clients ?? seedClients
-  );
-  const [policies, setPolicies] = useState<Policy[]>(() => {
-    const restore = readPendingRestore();
-    if (restore) return restore.policies;
-    return pruneOrphans(seedPolicies, seedClients);
-  });
-  const [followUps, setFollowUps] = useState<FollowUp[]>(() => {
-    const restore = readPendingRestore();
-    if (restore) return restore.followUps;
-    return pruneOrphans(seedFollowUps, seedClients);
-  });
+  const [initialData] = useState(readInitialData);
+  const [clients, setClients] = useState<Client[]>(initialData.clients);
+  const [policies, setPolicies] = useState<Policy[]>(initialData.policies);
+  const [followUps, setFollowUps] = useState<FollowUp[]>(initialData.followUps);
 
   // Clear the pending-restore key once it's been consumed, so a *second*
   // refresh doesn't re-apply it on top of any user edits made in between.
@@ -224,6 +255,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
       /* swallow — private mode etc. */
     }
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        DATA_STORAGE_KEY,
+        JSON.stringify({
+          version: 1,
+          capturedAt: new Date().toISOString(),
+          clients,
+          policies,
+          followUps,
+        } satisfies BackupSnapshot)
+      );
+    } catch {
+      /* localStorage can fail in private mode or if quota is exceeded. */
+    }
+  }, [clients, policies, followUps]);
 
   // queries — wrapped in useCallback to keep referential stability
   const getClient = useCallback(
