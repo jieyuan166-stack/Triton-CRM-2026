@@ -6,10 +6,13 @@ export const CSV_TEMPLATE_HEADERS = [
   "Last_Name",
   "Email",
   "Phone",
+  "Birthday",
   "Address_Line1",
+  "Unit",
   "City",
   "Province",
   "Postal_Code",
+  "Policy_Number",
   "Products",
 ] as const;
 
@@ -65,6 +68,7 @@ type CanonicalField =
   | "relationship"
   | "notes"
   | "createdAt"
+  | "policyNumber"
   | "products"
   | "fullAddress";
 
@@ -125,6 +129,7 @@ const FIELD_ALIASES: Record<CanonicalField, string[]> = {
   relationship: ["relationship", "relation"],
   notes: ["notes", "note", "remarks"],
   createdAt: ["created_at", "created at"],
+  policyNumber: ["policy_number", "policy number", "policy no", "policy #"],
   products: ["products", "products_list", "policies", "policy list", "product details"],
   fullAddress: ["full_address", "full address"],
 };
@@ -353,6 +358,7 @@ export function parseImportedRows(rows: RawRecord[]): { mapping: CsvFieldMapping
     }
 
     const productsValue = getString(rawRow, mapping.mappedFields.products);
+    const rowPolicyNumber = getString(rawRow, mapping.mappedFields.policyNumber);
     const products: ParsedImportProduct[] = [];
 
     if (productsValue) {
@@ -392,7 +398,10 @@ export function parseImportedRows(rows: RawRecord[]): { mapping: CsvFieldMapping
             category: "Insurance",
             productType,
             productName: productType,
-            policyNumber: `IMP-${timestamp}-${index + 1}-${productIndex + 1}`,
+            policyNumber:
+              rowPolicyNumber && productIndex === 0
+                ? rowPolicyNumber
+                : `IMP-${timestamp}-${index + 1}-${productIndex + 1}`,
             sumAssured: 0,
             premium,
             paymentFrequency: "Annually" as Policy["paymentFrequency"],
