@@ -131,32 +131,13 @@ export function BackupsSection() {
     toast.success("Backup deleted", { description: target.filename });
   }
 
-  /** Serialise a record's snapshot to a .json file and trigger a download.
-   *  Replaces the old "wired up in Step 11" placeholder. */
   function handleDownload(b: BackupRecord) {
-    if (!b.data) {
-      toast.error("Nothing to download", {
-        description: "This is a placeholder backup with no captured data.",
-      });
-      return;
-    }
-    try {
-      const blob = new Blob([JSON.stringify(b.data, null, 2)], {
-        type: "application/json",
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = b.filename.endsWith(".json")
-        ? b.filename
-        : `${b.filename.replace(/\.tar\.gz$/, "")}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      toast.error("Download failed", { description: (e as Error).message });
-    }
+    const anchor = document.createElement("a");
+    anchor.href = `/api/backups/${encodeURIComponent(b.id)}/download`;
+    anchor.download = b.filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
   }
 
   /** File-upload restore. The user picks a .json the system previously
@@ -202,8 +183,7 @@ export function BackupsSection() {
               Backups
             </h3>
             <p className="text-xs text-triton-muted mt-0.5">
-              Snapshots include Clients, Policies, Audit Logs, and Templates.
-              On the NAS, a daily cron writes to{" "}
+              Manual snapshots and daily database backups are real files stored on the NAS at{" "}
               <code className="font-mono text-[11px] px-1 py-0.5 rounded bg-slate-100">
                 /volume1/backups/triton/
               </code>
@@ -283,6 +263,11 @@ export function BackupsSection() {
                       <span className="hidden md:inline truncate">
                         {b.contents.join(" · ")}
                       </span>
+                      {b.kind === "database" ? (
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">
+                          DB file
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
@@ -300,7 +285,8 @@ export function BackupsSection() {
                       size="sm"
                       variant="outline"
                       className="h-8"
-                      disabled={isRestoring}
+                      disabled={isRestoring || b.restorable === false}
+                      title={b.restorable === false ? "Database backups are file-level backups. Restore them from NAS/SSH." : "Restore backup"}
                       onClick={() => setConfirmTarget(b)}
                     >
                       {isRestoring ? (

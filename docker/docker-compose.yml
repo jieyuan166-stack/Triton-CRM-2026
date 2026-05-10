@@ -13,6 +13,7 @@ services:
       - triton-net
     volumes:
       - triton-data:/app/prisma/data
+      - /volume1/backups/triton:/app/backups
     environment:
       DATABASE_URL: file:/app/prisma/data/triton.db
       AUTH_URL: ${AUTH_URL:-https://crm.tritonwealth.ca}
@@ -29,6 +30,7 @@ services:
       SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Jeffrey Yuan}
       SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL}
       NEXT_PUBLIC_GOOGLE_MAPS_KEY: ${NEXT_PUBLIC_GOOGLE_MAPS_KEY}
+      BACKUP_DIR: /app/backups
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/api/health"]
       interval: 30s

@@ -39,6 +39,8 @@ export interface BackupSnapshot {
 export interface BackupRecord {
   id: string;
   filename: string;          // e.g. backup_20260506T1430.tar.gz
+  kind?: "snapshot" | "database";
+  restorable?: boolean;
   /** Bytes (estimated for the in-memory mock; real bytes for file uploads). */
   size: number;
   createdAt: string;         // ISO timestamp
