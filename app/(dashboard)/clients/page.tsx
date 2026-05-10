@@ -94,21 +94,57 @@ export default function ClientsPage() {
     toast.success("CSV template downloaded.");
   };
 
-  const handleImportFile = (file: File) => {
+  const openImportPreview = (records: Record<string, unknown>[]) => {
+    const parsed = parseImportedRows(records);
+    const rows = applyImportSafeguards(parsed.rows, clients);
+    setPreviewRows(rows);
+    setPreviewHeaders(parsed.mapping.sourceHeaders);
+    setMappingSummary(
+      Object.fromEntries(
+        Object.entries(parsed.mapping.mappedFields).map(([field, header]) => [field, header ?? ""]),
+      ),
+    );
+    setPreviewOpen(true);
+  };
+
+  const handleImportFile = async (file: File) => {
+    const extension = file.name.split(".").pop()?.toLowerCase();
+
+    if (extension === "xls" || extension === "xlsx") {
+      try {
+        const XLSX = await import("xlsx");
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(buffer, { type: "array", cellDates: false });
+        const firstSheetName = workbook.SheetNames[0];
+        if (!firstSheetName) {
+          toast.error("This workbook does not contain any sheets.");
+          return;
+        }
+
+        const worksheet = workbook.Sheets[firstSheetName];
+        const records = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, {
+          defval: "",
+          raw: false,
+        });
+
+        if (records.length === 0) {
+          toast.error("No rows found in the first Excel sheet.");
+          return;
+        }
+
+        openImportPreview(records);
+        toast.success(`Loaded ${records.length} row${records.length === 1 ? "" : "s"} from ${firstSheetName}.`);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Unable to parse this Excel file.");
+      }
+      return;
+    }
+
     Papa.parse<Record<string, unknown>>(file, {
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
-        const parsed = parseImportedRows(results.data);
-        const rows = applyImportSafeguards(parsed.rows, clients);
-        setPreviewRows(rows);
-        setPreviewHeaders(parsed.mapping.sourceHeaders);
-        setMappingSummary(
-          Object.fromEntries(
-            Object.entries(parsed.mapping.mappedFields).map(([field, header]) => [field, header ?? ""]),
-          ),
-        );
-        setPreviewOpen(true);
+        openImportPreview(results.data);
       },
       error: (error) => {
         toast.error(error.message || "Unable to parse this CSV file.");
@@ -190,7 +226,7 @@ export default function ClientsPage() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".csv,text/csv"
+            accept=".csv,.xls,.xlsx,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             className="hidden"
             onChange={(event) => {
               const file = event.target.files?.[0];
@@ -200,7 +236,7 @@ export default function ClientsPage() {
 
           <Button variant="outline" className="rounded-xl" onClick={() => fileInputRef.current?.click()}>
             <Upload className="mr-2 h-4 w-4" />
-            Import CSV
+            Import CSV/XLS
           </Button>
 
           <button
@@ -231,15 +267,15 @@ export default function ClientsPage() {
       <NewClientDialog open={addClientOpen} onOpenChange={setAddClientOpen} />
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-h-[85vh] max-w-6xl overflow-hidden rounded-2xl border-slate-200 p-0">
-          <DialogHeader className="border-b border-slate-100 px-6 py-5">
-            <DialogTitle className="text-lg font-semibold text-slate-900">Review CSV Import</DialogTitle>
+        <DialogContent className="flex h-[92vh] w-[calc(100vw-2rem)] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border-slate-200 p-0 xl:w-[calc(100vw-4rem)] xl:max-w-[calc(100vw-4rem)]">
+          <DialogHeader className="shrink-0 border-b border-slate-100 px-6 py-5">
+            <DialogTitle className="text-lg font-semibold text-slate-900">Review Import</DialogTitle>
             <DialogDescription className="text-sm text-slate-500">
-              We auto-mapped your headers, validated each row, and will only import valid records.
+              We auto-mapped your spreadsheet headers, validated each row, and will only import valid records.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-5 px-6 py-5">
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
             <div className="flex flex-wrap items-center gap-2 text-xs">
               <span className={`rounded-full px-2.5 py-1 font-medium ${badgeTone(validRows.length > 0)}`}>
                 {validRows.length} valid
@@ -267,9 +303,9 @@ export default function ClientsPage() {
               </div>
             </div>
 
-            <div className="overflow-hidden rounded-2xl border border-slate-200">
-              <div className="max-h-[420px] overflow-auto">
-                <table className="min-w-full border-collapse text-sm">
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+              <div className="max-h-[58vh] overflow-auto">
+                <table className="min-w-[1680px] border-collapse text-sm">
                   <thead className="sticky top-0 bg-slate-50">
                     <tr className="border-b border-slate-200">
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -282,7 +318,25 @@ export default function ClientsPage() {
                         Email
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">
-                        Address
+                        Phone
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        Street
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        Unit
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        City
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        Province
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        Postal
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        Birthday
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">
                         Products
@@ -300,18 +354,30 @@ export default function ClientsPage() {
                           <div className="font-medium text-slate-900">
                             {[row.mappedClient.firstName, row.mappedClient.lastName].filter(Boolean).join(" ")}
                           </div>
-                          <div className="text-xs text-slate-500">{row.mappedClient.phone || "No phone"}</div>
                         </td>
                         <td className="px-4 py-3 align-top">
                           <div className="font-medium text-slate-800">{row.mappedClient.email || "Missing email"}</div>
                         </td>
                         <td className="px-4 py-3 align-top text-slate-600">
-                          <div>{row.mappedClient.streetAddress || "No street"}</div>
-                          <div className="text-xs text-slate-500">
-                            {[row.mappedClient.city, row.mappedClient.province, row.mappedClient.postalCode]
-                              .filter(Boolean)
-                              .join(", ")}
-                          </div>
+                          {row.mappedClient.phone || <span className="text-slate-400">-</span>}
+                        </td>
+                        <td className="max-w-[260px] px-4 py-3 align-top text-slate-600">
+                          <div className="whitespace-normal">{row.mappedClient.streetAddress || <span className="text-slate-400">-</span>}</div>
+                        </td>
+                        <td className="px-4 py-3 align-top text-slate-600">
+                          {row.mappedClient.unit || <span className="text-slate-400">-</span>}
+                        </td>
+                        <td className="px-4 py-3 align-top text-slate-600">
+                          {row.mappedClient.city || <span className="text-slate-400">-</span>}
+                        </td>
+                        <td className="px-4 py-3 align-top text-slate-600">
+                          {row.mappedClient.province || <span className="text-slate-400">-</span>}
+                        </td>
+                        <td className="px-4 py-3 align-top text-slate-600">
+                          {row.mappedClient.postalCode || <span className="text-slate-400">-</span>}
+                        </td>
+                        <td className="px-4 py-3 align-top text-slate-600">
+                          {row.mappedClient.birthday || <span className="text-slate-400">-</span>}
                         </td>
                         <td className="px-4 py-3 align-top text-slate-600">
                           {row.products.length > 0 ? (
@@ -326,7 +392,7 @@ export default function ClientsPage() {
                             <span className="text-xs text-slate-400">No products</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 align-top">
+                        <td className="max-w-[320px] px-4 py-3 align-top">
                           {row.errors.length === 0 ? (
                             <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-100">
                               Ready
@@ -353,7 +419,7 @@ export default function ClientsPage() {
             ) : null}
           </div>
 
-          <DialogFooter className="border-t border-slate-100 px-6 py-4">
+          <DialogFooter className="shrink-0 border-t border-slate-100 px-6 py-4">
             <Button variant="outline" className="rounded-xl" onClick={() => setPreviewOpen(false)}>
               Cancel
             </Button>
