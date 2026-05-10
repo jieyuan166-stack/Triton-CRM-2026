@@ -1,0 +1,151 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  name         String
+  passwordHash String
+  role         String     @default("advisor")
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  followUps    FollowUp[]
+  auditLogs    AuditLog[]
+  emailHistory EmailHistory[]
+}
+
+model Client {
+  id                   String         @id @default(cuid())
+  firstName            String
+  lastName             String
+  email                String         @unique
+  phone                String?
+  streetAddress        String?
+  unit                 String?
+  city                 String?
+  province             String?
+  postalCode           String?
+  birthday             DateTime?
+  notes                String?
+  linkedToId           String?
+  relationship         String?
+  lastBirthdayEmailAt  DateTime?
+  lastContactedAt      DateTime?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  linkedTo             Client?        @relation("ClientLinks", fields: [linkedToId], references: [id])
+  linkedClients        Client[]       @relation("ClientLinks")
+  policies             Policy[]
+  followUps            FollowUp[]
+  emailHistory         EmailHistory[]
+  backups              BackupRecord[]
+
+  @@index([lastName, firstName])
+  @@index([province])
+}
+
+model Policy {
+  id                   String        @id @default(cuid())
+  clientId             String
+  client               Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  carrier              String
+  category             String
+  productType          String
+  productName          String
+  policyNumber         String        @unique
+  sumAssured           Float         @default(0)
+  premium              Float         @default(0)
+  paymentFrequency     String
+  paymentTermYears     Int?
+  effectiveDate        DateTime
+  premiumDate          String?
+  maturityDate         DateTime?
+  status               String        @default("active")
+  isCorporateInsurance Boolean       @default(false)
+  businessName         String?
+  isInvestmentLoan     Boolean       @default(false)
+  lender               String?
+  loanAmount           Float?
+  loanRate             Float?
+  lastRenewalEmailAt   DateTime?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  beneficiaries        Beneficiary[]
+
+  @@index([clientId])
+  @@index([status])
+}
+
+model Beneficiary {
+  id           String @id @default(cuid())
+  policyId     String
+  policy       Policy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  name         String
+  relationship String
+  sharePercent Int
+}
+
+model FollowUp {
+  id            String   @id @default(cuid())
+  clientId      String
+  client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  createdById   String
+  createdBy     User     @relation(fields: [createdById], references: [id])
+  type          String
+  date          DateTime
+  summary       String
+  details       String?
+  createdAt     DateTime @default(now())
+
+  @@index([clientId, date])
+}
+
+model EmailHistory {
+  id            String   @id @default(cuid())
+  clientId      String
+  client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id])
+  date          DateTime @default(now())
+  subject       String
+  body          String
+  templateLabel String?
+
+  @@index([clientId, date])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String
+  entityType String?
+  entityId   String?
+  metadata   String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+}
+
+model BackupRecord {
+  id        String   @id @default(cuid())
+  clientId  String?
+  client    Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  filename  String
+  sizeBytes Int
+  kind      String   @default("manual")
+  createdAt DateTime @default(now())
+}
+
+model Settings {
+  id        String   @id @default("global")
+  data      String
+  updatedAt DateTime @updatedAt
+}

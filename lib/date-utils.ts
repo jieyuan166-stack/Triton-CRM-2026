@@ -1,0 +1,122 @@
+// lib/date-utils.ts — domain date helpers
+import type { PaymentFrequency } from "./types";
+
+const FREQ_MONTHS: Record<PaymentFrequency, number> = {
+  Monthly: 1,
+  Quarterly: 3,
+  "Semi-Annual": 6,
+  Annual: 12,
+};
+
+/**
+ * Calculate the next premium due date by walking forward in `frequency` steps
+ * from `effectiveDate` until the date is strictly after `today`.
+ * If today is before the effective date, the effective date itself is returned.
+ */
+export function calcNextPremiumDate(
+  effectiveDate: string,
+  frequency: PaymentFrequency,
+  today: Date = new Date()
+): string {
+  const start = new Date(effectiveDate);
+  if (today < start) return effectiveDate;
+
+  const monthsStep = FREQ_MONTHS[frequency];
+  const next = new Date(start);
+  while (next <= today) {
+    next.setMonth(next.getMonth() + monthsStep);
+  }
+  return next.toISOString().slice(0, 10);
+}
+
+/** Parse either an ISO date ("YYYY-MM-DD"...) or a yearless "MM-DD" string
+ *  into month/day numbers. Returns null bits if the input is unparseable. */
+function parseDateLike(input: string): { mm: number; dd: number } | null {
+  const mmdd = /^(\d{2})-(\d{2})$/.exec(input);
+  if (mmdd) return { mm: Number(mmdd[1]), dd: Number(mmdd[2]) };
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(input);
+  if (iso) return { mm: Number(iso[2]), dd: Number(iso[3]) };
+  return null;
+}
+
+/** Days between today and the given date.
+ *  - ISO dates: concrete days (negative = past).
+ *  - "MM-DD" strings: days until next anniversary (always >= 0). */
+export function daysUntil(input: string, today: Date = new Date()): number {
+  const todayStart = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate()
+  );
+
+  const parts = parseDateLike(input);
+  if (!parts) return Number.NaN;
+
+  const isAnniversary = /^\d{2}-\d{2}$/.test(input);
+  if (isAnniversary) {
+    let next = new Date(today.getFullYear(), parts.mm - 1, parts.dd);
+    if (next < todayStart) {
+      next = new Date(today.getFullYear() + 1, parts.mm - 1, parts.dd);
+    }
+    return Math.round(
+      (next.getTime() - todayStart.getTime()) / (1000 * 60 * 60 * 24)
+    );
+  }
+
+  const target = new Date(input);
+  const targetStart = new Date(
+    target.getFullYear(),
+    target.getMonth(),
+    target.getDate()
+  );
+  return Math.round(
+    (targetStart.getTime() - todayStart.getTime()) / (1000 * 60 * 60 * 24)
+  );
+}
+
+/** Format an ISO date as e.g. "May 6, 2026". Locale-aware via Intl. */
+export function formatDate(isoDate: string, locale = "en-CA"): string {
+  return new Date(isoDate).toLocaleDateString(locale, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+/** Compact month + zero-padded day, e.g. "May 07" — used for Premium Date.
+ *  Accepts either a full ISO date or a "MM-DD" yearless string.
+ *  Year is intentionally never rendered: premium dates roll forward
+ *  continuously and the year is implied by context. */
+export function formatMonthDay(input: string, locale = "en-CA"): string {
+  const parts = parseDateLike(input);
+  if (!parts) return "—";
+  // Use any neutral year — only month/day cross the formatter.
+  return new Date(2000, parts.mm - 1, parts.dd).toLocaleDateString(locale, {
+    month: "short",
+    day: "2-digit",
+  });
+}
+
+/** Format an ISO date as relative ("Today", "in 3 days", "5 days ago"). */
+export function formatRelative(isoDate: string, today: Date = new Date()): string {
+  const days = daysUntil(isoDate, today);
+  if (days === 0) return "Today";
+  if (days === 1) return "Tomorrow";
+  if (days === -1) return "Yesterday";
+  if (days > 0) return `in ${days} days`;
+  return `${Math.abs(days)} days ago`;
+}
+
+/** Age in years from a birthday ISO string. */
+export function calcAge(birthday: string, today: Date = new Date()): number {
+  const b = new Date(birthday);
+  let age = today.getFullYear() - b.getFullYear();
+  const m = today.getMonth() - b.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < b.getDate())) age--;
+  return age;
+}
+
+/** Today as ISO YYYY-MM-DD. */
+export function todayISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}

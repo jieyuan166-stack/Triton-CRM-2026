@@ -1,0 +1,57 @@
+services:
+  triton-crm:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: triton-crm
+    restart: unless-stopped
+    expose:
+      - "3000"
+    ports:
+      - "3001:3000"
+    networks:
+      - triton-net
+    volumes:
+      - triton-data:/app/prisma/data
+    environment:
+      DATABASE_URL: file:/app/prisma/data/triton.db
+      AUTH_URL: ${AUTH_URL:-https://crm.tritonwealth.ca}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-https://crm.tritonwealth.ca}
+      AUTH_SECRET: ${NEXTAUTH_SECRET}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_SECURE: ${SMTP_SECURE:-true}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Jeffrey Yuan}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL}
+      NEXT_PUBLIC_GOOGLE_MAPS_KEY: ${NEXT_PUBLIC_GOOGLE_MAPS_KEY}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: triton-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TOKEN}
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARED_TOKEN}
+    networks:
+      - triton-net
+    depends_on:
+      triton-crm:
+        condition: service_healthy
+
+networks:
+  triton-net:
+    driver: bridge
+
+volumes:
+  triton-data:
