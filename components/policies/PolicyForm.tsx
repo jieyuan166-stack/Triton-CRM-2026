@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useData } from "@/components/providers/DataProvider";
 import { CurrencyInput } from "@/components/ui-shared/CurrencyInput";
 import { MonthDayPicker } from "@/components/ui-shared/MonthDayPicker";
 import { formatMonthDay } from "@/lib/date-utils";
@@ -98,9 +99,9 @@ function makeDefaults(defaultClientId?: string): Partial<PolicyFormValues> {
 
 export interface PolicyFormProps {
   initialValues?: PolicyFormValues;
-  /** Captured silently from the URL (`?clientId=`) on /policies/new, or
-   *  carried over from the existing policy on edit. The form no longer
-   *  exposes a Client picker — the client is implicit from context. */
+  /** Captured from the URL (`?clientId=`) on /policies/new when the flow
+   *  starts from a client profile. If absent (e.g. Dashboard Quick Add), the
+   *  form displays a Client picker so the policy can still be attached. */
   defaultClientId?: string;
   submitLabel?: string;
   onSubmit: (values: PolicyFormValues) => void;
@@ -114,6 +115,7 @@ export function PolicyForm({
   onSubmit,
   onCancel,
 }: PolicyFormProps) {
+  const { clients } = useData();
   const {
     register,
     handleSubmit,
@@ -139,6 +141,7 @@ export function PolicyForm({
   const isInvestment = category === "Investment";
   const isInsurance = category === "Insurance";
   const showPremiumDate = isInsurance && paymentFrequency === "Annual";
+  const showClientPicker = !defaultClientId && !initialValues?.clientId;
 
   // Product Type options derived from current Category. Recomputed each
   // render — cheap, and avoids stale lists when category flips.
@@ -285,9 +288,37 @@ export function PolicyForm({
       {/* === Section 1: Basic === */}
       <Section title="Basic" description="Carrier, product, and identifiers">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Client is implicit — captured from the URL search param on
-              /policies/new and from the policy itself on edit. The form
-              never asks the user to pick it again. */}
+          {showClientPicker ? (
+            <div className="space-y-1.5 md:col-span-2">
+              <Label htmlFor="clientId">
+                Client <span className="text-accent-red">*</span>
+              </Label>
+              <Select
+                value={watch("clientId") ?? ""}
+                onValueChange={(v) =>
+                  setValue("clientId", v ?? "", { shouldValidate: true })
+                }
+              >
+                <SelectTrigger id="clientId" className="w-full">
+                  <SelectValue placeholder="Select a client" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={client.id}>
+                      {client.firstName} {client.lastName}
+                      {client.email ? ` · ${client.email}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {clients.length === 0 ? (
+                <p className="text-xs text-triton-muted">
+                  Create a client before adding a policy.
+                </p>
+              ) : null}
+              <FieldError message={errors.clientId?.message} />
+            </div>
+          ) : null}
 
           {/* Category */}
           <div className="space-y-1.5">
