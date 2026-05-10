@@ -46,9 +46,8 @@ export interface BackupRecord {
   createdAt: string;         // ISO timestamp
   /** What the snapshot contained, for the UI label */
   contents: string[];        // ['Clients', 'Policies', 'Audit Logs', 'Templates']
-  /** The actual restorable payload. Optional because the seed records the UI
-   *  shows on first load are placeholders with no captured state — restoring
-   *  one of those surfaces a friendly error rather than wiping the system. */
+  /** The actual restorable payload. File-backed records usually omit this in
+   *  list responses; restore/download routes read the payload from disk. */
   data?: BackupSnapshot;
 }
 

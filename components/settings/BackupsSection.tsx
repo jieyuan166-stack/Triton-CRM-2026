@@ -48,6 +48,20 @@ function fmtTimestamp(iso: string): string {
   return `${formatDate(iso)} · ${time}`;
 }
 
+function backupTone(kind: BackupRecord["kind"]) {
+  return kind === "database"
+    ? {
+        icon: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
+        badge: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
+        label: "Auto DB",
+      }
+    : {
+        icon: "bg-blue-50 text-blue-700 ring-1 ring-blue-100",
+        badge: "bg-blue-50 text-blue-700 ring-1 ring-blue-100",
+        label: "Manual",
+      };
+}
+
 export function BackupsSection() {
   const {
     backups,
@@ -242,12 +256,13 @@ export function BackupsSection() {
           <ul className="divide-y divide-slate-100">
             {backups.map((b) => {
               const isRestoring = restoring === b.id;
+              const tone = backupTone(b.kind);
               return (
                 <li
                   key={b.id}
                   className="flex items-center gap-3 px-5 md:px-6 py-3.5 hover:bg-slate-50 transition-colors"
                 >
-                  <div className="h-9 w-9 rounded-lg bg-accent-blue/10 text-accent-blue flex items-center justify-center shrink-0">
+                  <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${tone.icon}`}>
                     <Archive className="h-4 w-4" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -259,15 +274,13 @@ export function BackupsSection() {
                         <History className="h-3 w-3" />
                         {fmtTimestamp(b.createdAt)}
                       </span>
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${tone.badge}`}>
+                        {tone.label}
+                      </span>
                       <span className="tabular-nums">{fmtSize(b.size)}</span>
                       <span className="hidden md:inline truncate">
                         {b.contents.join(" · ")}
                       </span>
-                      {b.kind === "database" ? (
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">
-                          DB file
-                        </span>
-                      ) : null}
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
