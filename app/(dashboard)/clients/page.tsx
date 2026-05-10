@@ -6,6 +6,7 @@ import { Download, FileSpreadsheet, Plus, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 import { ClientsDataTable } from "@/components/clients/ClientsDataTable";
+import { NewClientDialog } from "@/components/clients/NewClientDialog";
 import { useData } from "@/components/providers/DataProvider";
 import { Button } from "@/components/ui/button";
 import {
@@ -78,6 +79,7 @@ export default function ClientsPage() {
   const [previewHeaders, setPreviewHeaders] = useState<string[]>([]);
   const [mappingSummary, setMappingSummary] = useState<Record<string, string>>({});
   const [isImporting, setIsImporting] = useState(false);
+  const [addClientOpen, setAddClientOpen] = useState(false);
 
   const validRows = useMemo(() => previewRows.filter((row) => row.valid), [previewRows]);
 
@@ -216,7 +218,7 @@ export default function ClientsPage() {
 
           <Button
             className="rounded-xl bg-slate-900 text-white hover:bg-slate-800"
-            onClick={() => toast.info("The add-client flow stays available in the existing modal wiring.")}
+            onClick={() => setAddClientOpen(true)}
           >
             <Plus className="mr-2 h-4 w-4" />
             Add Client
@@ -225,6 +227,8 @@ export default function ClientsPage() {
       </div>
 
       <ClientsDataTable />
+
+      <NewClientDialog open={addClientOpen} onOpenChange={setAddClientOpen} />
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-h-[85vh] max-w-6xl overflow-hidden rounded-2xl border-slate-200 p-0">
