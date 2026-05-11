@@ -1,6 +1,7 @@
 // components/providers/DataProvider.tsx
-// In-memory data layer for Steps 3–9 (mock).
-// Wraps the dashboard route group; Step 10 swaps the implementation for Prisma server actions.
+// Client-side facade over the Prisma-backed data API.
+// The public API stays synchronous for existing components; mutations update
+// local React state immediately, then persist the same generated IDs to /api/data.
 "use client";
 
 import {
@@ -14,10 +15,7 @@ import {
 } from "react";
 import { calculateClientTags } from "@/lib/client-tags";
 import { seedClients, seedFollowUps, seedPolicies } from "@/lib/mock-data";
-import {
-  RESTORE_PENDING_KEY,
-  type BackupSnapshot,
-} from "@/lib/settings-types";
+import { type BackupSnapshot } from "@/lib/settings-types";
 import type {
   Beneficiary,
   Client,
@@ -26,8 +24,6 @@ import type {
   FollowUp,
   Policy,
 } from "@/lib/types";
-
-const DATA_STORAGE_KEY = "triton:crm-data-v1";
 
 // === Public context shape ===
 
@@ -173,66 +169,34 @@ function sanitizeSnapshot(snapshot: {
   };
 }
 
-/** Lazy initial state. Returns either:
- *   - the seed (with a one-time orphan sweep), or
- *   - the snapshot stashed in localStorage right before a window.reload()
- *     by BackupsSection, if one is present and looks valid.
- *
- * This is what makes Restore actually visible: the user clicks Restore →
- * we write to localStorage → reload → this initializer picks it up → the
- * whole app renders with the backed-up data.
- *
- * Bad records in the snapshot are silently dropped; orphans are then
- * pruned so the invariant "no policy without a parent client" is preserved
- * even if the snapshot was hand-edited. */
-function readPendingRestore(): {
-  clients: Client[];
-  policies: Policy[];
-  followUps: FollowUp[];
-} | null {
-  if (typeof window === "undefined") return null;
-  let raw: string | null;
-  try {
-    raw = window.localStorage.getItem(RESTORE_PENDING_KEY);
-  } catch {
-    return null;
-  }
-  if (!raw) return null;
-  try {
-    return sanitizeSnapshot(JSON.parse(raw) as BackupSnapshot);
-  } catch {
-    return null;
-  }
-}
-
-function readPersistedData(): {
-  clients: Client[];
-  policies: Policy[];
-  followUps: FollowUp[];
-} | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(DATA_STORAGE_KEY);
-    if (!raw) return null;
-    return sanitizeSnapshot(JSON.parse(raw) as BackupSnapshot);
-  } catch {
-    return null;
-  }
-}
-
 function readInitialData(): {
   clients: Client[];
   policies: Policy[];
   followUps: FollowUp[];
 } {
-  return (
-    readPendingRestore() ??
-    readPersistedData() ?? {
-      clients: seedClients,
-      policies: pruneOrphans(seedPolicies, seedClients),
-      followUps: pruneOrphans(seedFollowUps, seedClients),
-    }
-  );
+  return {
+    clients: seedClients,
+    policies: pruneOrphans(seedPolicies, seedClients),
+    followUps: pruneOrphans(seedFollowUps, seedClients),
+  };
+}
+
+async function persistAction(action: string, payload: Record<string, unknown>) {
+  const res = await fetch("/api/data", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action, payload }),
+  });
+  if (!res.ok) {
+    const json = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(json.error || `Persist failed (${res.status})`);
+  }
+}
+
+function persistInBackground(action: string, payload: Record<string, unknown>) {
+  void persistAction(action, payload).catch((error) => {
+    console.error(`[DataProvider] ${action} failed`, error);
+  });
 }
 
 export function DataProvider({ children }: { children: ReactNode }) {
@@ -245,34 +209,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [policies, setPolicies] = useState<Policy[]>(initialData.policies);
   const [followUps, setFollowUps] = useState<FollowUp[]>(initialData.followUps);
 
-  // Clear the pending-restore key once it's been consumed, so a *second*
-  // refresh doesn't re-apply it on top of any user edits made in between.
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      window.localStorage.removeItem(RESTORE_PENDING_KEY);
-    } catch {
-      /* swallow — private mode etc. */
-    }
-  }, []);
+    let cancelled = false;
+    fetch("/api/data", { cache: "no-store" })
+      .then((res) => {
+        if (!res.ok) throw new Error(`Data load failed (${res.status})`);
+        return res.json() as Promise<{
+          clients?: Client[];
+          policies?: Policy[];
+          followUps?: FollowUp[];
+        }>;
+      })
+      .then((data) => {
+        if (cancelled) return;
+        const next = sanitizeSnapshot(data);
+        setClients(next.clients);
+        setPolicies(next.policies);
+        setFollowUps(next.followUps);
+      })
+      .catch((error) => {
+        console.error("[DataProvider] Prisma data hydrate failed", error);
+      });
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      window.localStorage.setItem(
-        DATA_STORAGE_KEY,
-        JSON.stringify({
-          version: 1,
-          capturedAt: new Date().toISOString(),
-          clients,
-          policies,
-          followUps,
-        } satisfies BackupSnapshot)
-      );
-    } catch {
-      /* localStorage can fail in private mode or if quota is exceeded. */
-    }
-  }, [clients, policies, followUps]);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // queries — wrapped in useCallback to keep referential stability
   const getClient = useCallback(
@@ -335,22 +297,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
       createdAt: new Date().toISOString(),
     };
     setClients((prev) => [...prev, next]);
+    persistInBackground("client.create", { client: next });
     return next;
   }, []);
 
   const updateClient: DataContextValue["updateClient"] = useCallback(
     (id, patch) => {
-      let updated: Client | null = null;
+      const current = clients.find((c) => c.id === id);
+      const updated: Client | null = current ? { ...current, ...patch, id: current.id } : null;
       setClients((prev) =>
-        prev.map((c) => {
-          if (c.id !== id) return c;
-          updated = { ...c, ...patch, id: c.id };
-          return updated;
-        })
+        prev.map((c) => (c.id === id && updated ? updated : c))
       );
+      if (updated) {
+        persistInBackground("client.update", { id, patch });
+      }
       return updated;
     },
-    []
+    [clients]
   );
 
   // Cascade-delete a client and everything that hangs off them.
@@ -372,6 +335,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setClients((prev) => prev.filter((c) => c.id !== id));
       setPolicies((prev) => prev.filter((p) => p.clientId !== id));
       setFollowUps((prev) => prev.filter((f) => f.clientId !== id));
+      if (existed) {
+        persistInBackground("client.delete", { id });
+      }
       return existed;
     },
     [clients]
@@ -391,45 +357,41 @@ export function DataProvider({ children }: { children: ReactNode }) {
       beneficiaries,
     };
     setPolicies((prev) => [...prev, next]);
+    persistInBackground("policy.create", { policy: next });
     return next;
   }, []);
 
   const updatePolicy: DataContextValue["updatePolicy"] = useCallback(
     (id, patch) => {
+      const current = policies.find((p) => p.id === id);
       let updated: Policy | null = null;
-      setPolicies((prev) =>
-        prev.map((p) => {
-          if (p.id !== id) return p;
-
-          const merged: Policy = { ...p, ...patch, id: p.id, beneficiaries: p.beneficiaries };
-
-          // Replace beneficiaries if provided
-          if (patch.beneficiaries) {
-            merged.beneficiaries = patch.beneficiaries.map((b) => ({
-              ...b,
-              id: uid("ben"),
-              policyId: id,
-            }));
-          }
-
-          updated = merged;
-          return merged;
-        })
-      );
+      if (current) {
+        updated = { ...current, ...patch, id: current.id, beneficiaries: current.beneficiaries };
+        if (patch.beneficiaries) {
+          updated.beneficiaries = patch.beneficiaries.map((b) => ({
+            ...b,
+            id: uid("ben"),
+            policyId: id,
+          }));
+        }
+      }
+      setPolicies((prev) => prev.map((p) => (p.id === id && updated ? updated : p)));
+      if (updated) {
+        persistInBackground("policy.update", { id, patch: updated });
+      }
       return updated;
     },
-    []
+    [policies]
   );
 
   const deletePolicy: DataContextValue["deletePolicy"] = useCallback((id) => {
-    let deleted = false;
-    setPolicies((prev) => {
-      const next = prev.filter((p) => p.id !== id);
-      deleted = next.length !== prev.length;
-      return next;
-    });
+    const deleted = policies.some((p) => p.id === id);
+    setPolicies((prev) => prev.filter((p) => p.id !== id));
+    if (deleted) {
+      persistInBackground("policy.delete", { id });
+    }
     return deleted;
-  }, []);
+  }, [policies]);
 
   // === Mutations: follow-ups ===
   const createFollowUp: DataContextValue["createFollowUp"] = useCallback((input) => {
@@ -439,18 +401,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
       createdAt: new Date().toISOString(),
     };
     setFollowUps((prev) => [...prev, next]);
+    persistInBackground("followup.create", { followUp: next });
     return next;
   }, []);
 
   const deleteFollowUp: DataContextValue["deleteFollowUp"] = useCallback((id) => {
-    let deleted = false;
-    setFollowUps((prev) => {
-      const next = prev.filter((f) => f.id !== id);
-      deleted = next.length !== prev.length;
-      return next;
-    });
+    const deleted = followUps.some((f) => f.id === id);
+    setFollowUps((prev) => prev.filter((f) => f.id !== id));
+    if (deleted) {
+      persistInBackground("followup.delete", { id });
+    }
     return deleted;
-  }, []);
+  }, [followUps]);
 
   // === Mutations: communication log ===
   //
@@ -461,30 +423,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // own array — but for now keeping the data co-located minimises plumbing.
   const appendEmailHistory: DataContextValue["appendEmailHistory"] =
     useCallback((clientId, entry) => {
-      let saved: EmailHistoryEntry | null = null;
+      if (!clients.some((c) => c.id === clientId)) return null;
+      const saved: EmailHistoryEntry = {
+        id: entry.id ?? uid("eml"),
+        date: entry.date ?? new Date().toISOString(),
+        subject: entry.subject,
+        body: entry.body,
+        templateLabel: entry.templateLabel,
+      };
       setClients((prev) =>
         prev.map((c) => {
           if (c.id !== clientId) return c;
-          const newEntry: EmailHistoryEntry = {
-            id: entry.id ?? uid("eml"),
-            date: entry.date ?? new Date().toISOString(),
-            subject: entry.subject,
-            body: entry.body,
-            templateLabel: entry.templateLabel,
-          };
-          saved = newEntry;
           // Bump lastContactedAt at the same time so the "last contacted"
           // signal matches the most recent send across all templates —
           // saves the caller from having to make two separate calls.
           return {
             ...c,
-            emailHistory: [...(c.emailHistory ?? []), newEntry],
-            lastContactedAt: newEntry.date,
+            emailHistory: [...(c.emailHistory ?? []), saved],
+            lastContactedAt: saved.date,
           };
         })
       );
+      persistInBackground("emailHistory.append", { clientId, entry: saved });
       return saved;
-    }, []);
+    }, [clients]);
 
   const markRenewalEmailSent: DataContextValue["markRenewalEmailSent"] =
     useCallback((policyId, at) => {
@@ -494,6 +456,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           p.id === policyId ? { ...p, lastRenewalEmailAt: stamp } : p
         )
       );
+      persistInBackground("policy.markRenewalEmailSent", { policyId, at: stamp });
     }, []);
 
   const markBirthdayEmailSent: DataContextValue["markBirthdayEmailSent"] =
@@ -504,6 +467,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           c.id === clientId ? { ...c, lastBirthdayEmailAt: stamp } : c
         )
       );
+      persistInBackground("client.markBirthdayEmailSent", { clientId, at: stamp });
     }, []);
 
   const prependClientNote: DataContextValue["prependClientNote"] = useCallback(
@@ -519,6 +483,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           return { ...c, notes: next };
         })
       );
+      persistInBackground("client.prependNote", { clientId, block });
     },
     []
   );
@@ -575,6 +540,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setClients(nextClients);
       setPolicies(nextPolicies);
       setFollowUps(nextFollowUps);
+      persistInBackground("data.replaceAll", {
+        snapshot: {
+          version: 1,
+          capturedAt: new Date().toISOString(),
+          clients: nextClients,
+          policies: nextPolicies,
+          followUps: nextFollowUps,
+        },
+      });
       return { ok: true };
     },
     []

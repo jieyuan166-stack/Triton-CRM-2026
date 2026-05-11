@@ -5,9 +5,9 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { buildClientReportFilename } from "@/lib/client-report";
 import { renderClientReportPdf } from "@/lib/client-report-pdf";
-import { seedClients, seedPolicies } from "@/lib/mock-data";
 import type { Client, Policy } from "@/lib/types";
 import { auditLog, requireSession, unauthorized } from "@/lib/api-security";
+import { db } from "@/lib/db";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -71,13 +71,65 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   if (!session) return unauthorized();
 
   const { id } = await context.params;
-  const client = seedClients.find((item) => item.id === id);
+  const row = await db.client.findUnique({
+    where: { id },
+    include: { policies: { include: { beneficiaries: true } } },
+  });
 
-  if (!client) {
+  if (!row) {
     return NextResponse.json({ error: "Client not found" }, { status: 404 });
   }
 
-  const policies = seedPolicies.filter((policy) => policy.clientId === id);
+  const client: Client = {
+    id: row.id,
+    firstName: row.firstName,
+    lastName: row.lastName,
+    email: row.email,
+    phone: row.phone ?? undefined,
+    streetAddress: row.streetAddress ?? undefined,
+    unit: row.unit ?? undefined,
+    city: row.city ?? undefined,
+    province: row.province as Client["province"],
+    postalCode: row.postalCode ?? undefined,
+    birthday: row.birthday?.toISOString().slice(0, 10),
+    notes: row.notes ?? undefined,
+    linkedToId: row.linkedToId ?? undefined,
+    relationship: row.relationship as Client["relationship"],
+    lastBirthdayEmailAt: row.lastBirthdayEmailAt?.toISOString(),
+    lastContactedAt: row.lastContactedAt?.toISOString(),
+    createdAt: row.createdAt.toISOString(),
+  };
+  const policies = row.policies.map((policy) => ({
+    id: policy.id,
+    clientId: policy.clientId,
+    carrier: policy.carrier,
+    category: policy.category,
+    productType: policy.productType,
+    productName: policy.productName,
+    policyNumber: policy.policyNumber,
+    sumAssured: policy.sumAssured,
+    premium: policy.premium,
+    paymentFrequency: policy.paymentFrequency,
+    paymentTermYears: policy.paymentTermYears ?? undefined,
+    effectiveDate: policy.effectiveDate.toISOString().slice(0, 10),
+    premiumDate: policy.premiumDate ?? undefined,
+    maturityDate: policy.maturityDate?.toISOString().slice(0, 10),
+    status: policy.status,
+    isCorporateInsurance: policy.isCorporateInsurance,
+    businessName: policy.businessName ?? undefined,
+    isInvestmentLoan: policy.isInvestmentLoan,
+    lender: policy.lender ?? undefined,
+    loanAmount: policy.loanAmount ?? undefined,
+    loanRate: policy.loanRate ?? undefined,
+    lastRenewalEmailAt: policy.lastRenewalEmailAt?.toISOString(),
+    beneficiaries: policy.beneficiaries.map((b) => ({
+      id: b.id,
+      policyId: b.policyId,
+      name: b.name,
+      relationship: b.relationship,
+      sharePercent: b.sharePercent,
+    })),
+  })) as Policy[];
   await auditLog({ action: "download_report", entityType: "client", entityId: id });
   const buffer = await renderPdf({ client, policies });
   return pdfResponse(buffer, client);

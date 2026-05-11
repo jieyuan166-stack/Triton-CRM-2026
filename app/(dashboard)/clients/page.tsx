@@ -110,33 +110,11 @@ export default function ClientsPage() {
   const handleImportFile = async (file: File) => {
     const extension = file.name.split(".").pop()?.toLowerCase();
 
-    if (extension === "xls" || extension === "xlsx") {
-      try {
-        const XLSX = await import("xlsx");
-        const buffer = await file.arrayBuffer();
-        const workbook = XLSX.read(buffer, { type: "array", cellDates: false });
-        const firstSheetName = workbook.SheetNames[0];
-        if (!firstSheetName) {
-          toast.error("This workbook does not contain any sheets.");
-          return;
-        }
-
-        const worksheet = workbook.Sheets[firstSheetName];
-        const records = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, {
-          defval: "",
-          raw: false,
-        });
-
-        if (records.length === 0) {
-          toast.error("No rows found in the first Excel sheet.");
-          return;
-        }
-
-        openImportPreview(records);
-        toast.success(`Loaded ${records.length} row${records.length === 1 ? "" : "s"} from ${firstSheetName}.`);
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Unable to parse this Excel file.");
-      }
+    if (extension && extension !== "csv") {
+      toast.error("Only CSV import is enabled right now.", {
+        description:
+          "Excel .xls/.xlsx parsing was disabled because the browser XLSX package has unresolved security vulnerabilities. Please export your sheet as CSV first.",
+      });
       return;
     }
 
@@ -226,7 +204,7 @@ export default function ClientsPage() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".csv,.xls,.xlsx,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            accept=".csv,text/csv"
             className="hidden"
             onChange={(event) => {
               const file = event.target.files?.[0];
@@ -236,7 +214,7 @@ export default function ClientsPage() {
 
           <Button variant="outline" className="rounded-xl" onClick={() => fileInputRef.current?.click()}>
             <Upload className="mr-2 h-4 w-4" />
-            Import CSV/XLS
+            Import CSV
           </Button>
 
           <button

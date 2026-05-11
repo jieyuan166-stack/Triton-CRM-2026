@@ -23,29 +23,8 @@ import type {
   EmailTemplateId,
 } from "@/lib/settings-types";
 import { getBackupService } from "@/lib/backup-service";
-import { DEFAULT_SIGNATURE, DEFAULT_TEMPLATES } from "@/lib/templates";
-
-// === Public-safe defaults ===
-// These mirror the .env.local defaults the user provided in the spec.
-// The SMTP password lives only in env (server-only) — `passwordConfigured`
-// is the UI-visible status flag.
-
-const DEFAULT_PROFILE: AdminProfile = {
-  id: "user_admin",
-  name: "Jeffrey Y",
-  email: "jieyuan165@gmail.com",
-  passwordUpdatedAt: undefined,
-};
-
-const DEFAULT_EMAIL: EmailConfig = {
-  host: "smtp.gmail.com",
-  port: 465,
-  secure: true,
-  user: "jieyuan165@gmail.com",
-  fromName: "Jeffrey Yuan",
-  fromEmail: "jieyuan165@gmail.com",
-  passwordConfigured: false, // hydrated from server check on mount
-};
+import { DEFAULT_APP_SETTINGS } from "@/lib/default-settings";
+import { DEFAULT_TEMPLATES } from "@/lib/templates";
 
 interface SettingsContextValue {
   settings: AppSettings;
@@ -87,20 +66,46 @@ interface SettingsContextValue {
 const SettingsContext = createContext<SettingsContextValue | null>(null);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  const [profile, setProfile] = useState<AdminProfile>(DEFAULT_PROFILE);
-  const [email, setEmail] = useState<EmailConfig>(DEFAULT_EMAIL);
-  const [templates, setTemplates] = useState<EmailTemplate[]>(DEFAULT_TEMPLATES);
-  const [signature, setSignature] = useState<EmailSignature>(DEFAULT_SIGNATURE);
+  const [profile, setProfile] = useState(DEFAULT_APP_SETTINGS.profile);
+  const [email, setEmail] = useState<EmailConfig>(DEFAULT_APP_SETTINGS.email);
+  const [templates, setTemplates] = useState<EmailTemplate[]>(DEFAULT_APP_SETTINGS.templates);
+  const [signature, setSignature] = useState<EmailSignature>(DEFAULT_APP_SETTINGS.signature);
   const [backups, setBackups] = useState<BackupRecord[]>([]);
+
+  const persistSettings = useCallback((next: Partial<AppSettings>) => {
+    void fetch("/api/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(next),
+    }).catch(() => {
+      // The UI remains responsive if a background settings write fails;
+      // the next explicit save/action will surface API errors where needed.
+    });
+  }, []);
 
   const refreshBackups = useCallback(async () => {
     const list = await getBackupService().list();
     setBackups(list);
   }, []);
 
-  // Hydrate backups + SMTP password status on mount
+  // Hydrate persisted Settings, backups + SMTP password status on mount.
   useEffect(() => {
     refreshBackups();
+    fetch("/api/settings", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { settings?: AppSettings } | null) => {
+        if (!d?.settings) return;
+        setProfile(d.settings.profile);
+        setEmail((prev) => ({
+          ...d.settings!.email,
+          passwordConfigured: prev.passwordConfigured,
+        }));
+        setTemplates(d.settings.templates);
+        setSignature(d.settings.signature);
+      })
+      .catch(() => {
+        // Defaults keep the app usable if Settings cannot hydrate.
+      });
     fetch("/api/settings/email-status")
       .then((r) => (r.ok ? r.json() : { passwordConfigured: false }))
       .then((d: { passwordConfigured?: boolean }) => {
@@ -114,9 +119,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       });
   }, [refreshBackups]);
 
-  const updateProfile = useCallback((patch: Partial<AdminProfile>) => {
-    setProfile((prev) => ({ ...prev, ...patch }));
-  }, []);
+  const updateProfile = useCallback<SettingsContextValue["updateProfile"]>((patch) => {
+    setProfile((prev) => {
+      const next = { ...prev, ...patch };
+      persistSettings({ profile: next });
+      return next;
+    });
+  }, [persistSettings]);
 
   const changePassword = useCallback(
     async (): Promise<{ ok: boolean; error?: string }> => {
@@ -132,8 +141,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   );
 
   const updateEmailConfig = useCallback((patch: Partial<EmailConfig>) => {
-    setEmail((prev) => ({ ...prev, ...patch }));
-  }, []);
+    setEmail((prev) => {
+      const next = { ...prev, ...patch };
+      persistSettings({ email: next });
+      return next;
+    });
+  }, [persistSettings]);
 
   const requestPasswordReset = useCallback(async () => {
     // Mock: real impl would hit a server endpoint that emails a one-time link.
@@ -143,20 +156,30 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const updateTemplate = useCallback<
     SettingsContextValue["updateTemplate"]
   >((id, patch) => {
-    setTemplates((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, ...patch } : t))
-    );
-  }, []);
+    setTemplates((prev) => {
+      const next = prev.map((t) => (t.id === id ? { ...t, ...patch } : t));
+      persistSettings({ templates: next });
+      return next;
+    });
+  }, [persistSettings]);
 
   const resetTemplate = useCallback((id: EmailTemplateId) => {
     const original = DEFAULT_TEMPLATES.find((t) => t.id === id);
     if (!original) return;
-    setTemplates((prev) => prev.map((t) => (t.id === id ? original : t)));
-  }, []);
+    setTemplates((prev) => {
+      const next = prev.map((t) => (t.id === id ? original : t));
+      persistSettings({ templates: next });
+      return next;
+    });
+  }, [persistSettings]);
 
   const updateSignature = useCallback((patch: Partial<EmailSignature>) => {
-    setSignature((prev) => ({ ...prev, ...patch }));
-  }, []);
+    setSignature((prev) => {
+      const next = { ...prev, ...patch };
+      persistSettings({ signature: next });
+      return next;
+    });
+  }, [persistSettings]);
 
   const createBackup = useCallback(
     async (snapshot: BackupSnapshot) => {

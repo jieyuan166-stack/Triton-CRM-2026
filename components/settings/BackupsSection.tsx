@@ -1,7 +1,7 @@
 // components/settings/BackupsSection.tsx
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import {
   Archive,
   Download,
@@ -10,7 +10,6 @@ import {
   Play,
   RotateCcw,
   Trash2,
-  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -28,9 +27,7 @@ import { useSettings } from "@/components/providers/SettingsProvider";
 import { EmptyState } from "@/components/ui-shared/EmptyState";
 import { formatDate } from "@/lib/date-utils";
 import {
-  RESTORE_PENDING_KEY,
   type BackupRecord,
-  type BackupSnapshot,
 } from "@/lib/settings-types";
 
 function fmtSize(bytes: number): string {
@@ -68,42 +65,12 @@ export function BackupsSection() {
     createBackup,
     restoreBackup,
     deleteBackup,
-    importBackup,
   } = useSettings();
   const { getSnapshot } = useData();
   const [creating, setCreating] = useState(false);
   const [restoring, setRestoring] = useState<string | null>(null);
-  const [importing, setImporting] = useState(false);
   const [confirmTarget, setConfirmTarget] = useState<BackupRecord | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BackupRecord | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  /** Stash the snapshot in localStorage and force a hard reload. The
-   *  DataProvider's lazy initializer reads the same key on next mount,
-   *  hydrates state from it, and then clears the key in a useEffect so a
-   *  user-initiated refresh later doesn't accidentally re-apply it. The
-   *  reload is what guarantees every page (Dashboard, Clients, Policies)
-   *  re-renders against the restored data without surgical re-fetching. */
-  function persistAndReload(snapshot: BackupSnapshot, sourceLabel: string) {
-    try {
-      window.localStorage.setItem(
-        RESTORE_PENDING_KEY,
-        JSON.stringify(snapshot)
-      );
-    } catch (e) {
-      toast.error("Could not persist snapshot for reload", {
-        description: (e as Error).message,
-      });
-      return;
-    }
-    toast.success("Data restored successfully! Reloading…", {
-      description: sourceLabel,
-    });
-    // Small delay so the user actually sees the toast before the reload.
-    window.setTimeout(() => {
-      window.location.reload();
-    }, 600);
-  }
 
   async function handleCreate() {
     setCreating(true);
@@ -131,7 +98,10 @@ export function BackupsSection() {
       toast.error("Restore failed", { description: r.error });
       return;
     }
-    persistAndReload(r.data, target.filename);
+    toast.success("Data restored successfully! Reloading…", {
+      description: target.filename,
+    });
+    window.setTimeout(() => window.location.reload(), 600);
   }
 
   async function handleDelete() {
@@ -154,40 +124,6 @@ export function BackupsSection() {
     anchor.remove();
   }
 
-  /** File-upload restore. The user picks a .json the system previously
-   *  exported (or any file with the same shape). We use FileReader, wrap
-   *  the parse in try/catch, and surface a destructive toast on bad JSON
-   *  before going anywhere near the data layer. */
-  async function handleFilePicked(file: File) {
-    setImporting(true);
-    try {
-      const text = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onerror = () => reject(reader.error ?? new Error("Read error"));
-        reader.onload = () => resolve(String(reader.result ?? ""));
-        reader.readAsText(file);
-      });
-      const r = await importBackup(text, file.name);
-      if (!r.ok) {
-        toast.error("Invalid backup file", { description: r.error });
-        return;
-      }
-      // Restore immediately from the freshly imported record so the user
-      // doesn't have to click Restore as a separate step.
-      if (r.record.data) {
-        persistAndReload(r.record.data, r.record.filename);
-      } else {
-        toast.success("Backup imported", { description: r.record.filename });
-      }
-    } catch (e) {
-      toast.error("Could not read file", { description: (e as Error).message });
-    } finally {
-      setImporting(false);
-      // Reset so re-picking the same file fires the change event again.
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  }
-
   return (
     <>
       <div className="bg-card rounded-xl border border-slate-200 shadow-sm">
@@ -205,31 +141,6 @@ export function BackupsSection() {
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {/* Hidden input drives the file picker. We trigger it from the
-                visible Upload button so the layout stays clean. */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="application/json,.json"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) handleFilePicked(f);
-              }}
-            />
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={importing}
-            >
-              {importing ? (
-                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-              ) : (
-                <Upload className="h-3.5 w-3.5 mr-1.5" />
-              )}
-              Upload .json
-            </Button>
             <Button
               size="sm"
               onClick={handleCreate}
@@ -288,7 +199,7 @@ export function BackupsSection() {
                       size="sm"
                       variant="ghost"
                       className="h-8"
-                      title="Download as .json"
+                      title="Download backup"
                       aria-label={`Download ${b.filename}`}
                       onClick={() => handleDownload(b)}
                     >
@@ -299,7 +210,7 @@ export function BackupsSection() {
                       variant="outline"
                       className="h-8"
                       disabled={isRestoring || b.restorable === false}
-                      title={b.restorable === false ? "Database backups are file-level backups. Restore them from NAS/SSH." : "Restore backup"}
+                      title={b.restorable === false ? "SQLite backups are file-level backups. Restore from NAS/SSH after stopping the app." : "Restore backup"}
                       onClick={() => setConfirmTarget(b)}
                     >
                       {isRestoring ? (

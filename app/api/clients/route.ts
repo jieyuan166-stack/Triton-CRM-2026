@@ -1,37 +1,10 @@
-// app/api/clients/route.ts
-//
-// GET  /api/clients?search=&provinces=ON,BC&tags=insurance,VIP&sortKey=name&sortDir=asc&page=1&perPage=25
-// POST /api/clients   { ...ClientFormValues }
-//
-// Step 9 (now): operates on in-memory seed data. The seed module is shared
-// with the client-side DataProvider so the response shape is identical.
-//
-// Step 10 (Prisma): replace the function bodies with:
-//
-//   GET:
-//     const where: Prisma.ClientWhereInput = {
-//       AND: [
-//         search ? { OR: [{ firstName: { contains: search, mode: 'insensitive' } }, …] } : {},
-//         provinces?.length ? { province: { in: provinces } } : {},
-//         tags?.length     ? { tags: { hasSome: tags } } : {},
-//       ],
-//     };
-//     const [rows, total] = await Promise.all([
-//       db.client.findMany({ where, orderBy, skip, take: perPage, include: {...} }),
-//       db.client.count({ where }),
-//     ]);
-//
-//   POST:
-//     const parsed = clientFormSchema.safeParse(body);
-//     if (!parsed.success) return NextResponse.json({ errors: parsed.error.flatten() }, { status: 400 });
-//     const created = await db.client.create({ data: { ...parsed.data, tags: { set: parsed.data.tags } }});
-
 import { NextResponse } from "next/server";
-import { parseClientQueryParams, queryClients } from "@/lib/clients-query";
-import { seedClients, seedFollowUps, seedPolicies } from "@/lib/mock-data";
-import { clientFormSchema } from "@/lib/validators";
-import type { Client } from "@/lib/types";
+
 import { auditLog, requireSession, unauthorized } from "@/lib/api-security";
+import { parseClientQueryParams, queryClients } from "@/lib/clients-query";
+import { db } from "@/lib/db";
+import { clientFormSchema } from "@/lib/validators";
+import type { Client, FollowUp, Policy } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,11 +16,83 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const query = parseClientQueryParams(url.searchParams);
 
-  const result = queryClients(query, {
-    clients: seedClients,
-    policies: seedPolicies,
-    followUps: seedFollowUps,
-  });
+  const [clientRows, policyRows, followUpRows] = await Promise.all([
+    db.client.findMany({ include: { emailHistory: { orderBy: { date: "desc" } } } }),
+    db.policy.findMany({ include: { beneficiaries: true } }),
+    db.followUp.findMany(),
+  ]);
+
+  const clients: Client[] = clientRows.map((c) => ({
+    id: c.id,
+    firstName: c.firstName,
+    lastName: c.lastName,
+    email: c.email,
+    phone: c.phone ?? undefined,
+    streetAddress: c.streetAddress ?? undefined,
+    unit: c.unit ?? undefined,
+    city: c.city ?? undefined,
+    province: c.province as Client["province"],
+    postalCode: c.postalCode ?? undefined,
+    birthday: c.birthday?.toISOString().slice(0, 10),
+    notes: c.notes ?? undefined,
+    linkedToId: c.linkedToId ?? undefined,
+    relationship: c.relationship as Client["relationship"],
+    emailHistory: c.emailHistory.map((entry) => ({
+      id: entry.id,
+      date: entry.date.toISOString(),
+      subject: entry.subject,
+      body: entry.body,
+      templateLabel: entry.templateLabel ?? undefined,
+    })),
+    lastBirthdayEmailAt: c.lastBirthdayEmailAt?.toISOString(),
+    lastContactedAt: c.lastContactedAt?.toISOString(),
+    createdAt: c.createdAt.toISOString(),
+  }));
+
+  const policies = policyRows.map((p) => ({
+    id: p.id,
+    clientId: p.clientId,
+    carrier: p.carrier,
+    category: p.category,
+    productType: p.productType,
+    productName: p.productName,
+    policyNumber: p.policyNumber,
+    sumAssured: p.sumAssured,
+    premium: p.premium,
+    paymentFrequency: p.paymentFrequency,
+    paymentTermYears: p.paymentTermYears ?? undefined,
+    effectiveDate: p.effectiveDate.toISOString().slice(0, 10),
+    premiumDate: p.premiumDate ?? undefined,
+    maturityDate: p.maturityDate?.toISOString().slice(0, 10),
+    status: p.status,
+    isCorporateInsurance: p.isCorporateInsurance,
+    businessName: p.businessName ?? undefined,
+    isInvestmentLoan: p.isInvestmentLoan,
+    lender: p.lender ?? undefined,
+    loanAmount: p.loanAmount ?? undefined,
+    loanRate: p.loanRate ?? undefined,
+    lastRenewalEmailAt: p.lastRenewalEmailAt?.toISOString(),
+    beneficiaries: p.beneficiaries.map((b) => ({
+      id: b.id,
+      policyId: b.policyId,
+      name: b.name,
+      relationship: b.relationship,
+      sharePercent: b.sharePercent,
+    })),
+  })) as Policy[];
+
+  const followUps = followUpRows.map((f) => ({
+    id: f.id,
+    clientId: f.clientId,
+    type: f.type,
+    date: f.date.toISOString().slice(0, 10),
+    summary: f.summary,
+    details: f.details ?? undefined,
+    createdById: f.createdById,
+    createdAt: f.createdAt.toISOString(),
+  })) as FollowUp[];
+
+  const result = queryClients(query, { clients, policies, followUps });
 
   await auditLog({ action: "list_clients", entityType: "client" });
   return NextResponse.json(result);
@@ -57,18 +102,7 @@ export async function POST(request: Request) {
   const session = await requireSession();
   if (!session) return unauthorized();
 
-  let payload: unknown;
-  try {
-    payload = await request.json();
-  } catch {
-    return NextResponse.json(
-      { error: "Invalid JSON body" },
-      { status: 400 }
-    );
-  }
-
-  // Server-side validation — re-runs the same Zod schema the client uses.
-  // This is the trust boundary; never accept the client's word for it.
+  const payload = await request.json().catch(() => null);
   const parsed = clientFormSchema.safeParse(payload);
   if (!parsed.success) {
     return NextResponse.json(
@@ -76,59 +110,68 @@ export async function POST(request: Request) {
         error: "Validation failed",
         issues: parsed.error.flatten(),
       },
-      { status: 400 }
+      { status: 400 },
     );
   }
-  const data = parsed.data;
 
-  // Email uniqueness — Step 10 enforces this with a DB unique index. For now,
-  // mirror the constraint against the seed.
+  const data = parsed.data;
   const emailLower = data.email.toLowerCase();
-  if (
-    seedClients.some((c) => c.email.toLowerCase() === emailLower)
-  ) {
+  if (await db.client.findUnique({ where: { email: emailLower } })) {
     return NextResponse.json(
       {
         error: "Email already in use",
         issues: { fieldErrors: { email: ["Email already in use"] } },
       },
-      { status: 409 }
+      { status: 409 },
     );
   }
 
-  // Linked-to existence check
-  if (data.linkedToId && !seedClients.some((c) => c.id === data.linkedToId)) {
+  if (data.linkedToId && !(await db.client.findUnique({ where: { id: data.linkedToId } }))) {
     return NextResponse.json(
       {
         error: "Linked client not found",
         issues: { fieldErrors: { linkedToId: ["Client not found"] } },
       },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
+  const createdRow = await db.client.create({
+    data: {
+      firstName: data.firstName,
+      lastName: data.lastName,
+      email: emailLower,
+      phone: data.phone || null,
+      streetAddress: data.streetAddress || null,
+      unit: data.unit || null,
+      city: data.city || null,
+      province: data.province || null,
+      postalCode: data.postalCode || null,
+      birthday: data.birthday ? new Date(data.birthday) : null,
+      linkedToId: data.linkedToId || null,
+      relationship: data.relationship || null,
+      notes: data.notes || null,
+    },
+  });
+
   const created: Client = {
-    id: `cli_${Date.now().toString(36)}`,
-    firstName: data.firstName,
-    lastName: data.lastName,
-    email: data.email,
-    phone: data.phone,
-    streetAddress: data.streetAddress,
-    unit: data.unit,
-    city: data.city,
-    province: data.province as Client["province"],
-    postalCode: data.postalCode,
-    birthday: data.birthday,
-    linkedToId: data.linkedToId,
-    relationship: data.relationship as Client["relationship"],
-    notes: data.notes,
-    createdAt: new Date().toISOString(),
+    id: createdRow.id,
+    firstName: createdRow.firstName,
+    lastName: createdRow.lastName,
+    email: createdRow.email,
+    phone: createdRow.phone ?? undefined,
+    streetAddress: createdRow.streetAddress ?? undefined,
+    unit: createdRow.unit ?? undefined,
+    city: createdRow.city ?? undefined,
+    province: createdRow.province as Client["province"],
+    postalCode: createdRow.postalCode ?? undefined,
+    birthday: createdRow.birthday?.toISOString().slice(0, 10),
+    linkedToId: createdRow.linkedToId ?? undefined,
+    relationship: createdRow.relationship as Client["relationship"],
+    notes: createdRow.notes ?? undefined,
+    createdAt: createdRow.createdAt.toISOString(),
   };
 
-  // NOTE: Step 9 is read-mostly — the seed array is process-shared, so a POST
-  // here mutates the in-memory copy until the server restarts. Step 10 swaps
-  // this for `db.client.create(...)`.
-  seedClients.push(created);
   await auditLog({
     action: "create_client",
     entityType: "client",

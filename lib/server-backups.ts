@@ -12,6 +12,7 @@ const gzipAsync = promisify(gzip);
 const gunzipAsync = promisify(gunzip);
 
 const SNAPSHOT_RE = /^backup_\d{8}T\d{6}\.json\.gz$/;
+const MANUAL_DATABASE_RE = /^backup_\d{8}T\d{6}\.db\.gz$/;
 const DATABASE_RE = /^triton-\d{8}-\d{6}\.db\.gz$/;
 
 export function getBackupDir() {
@@ -19,7 +20,7 @@ export function getBackupDir() {
 }
 
 export function isSafeBackupFilename(filename: string) {
-  return SNAPSHOT_RE.test(filename) || DATABASE_RE.test(filename);
+  return SNAPSHOT_RE.test(filename) || MANUAL_DATABASE_RE.test(filename) || DATABASE_RE.test(filename);
 }
 
 export function timestampLabel(date = new Date()) {
@@ -39,7 +40,8 @@ async function ensureBackupDir() {
 }
 
 function kindFor(filename: string): BackupRecord["kind"] {
-  return filename.endsWith(".json.gz") ? "snapshot" : "database";
+  if (filename.startsWith("triton-")) return "database";
+  return "snapshot";
 }
 
 function createdAtFromFilename(filename: string, fallback: Date) {
@@ -51,7 +53,20 @@ function createdAtFromFilename(filename: string, fallback: Date) {
   if (database) {
     return new Date(`${database[1]}-${database[2]}-${database[3]}T${database[4]}:${database[5]}:${database[6]}`).toISOString();
   }
+  const manualDatabase = filename.match(/^backup_(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})\.db\.gz$/);
+  if (manualDatabase) {
+    return new Date(`${manualDatabase[1]}-${manualDatabase[2]}-${manualDatabase[3]}T${manualDatabase[4]}:${manualDatabase[5]}:${manualDatabase[6]}`).toISOString();
+  }
   return fallback.toISOString();
+}
+
+function sqliteDatabasePath() {
+  const url = process.env.DATABASE_URL;
+  if (!url?.startsWith("file:")) {
+    throw new Error("DATABASE_URL must be a file: SQLite URL for file backups");
+  }
+  const raw = url.slice("file:".length);
+  return path.isAbsolute(raw) ? raw : path.resolve(process.cwd(), raw);
 }
 
 export async function listBackupFiles(): Promise<BackupRecord[]> {
@@ -64,17 +79,16 @@ export async function listBackupFiles(): Promise<BackupRecord[]> {
         const file = backupPath(entry.name);
         const stat = await fs.stat(file);
         const kind = kindFor(entry.name);
+        const isDb = entry.name.endsWith(".db.gz");
         return {
           id: entry.name,
           filename: entry.name,
           kind,
-          restorable: kind === "snapshot",
+          restorable: !isDb && kind === "snapshot",
           size: stat.size,
           createdAt: createdAtFromFilename(entry.name, stat.mtime),
           contents:
-            kind === "snapshot"
-              ? ["Clients", "Policies", "Follow Ups"]
-              : ["SQLite Database"],
+            isDb ? ["SQLite Database"] : ["Clients", "Policies", "Follow Ups"],
         } satisfies BackupRecord;
       }),
   );
@@ -83,12 +97,14 @@ export async function listBackupFiles(): Promise<BackupRecord[]> {
 }
 
 export async function createSnapshotBackup(snapshot: BackupSnapshot) {
-  if (!isValidSnapshot(snapshot)) {
-    throw new Error("Invalid backup snapshot");
-  }
+  // Production backups are real SQLite file backups. The legacy snapshot
+  // argument is accepted so the existing SettingsProvider API does not need
+  // to change; the actual source of truth is DATABASE_URL.
+  void snapshot;
   await ensureBackupDir();
-  const filename = `backup_${timestampLabel()}.json.gz`;
-  const body = Buffer.from(JSON.stringify(snapshot, null, 2), "utf8");
+  const filename = `backup_${timestampLabel()}.db.gz`;
+  const dbPath = sqliteDatabasePath();
+  const body = await fs.readFile(dbPath);
   const compressed = await gzipAsync(body, { level: 9 });
   const file = backupPath(filename);
   await fs.writeFile(file, compressed, { mode: 0o600 });
@@ -97,11 +113,10 @@ export async function createSnapshotBackup(snapshot: BackupSnapshot) {
     id: filename,
     filename,
     kind: "snapshot",
-    restorable: true,
+    restorable: false,
     size: stat.size,
     createdAt: createdAtFromFilename(filename, stat.mtime),
-    contents: ["Clients", "Policies", "Follow Ups"],
-    data: snapshot,
+    contents: ["SQLite Database"],
   } satisfies BackupRecord;
 }
 

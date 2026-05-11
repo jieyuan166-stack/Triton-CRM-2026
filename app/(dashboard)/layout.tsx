@@ -26,8 +26,7 @@ export default function DashboardLayout({
   const pathname = usePathname();
 
   // Auth gate — redirect anonymous users to /login. We wait for `ready` so
-  // the localStorage hydration completes before deciding (avoids a flash on
-  // refresh for already-signed-in users).
+  // the NextAuth session hydrates before deciding.
   useEffect(() => {
     if (ready && !session) {
       const next = encodeURIComponent(pathname);

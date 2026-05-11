@@ -1,7 +1,6 @@
 // app/page.tsx — entry redirect.
-// Authentication state lives in localStorage (mock), so the routing decision
-// happens on the client. Server-side just renders an instant client redirect
-// shell.
+// Auth state comes from NextAuth; the root screen only chooses the right
+// landing route after the client session has hydrated.
 "use client";
 
 import { useEffect } from "react";

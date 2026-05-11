@@ -23,11 +23,9 @@ export interface EmailConfig {
   passwordConfigured?: boolean;
 }
 
-/** Versioned, serialisable snapshot of the data layer. Stored inline on a
- *  BackupRecord and also written to localStorage so a restore can survive a
- *  full window reload. The shape uses `unknown[]` for the data arrays so the
- *  type module doesn't take a dependency on the full Client / Policy types
- *  — DataProvider validates+narrows the contents at hydration time. */
+/** Legacy JSON snapshot shape. Current production backups are SQLite .db.gz
+ *  files, but this type is retained for older imported backup files and for
+ *  the DataProvider export boundary. */
 export interface BackupSnapshot {
   version: 1;
   capturedAt: string;
@@ -51,8 +49,7 @@ export interface BackupRecord {
   data?: BackupSnapshot;
 }
 
-/** Browser localStorage key used to hand the snapshot from BackupsSection
- *  → window.location.reload() → DataProvider's hydration step. */
+/** Legacy key retained only so old backup files/code references compile. */
 export const RESTORE_PENDING_KEY = "triton:restore-pending-v1";
 
 export type EmailTemplateId = "birthday" | "renewal" | "festival";
