@@ -20,7 +20,7 @@ import { calcAge, formatDate, formatRelative } from "@/lib/date-utils";
 import { applyTemplate } from "@/lib/templates";
 import { cn } from "@/lib/utils";
 
-const WINDOW_DAYS = 30;
+const WINDOW_DAYS = 7;
 const BIRTHDAY_SUPPRESSION_DAYS = 30;
 const LOOKBACK_DAYS = 7;
 const MAX_SENT = 5;
@@ -183,7 +183,7 @@ export function UpcomingBirthdays() {
               <EmptyState
                 icon={Cake}
                 title="No upcoming birthdays"
-                description="Nothing in the next month."
+                description={`Nothing in the next ${WINDOW_DAYS} days.`}
                 compact
                 className="[&>div]:bg-slate-50 [&>div_svg]:text-slate-300 [&>h4]:text-slate-600 [&>p]:text-slate-400"
               />
