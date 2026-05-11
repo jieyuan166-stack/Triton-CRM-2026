@@ -52,9 +52,8 @@ export const policyFormSchema = z
       .optional()
       .or(z.literal("").transform(() => undefined)),
     policyNumber: z.string().trim().min(1, "Policy number is required"),
-    // sumAssured / premium / paymentFrequency only surface in the form for
-    // Insurance — for Investment they're auto-filled at submit time. Schema
-    // marks them optional, and the refines below require them when Insurance.
+    // sumAssured is Face Amount for Insurance and Initial Investment for
+    // Investment. Premium/paymentFrequency only surface for Insurance.
     // Currency string-to-number coercion happens at the form layer (see
     // PolicyForm.coerceCurrencyValues) before zod ever sees these.
     sumAssured: z.number().positive("Must be > 0").optional(),
@@ -124,12 +123,18 @@ export const policyFormSchema = z
     },
     { message: "Loan amount must be greater than 0", path: ["loanAmount"] }
   )
-  // Insurance-only required fields
+  // Category-specific required fields
   .refine(
     (d) =>
       d.category !== "Insurance" ||
       (typeof d.sumAssured === "number" && d.sumAssured > 0),
     { message: "Face amount is required", path: ["sumAssured"] }
+  )
+  .refine(
+    (d) =>
+      d.category !== "Investment" ||
+      (typeof d.sumAssured === "number" && d.sumAssured > 0),
+    { message: "Initial investment is required", path: ["sumAssured"] }
   )
   .refine(
     (d) => d.category !== "Insurance" || typeof d.premium === "number",

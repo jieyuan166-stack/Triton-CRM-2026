@@ -44,7 +44,7 @@ function NewPolicyContent() {
     const isInvestmentLoan = isInv && !!values.isInvestmentLoan;
     const isCorporateInsurance = !isInv && !!values.isCorporateInsurance;
     const sumAssured = isInv
-      ? (isInvestmentLoan ? values.loanAmount ?? 0 : 0)
+      ? values.sumAssured ?? values.loanAmount ?? 0
       : values.sumAssured ?? 0;
     const premium = isInv ? 0 : values.premium ?? 0;
     const paymentFrequency = (isInv ? "Monthly" : values.paymentFrequency) as never;

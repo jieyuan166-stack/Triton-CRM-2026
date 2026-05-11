@@ -7,7 +7,7 @@ import { useData } from "@/components/providers/DataProvider";
 import { KPICard } from "@/components/ui-shared/KPICard";
 import { UpcomingPremiums } from "@/components/dashboard/UpcomingPremiums";
 import { UpcomingBirthdays } from "@/components/dashboard/UpcomingBirthdays";
-import { CarrierBreakdown } from "@/components/dashboard/CarrierBreakdown";
+import { InvestmentAumByCompany } from "@/components/dashboard/InvestmentAumByCompany";
 import { CategoryBreakdown } from "@/components/dashboard/CategoryBreakdown";
 import { calculateClientTags } from "@/lib/client-tags";
 import { daysUntil } from "@/lib/date-utils";
@@ -80,7 +80,7 @@ export default function DashboardPage() {
 
       {/* Analytics */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-        <CarrierBreakdown />
+        <InvestmentAumByCompany />
         <CategoryBreakdown />
       </div>
     </>

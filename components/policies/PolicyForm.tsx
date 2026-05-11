@@ -1,8 +1,7 @@
 // components/policies/PolicyForm.tsx
 // Shared form for /policies/new and /policies/[id].
 //
-// Insurance-only workflow. Beneficiaries / Maturity Date / Payment Term /
-// Category / Investment Loan have all been removed.
+// Category-aware workflow for Insurance and Investment policies.
 "use client";
 
 import { useEffect } from "react";
@@ -195,12 +194,10 @@ export function PolicyForm({
       setValue("lender", "" as never, { shouldValidate: false });
       setValue("loanAmount", undefined as never, { shouldValidate: false });
     } else {
-      // Wipe Insurance-only fields. CurrencyInput clears its display when
-      // value goes undefined; the Corporate Insurance block doesn't render
-      // at all under Investment, so businessName follows the toggle off.
+      // Wipe Insurance-only fields. Initial Investment reuses sumAssured, so
+      // keep it under Investment; Corporate Insurance doesn't render there.
       setValue("isCorporateInsurance", false, { shouldValidate: false });
       setValue("businessName", "", { shouldValidate: false });
-      setValue("sumAssured", undefined as never, { shouldValidate: false });
       setValue("premium", undefined as never, { shouldValidate: false });
     }
 
@@ -267,7 +264,7 @@ export function PolicyForm({
     carrier: "Carrier",
     productType: "Product Type",
     policyNumber: "Policy Number",
-    sumAssured: "Face Amount",
+    sumAssured: isInvestment ? "Initial Investment" : "Face Amount",
     premium: "Premium",
     paymentFrequency: "Payment Frequency",
     effectiveDate: "Effective Date",
@@ -441,6 +438,22 @@ export function PolicyForm({
             </div>
           )}
 
+          {isInvestment ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="initialInvestment">
+                Initial Investment <span className="text-accent-red">*</span>
+              </Label>
+              <CurrencyInput
+                id="initialInvestment"
+                value={watch("sumAssured")}
+                onValueChange={(n) =>
+                  setValue("sumAssured", n as never, { shouldValidate: true })
+                }
+              />
+              <FieldError message={errors.sumAssured?.message} />
+            </div>
+          ) : null}
+
           {/* Policy Number */}
           <div className="space-y-1.5">
             <Label htmlFor="policyNumber">
@@ -545,9 +558,8 @@ export function PolicyForm({
       </Section>
 
       {/* === Section 2: Financial — Insurance only ===
-          Investment policies don't surface Face Amount / Premium / Payment
-          Frequency. Defaults are filled in at submit time by the route
-          handler so the persisted Policy shape stays consistent. */}
+          Investment policies surface Initial Investment in Basic. Premium
+          and Payment Frequency remain Insurance-only. */}
       {!isInvestment ? (
       <Section title="Financial" description="Face amount, premium, and frequency">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
