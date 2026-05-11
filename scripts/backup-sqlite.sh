@@ -14,7 +14,7 @@ TARGET="$BACKUP_DIR/triton-$DATE-$TIME.db.gz"
 
 mkdir -p "$BACKUP_DIR"
 
-CURRENT_HASH="$(docker exec "$CONTAINER_NAME" sh -lc "sha256sum '$DB_PATH' | awk '{print \\$1}'")"
+CURRENT_HASH="$(docker exec "$CONTAINER_NAME" sh -lc "sha256sum '$DB_PATH' | cut -d ' ' -f 1")"
 LAST_HASH=""
 if [ -f "$HASH_FILE" ]; then
   LAST_HASH="$(cat "$HASH_FILE" || true)"
