@@ -13,6 +13,7 @@ import { useData } from "@/components/providers/DataProvider";
 import { WidgetCard } from "@/components/ui-shared/WidgetCard";
 import { EmptyState } from "@/components/ui-shared/EmptyState";
 import { formatCurrencyCompact } from "@/lib/format";
+import { getPolicyPortfolioAmount } from "@/lib/portfolio-metrics";
 
 const CATEGORY_COLORS = {
   Insurance: "#3B82F6",
@@ -26,7 +27,7 @@ export function CategoryBreakdown() {
     .filter((p) => p.status === "active")
     .reduce(
       (acc, p) => {
-        acc[p.category] = (acc[p.category] ?? 0) + p.sumAssured;
+        acc[p.category] = (acc[p.category] ?? 0) + getPolicyPortfolioAmount(p);
         return acc;
       },
       { Insurance: 0, Investment: 0 } as Record<"Insurance" | "Investment", number>
@@ -41,7 +42,10 @@ export function CategoryBreakdown() {
   const grandTotal = data.reduce((s, d) => s + d.value, 0);
 
   return (
-    <WidgetCard title="AUM by Category" description="Active policies, sum assured">
+    <WidgetCard
+      title="Portfolio by Category"
+      description="Insurance face amount and investment AUM"
+    >
       {data.length === 0 ? (
         <EmptyState
           icon={PieChartIcon}
@@ -77,7 +81,7 @@ export function CategoryBreakdown() {
                   }}
                   formatter={(value) => [
                     formatCurrencyCompact(value as number),
-                    "AUM",
+                    "Amount",
                   ]}
                 />
               </PieChart>

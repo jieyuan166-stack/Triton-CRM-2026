@@ -1,7 +1,7 @@
 // app/(dashboard)/dashboard/page.tsx
 "use client";
 
-import { DollarSign, FileText, TrendingUp, Users } from "lucide-react";
+import { DollarSign, ShieldCheck, TrendingUp, Users } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useData } from "@/components/providers/DataProvider";
 import { KPICard } from "@/components/ui-shared/KPICard";
@@ -10,8 +10,8 @@ import { UpcomingBirthdays } from "@/components/dashboard/UpcomingBirthdays";
 import { InvestmentAumByCompany } from "@/components/dashboard/InvestmentAumByCompany";
 import { CategoryBreakdown } from "@/components/dashboard/CategoryBreakdown";
 import { calculateClientTags } from "@/lib/client-tags";
-import { daysUntil } from "@/lib/date-utils";
 import { formatCurrencyCompact } from "@/lib/format";
+import { calculatePortfolioMetrics } from "@/lib/portfolio-metrics";
 
 export default function DashboardPage() {
   const { clients, policies } = useData();
@@ -21,15 +21,7 @@ export default function DashboardPage() {
     calculateClientTags(c, policies).includes("VIP")
   ).length;
 
-  const activePolicies = policies.filter((p) => p.status === "active");
-  const totalAUM = activePolicies.reduce((s, p) => s + p.sumAssured, 0);
-
-  const premiumsThisMonth = activePolicies.filter((p) => {
-    if (!p.premiumDate) return false;
-    const d = daysUntil(p.premiumDate);
-    return d >= 0 && d <= 30;
-  });
-  const premiumsTotal = premiumsThisMonth.reduce((s, p) => s + p.premium, 0);
+  const metrics = calculatePortfolioMetrics(policies);
 
   return (
     <>
@@ -48,25 +40,29 @@ export default function DashboardPage() {
           accent="blue"
         />
         <KPICard
-          label="Assets Under Management"
-          value={formatCurrencyCompact(totalAUM)}
-          subValue={`Across ${activePolicies.length} active policies`}
-          icon={DollarSign}
+          label="Insurance Face Amount"
+          value={formatCurrencyCompact(metrics.insuranceFaceAmount)}
+          subValue={`${metrics.activeInsuranceCount} active insurance ${
+            metrics.activeInsuranceCount === 1 ? "policy" : "policies"
+          }`}
+          icon={ShieldCheck}
           accent="green"
         />
         <KPICard
-          label="Active Policies"
-          value={activePolicies.length}
-          subValue={`${policies.length - activePolicies.length} pending / lapsed`}
-          icon={FileText}
+          label="Investment AUM"
+          value={formatCurrencyCompact(metrics.investmentAum)}
+          subValue={`${metrics.activeInvestmentCount} active investment ${
+            metrics.activeInvestmentCount === 1 ? "policy" : "policies"
+          }`}
+          icon={DollarSign}
           accent="purple"
         />
         <KPICard
           label="Premiums Due (30d)"
-          value={formatCurrencyCompact(premiumsTotal)}
-          subValue={`${premiumsThisMonth.length} ${
-            premiumsThisMonth.length === 1 ? "policy" : "policies"
-          }`}
+          value={metrics.premiumDueCount30d}
+          subValue={`Total premium ${formatCurrencyCompact(
+            metrics.premiumDueAmount30d
+          )}`}
           icon={TrendingUp}
           accent="amber"
         />

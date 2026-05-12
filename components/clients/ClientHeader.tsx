@@ -33,6 +33,7 @@ import {
 import { formatCurrencyCompact } from "@/lib/format";
 import { calculateAutoClientTags } from "@/lib/client-tags";
 import { TAG_VALUES, type TagValue } from "@/lib/constants";
+import { calculatePortfolioMetrics } from "@/lib/portfolio-metrics";
 import type { ClientWithStats, Policy } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -53,6 +54,13 @@ export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHead
   const autoTags = useMemo(
     () => calculateAutoClientTags(client, policies),
     [client, policies]
+  );
+  const clientMetrics = useMemo(
+    () =>
+      calculatePortfolioMetrics(
+        policies.filter((policy) => policy.clientId === client.id)
+      ),
+    [client.id, policies]
   );
 
   // Open the compose drawer prefilled with the client's email and the
@@ -173,19 +181,31 @@ export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHead
           </div>
         </div>
 
-        {/* AUM + report */}
+        {/* Portfolio metrics + report */}
         <div className="flex flex-col gap-3 md:items-end md:self-center">
-          <div className="shrink-0 md:min-w-[7.5rem] md:text-right">
-            <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
-              AUM
-            </p>
-            <p className="text-2xl md:text-3xl font-semibold text-slate-900 tabular-nums leading-none tracking-tight">
-              {formatCurrencyCompact(client.aum)}
-            </p>
-            <p className="text-xs text-slate-500 mt-1">
-              {client.activePolicyCount} active{" "}
-              {client.activePolicyCount === 1 ? "policy" : "policies"}
-            </p>
+          <div className="grid shrink-0 grid-cols-2 gap-3 md:min-w-[18rem] md:text-right">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
+                Insurance Face Amount
+              </p>
+              <p className="mt-1 text-xl md:text-2xl font-semibold text-slate-900 tabular-nums leading-none tracking-tight">
+                {formatCurrencyCompact(clientMetrics.insuranceFaceAmount)}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                {clientMetrics.activeInsuranceCount} active
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
+                Investment AUM
+              </p>
+              <p className="mt-1 text-xl md:text-2xl font-semibold text-slate-900 tabular-nums leading-none tracking-tight">
+                {formatCurrencyCompact(clientMetrics.investmentAum)}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                {clientMetrics.activeInvestmentCount} active
+              </p>
+            </div>
           </div>
 
           <ClientReportButton

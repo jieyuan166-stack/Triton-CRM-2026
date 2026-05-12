@@ -4,6 +4,10 @@ import type {
   Policy,
 } from "@/lib/types";
 import type { RelationshipType } from "@/lib/constants";
+import {
+  calculatePortfolioMetrics,
+  getPolicyPortfolioAmount,
+} from "@/lib/portfolio-metrics";
 
 export interface VisibleFamilyLink {
   relationshipId: string;
@@ -17,6 +21,8 @@ export interface FamilySummary {
   memberIds: Set<string>;
   policies: Array<Policy & { owner: Client }>;
   totalAum: number;
+  insuranceFaceAmount: number;
+  investmentAum: number;
   categoryTotals: Array<{ category: string; total: number }>;
   carrierTotals: Array<{ carrier: Policy["carrier"]; total: number }>;
 }
@@ -107,14 +113,15 @@ export function buildFamilySummary(
     });
 
   const activePolicies = familyPolicies.filter((policy) => policy.status === "active");
-  const totalAum = activePolicies.reduce(
-    (sum, policy) => sum + (policy.sumAssured || 0),
-    0
-  );
+  const metrics = calculatePortfolioMetrics(activePolicies);
+  const totalAum = metrics.insuranceFaceAmount + metrics.investmentAum;
 
   const categoryTotals = Array.from(
     activePolicies.reduce((map, policy) => {
-      map.set(policy.category, (map.get(policy.category) ?? 0) + (policy.sumAssured || 0));
+      map.set(
+        policy.category,
+        (map.get(policy.category) ?? 0) + getPolicyPortfolioAmount(policy)
+      );
       return map;
     }, new Map<string, number>())
   )
@@ -123,7 +130,10 @@ export function buildFamilySummary(
 
   const carrierTotals = Array.from(
     activePolicies.reduce((map, policy) => {
-      map.set(policy.carrier, (map.get(policy.carrier) ?? 0) + (policy.sumAssured || 0));
+      map.set(
+        policy.carrier,
+        (map.get(policy.carrier) ?? 0) + getPolicyPortfolioAmount(policy)
+      );
       return map;
     }, new Map<Policy["carrier"], number>())
   )
@@ -135,6 +145,8 @@ export function buildFamilySummary(
     memberIds,
     policies: familyPolicies,
     totalAum,
+    insuranceFaceAmount: metrics.insuranceFaceAmount,
+    investmentAum: metrics.investmentAum,
     categoryTotals,
     carrierTotals,
   };

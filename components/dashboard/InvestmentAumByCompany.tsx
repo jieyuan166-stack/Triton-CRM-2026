@@ -166,7 +166,7 @@ export function InvestmentAumByCompany() {
             <li className="mt-3 flex items-center gap-3 border-t border-slate-100 pt-3">
               <span className="h-2.5 w-2.5 rounded-full bg-slate-900" />
               <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900">
-                Total AUM
+                Total Investment AUM
               </span>
               <span className="text-sm font-bold tabular-nums text-slate-900">
                 {formatCurrency(total)}

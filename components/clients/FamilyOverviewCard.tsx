@@ -8,6 +8,7 @@ import { ClientAvatar } from "@/components/ui-shared/ClientAvatar";
 import { CARRIER_COLORS } from "@/lib/carrier-colors";
 import { buildFamilySummary } from "@/lib/family";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/format";
+import { getPolicyPortfolioAmount } from "@/lib/portfolio-metrics";
 import { cn } from "@/lib/utils";
 import type { Client, ClientRelationship, Policy } from "@/lib/types";
 
@@ -103,9 +104,11 @@ export function FamilyOverviewCard({
                 Linked Clients
               </h4>
               <p className="text-xs text-slate-500">
-                Family AUM{" "}
+                Family Portfolio{" "}
                 <span className="font-semibold text-slate-900">
-                  {formatCurrencyCompact(summary.totalAum)}
+                  {formatCurrencyCompact(
+                    summary.insuranceFaceAmount + summary.investmentAum
+                  )}
                 </span>
               </p>
             </div>
@@ -224,7 +227,12 @@ export function FamilyOverviewCard({
                             {policy.category}
                           </Badge>
                           <p className="text-xs font-semibold tabular-nums text-slate-900">
-                            {formatCurrency(policy.sumAssured)}
+                            {formatCurrency(getPolicyPortfolioAmount(policy))}
+                          </p>
+                          <p className="text-[10px] text-slate-400">
+                            {policy.category === "Investment"
+                              ? "Investment AUM"
+                              : "Face Amount"}
                           </p>
                         </div>
                       </Link>
@@ -244,18 +252,22 @@ export function FamilyOverviewCard({
         <aside className="space-y-4 rounded-2xl bg-slate-50/70 p-4 ring-1 ring-slate-100">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Total Family AUM
+              Family Portfolio Summary
             </p>
-            <p className="mt-1 text-2xl font-bold tabular-nums text-slate-950">
-              {formatCurrencyCompact(summary.totalAum)}
-            </p>
-            <p className="mt-1 text-xs text-slate-500">
-              {formatCurrency(summary.totalAum)} across active family policies
-            </p>
+            <div className="mt-3 grid gap-3">
+              <MetricRow
+                label="Family Insurance Face Amount"
+                value={summary.insuranceFaceAmount}
+              />
+              <MetricRow
+                label="Family Investment AUM"
+                value={summary.investmentAum}
+              />
+            </div>
           </div>
 
           <DistributionList
-            title="By Category"
+            title="Portfolio by Category"
             rows={summary.categoryTotals.map((row) => ({
               label: row.category,
               value: row.total,
@@ -295,7 +307,7 @@ function DistributionList({
       </h4>
       {rows.length === 0 ? (
         <p className="rounded-lg bg-white px-3 py-2 text-xs text-slate-500">
-          No active AUM yet
+          No active portfolio yet
         </p>
       ) : (
         <div className="space-y-2">
@@ -320,6 +332,20 @@ function DistributionList({
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+function MetricRow({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl bg-white px-3 py-2 ring-1 ring-slate-100">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+        {label}
+      </p>
+      <p className="mt-1 text-lg font-bold tabular-nums text-slate-950">
+        {formatCurrencyCompact(value)}
+      </p>
+      <p className="mt-0.5 text-[10px] text-slate-400">{formatCurrency(value)}</p>
     </div>
   );
 }
