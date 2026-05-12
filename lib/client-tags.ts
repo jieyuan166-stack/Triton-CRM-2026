@@ -10,9 +10,6 @@ import type { Client, PaymentFrequency, Policy } from "./types";
 export type DynamicTag = TagValue;
 export const DYNAMIC_TAGS = TAG_VALUES;
 
-/** "New" cohort window (months back from today). */
-export const NEW_TAG_WINDOW_MONTHS = 3;
-
 /** Annual insurance premium (CAD) above which "VIP" is auto-applied. */
 export const VIP_PREMIUM_THRESHOLD = 100_000;
 
@@ -27,12 +24,6 @@ function annualPremium(p: Policy): number {
   return p.premium * FREQUENCY_PER_YEAR[p.paymentFrequency];
 }
 
-function isWithinMonths(iso: string, monthsBack: number, today: Date): boolean {
-  const cutoff = new Date(today);
-  cutoff.setMonth(cutoff.getMonth() - monthsBack);
-  return new Date(iso) >= cutoff;
-}
-
 /**
  * Compute the dynamic tags for a client. Lapsed policies don't drive tags
  * (they shouldn't keep the client labelled as Insurance / Loan / etc.).
@@ -42,7 +33,6 @@ function isWithinMonths(iso: string, monthsBack: number, today: Date): boolean {
  * - "investment" : any non-lapsed policy with category "Investment"
  * - "VIP"        : annual insurance premium total > $100k OR holds both
  *                  insurance AND investment policies
- * - "NEW"        : client.createdAt within last 3 months
  * - "Loan"       : any non-lapsed policy with isInvestmentLoan === true
  * - "Corporate"  : any non-lapsed policy with isCorporateInsurance === true
  *                  AND a non-empty businessName
@@ -51,8 +41,7 @@ function isWithinMonths(iso: string, monthsBack: number, today: Date): boolean {
  */
 export function calculateClientTags(
   client: Client,
-  policies: Policy[],
-  today: Date = new Date()
+  policies: Policy[]
 ): DynamicTag[] {
   const live = policies.filter(
     (p) => p.clientId === client.id && p.status !== "lapsed"
@@ -69,8 +58,6 @@ export function calculateClientTags(
     insurancePremiumYear > VIP_PREMIUM_THRESHOLD ||
     (hasInsurance && hasInvestment);
 
-  const isNew = isWithinMonths(client.createdAt, NEW_TAG_WINDOW_MONTHS, today);
-
   const hasLoan = live.some((p) => p.isInvestmentLoan === true);
   const hasCorporate = live.some(
     (p) =>
@@ -83,7 +70,6 @@ export function calculateClientTags(
   if (hasInsurance) tags.push("insurance");
   if (hasInvestment) tags.push("investment");
   if (isVip) tags.push("VIP");
-  if (isNew) tags.push("NEW");
   if (hasLoan) tags.push("Loan");
   if (hasCorporate) tags.push("Corporate");
   return tags;

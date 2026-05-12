@@ -30,7 +30,6 @@ export const TAG_VALUES = [
   "insurance",
   "investment",
   "VIP",
-  "NEW",
   "Loan",
   "Corporate",
 ] as const;
@@ -40,7 +39,6 @@ export const TAG_LABELS: Record<TagValue, string> = {
   insurance: "Insurance",
   investment: "Investment",
   VIP: "VIP",
-  NEW: "New",
   Loan: "Loan",
   Corporate: "Corporate",
 };

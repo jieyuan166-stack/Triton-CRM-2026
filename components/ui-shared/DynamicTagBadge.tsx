@@ -5,7 +5,6 @@ import {
   Building2,
   Shield,
   Sparkles,
-  Sprout,
   TrendingUp,
 } from "lucide-react";
 import { TAG_LABELS, type TagValue } from "@/lib/constants";
@@ -27,10 +26,6 @@ const STYLES: Record<
     icon: Sparkles,
     className:
       "bg-gradient-to-r from-amber-100 to-amber-50 text-amber-800 ring-amber-300/70",
-  },
-  NEW: {
-    icon: Sprout,
-    className: "bg-emerald-50 text-emerald-700 ring-emerald-200/70",
   },
   Loan: {
     icon: Banknote,
