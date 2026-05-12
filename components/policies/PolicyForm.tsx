@@ -81,6 +81,7 @@ function makeDefaults(defaultClientId?: string): Partial<PolicyFormValues> {
     category: "Insurance",
     carrier: "Manulife",
     productType: "Whole Life",
+    productName: "",
     policyNumber: "",
     sumAssured: undefined as unknown as number,
     premium: undefined as unknown as number,
@@ -136,6 +137,7 @@ export function PolicyForm({
   const premiumDate = watch("premiumDate");
   const isInvestmentLoan = watch("isInvestmentLoan") ?? false;
   const isCorporateInsurance = watch("isCorporateInsurance") ?? false;
+  const loanAmount = watch("loanAmount");
 
   const isInvestment = category === "Investment";
   const isInsurance = category === "Insurance";
@@ -223,15 +225,21 @@ export function PolicyForm({
   // blocking the form.
   useEffect(() => {
     if (isInvestmentLoan) {
-      const current = watch("loanAmount");
-      if (typeof current !== "number" || current <= 0) {
+      const current = loanAmount;
+      const syncedAmount =
+        typeof current === "number" && current > 0
+          ? current
+          : DEFAULT_LOAN_AMOUNT;
+
+      if (current !== syncedAmount) {
         setValue("loanAmount", DEFAULT_LOAN_AMOUNT, { shouldValidate: false });
       }
+      setValue("sumAssured", syncedAmount as never, { shouldValidate: true });
     } else {
       clearErrors(["lender", "loanAmount"]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isInvestmentLoan]);
+  }, [isInvestmentLoan, loanAmount]);
 
   // Surface validation failures in the console — without this, a Submit click
   // with one bad field can look like "nothing happened" if the bad field is
@@ -393,6 +401,18 @@ export function PolicyForm({
             <FieldError message={errors.productType?.message as string} />
           </div>
 
+          {/* Product Name — optional display name, especially useful for
+              imported carrier-specific products like GIF Select / Performax. */}
+          <div className="space-y-1.5">
+            <Label htmlFor="productName">Product Name</Label>
+            <Input
+              id="productName"
+              placeholder="Optional product display name"
+              {...register("productName")}
+            />
+            <FieldError message={errors.productName?.message as string} />
+          </div>
+
           {/* Status (Insurance) — replaced by Investment Loan toggle for Investment */}
           {isInvestment ? (
             <div className="space-y-1.5">
@@ -449,7 +469,13 @@ export function PolicyForm({
                 onValueChange={(n) =>
                   setValue("sumAssured", n as never, { shouldValidate: true })
                 }
+                disabled={isInvestmentLoan}
               />
+              {isInvestmentLoan ? (
+                <p className="text-[11px] text-triton-muted">
+                  Matches the investment loan amount automatically.
+                </p>
+              ) : null}
               <FieldError message={errors.sumAssured?.message} />
             </div>
           ) : null}
@@ -547,9 +573,10 @@ export function PolicyForm({
               <CurrencyInput
                 id="loanAmount"
                 value={watch("loanAmount")}
-                onValueChange={(n) =>
-                  setValue("loanAmount", n as never, { shouldValidate: true })
-                }
+                onValueChange={(n) => {
+                  setValue("loanAmount", n as never, { shouldValidate: true });
+                  setValue("sumAssured", n as never, { shouldValidate: true });
+                }}
               />
               <FieldError message={errors.loanAmount?.message} />
             </div>

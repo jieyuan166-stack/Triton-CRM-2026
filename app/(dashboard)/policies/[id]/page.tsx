@@ -91,7 +91,7 @@ export default function PolicyDetailPage() {
       category: values.category,
       carrier: values.carrier as never,
       productType: values.productType as never,
-      productName: values.productName ?? "",
+      productName: values.productName?.trim() || values.productType,
       policyNumber: values.policyNumber,
       sumAssured,
       premium,

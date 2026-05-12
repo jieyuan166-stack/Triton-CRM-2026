@@ -68,18 +68,32 @@ export function ClientPoliciesCard({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-3 mb-1">
                     <p className="text-sm font-semibold text-triton-text truncate">
-                      {p.productName}
+                      {p.productName || p.productType}
                     </p>
-                    <Badge className={STATUS_STYLE[p.status]}>{p.status}</Badge>
+                    <div className="flex flex-wrap justify-end gap-1.5 shrink-0">
+                      {p.category === "Investment" && p.isInvestmentLoan ? (
+                        <Badge className="border-0 bg-indigo-100 text-indigo-700">
+                          Investment Loan
+                        </Badge>
+                      ) : null}
+                      <Badge className={STATUS_STYLE[p.status]}>{p.status}</Badge>
+                    </div>
                   </div>
                   <p className="text-xs text-triton-muted mb-2 truncate">
                     {p.carrier} · {p.productType} · {p.policyNumber}
                   </p>
-                  {p.isCorporateInsurance && p.businessName ? (
-                    <p className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 ring-1 ring-slate-200/60 mb-2">
-                      Corporate · {p.businessName}
-                    </p>
-                  ) : null}
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {p.isCorporateInsurance && p.businessName ? (
+                      <p className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 ring-1 ring-slate-200/60">
+                        Corporate · {p.businessName}
+                      </p>
+                    ) : null}
+                    {p.category === "Investment" && p.isInvestmentLoan && p.lender ? (
+                      <p className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100">
+                        Lender · {p.lender}
+                      </p>
+                    ) : null}
+                  </div>
                   <div
                     className={cn(
                       "grid gap-2 text-xs",

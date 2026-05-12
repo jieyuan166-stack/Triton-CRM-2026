@@ -60,7 +60,7 @@ function NewPolicyContent() {
       carrier: values.carrier as never,
       category: values.category,
       productType: values.productType as never,
-      productName: values.productName ?? "",
+      productName: values.productName?.trim() || values.productType,
       policyNumber: values.policyNumber,
       sumAssured,
       premium,
