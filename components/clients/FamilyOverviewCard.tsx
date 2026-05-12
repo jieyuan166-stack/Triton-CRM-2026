@@ -25,46 +25,46 @@ const CATEGORY_TONE: Record<string, string> = {
 
 const MEMBER_TONES = [
   {
-    dot: "#2563EB",
-    bg: "bg-blue-50",
-    border: "border-blue-100",
-    text: "text-blue-700",
-    ring: "ring-blue-100",
-  },
-  {
-    dot: "#059669",
-    bg: "bg-emerald-50",
-    border: "border-emerald-100",
-    text: "text-emerald-700",
-    ring: "ring-emerald-100",
-  },
-  {
-    dot: "#D97706",
-    bg: "bg-amber-50",
-    border: "border-amber-100",
-    text: "text-amber-700",
-    ring: "ring-amber-100",
-  },
-  {
-    dot: "#7C3AED",
-    bg: "bg-violet-50",
-    border: "border-violet-100",
-    text: "text-violet-700",
-    ring: "ring-violet-100",
-  },
-  {
-    dot: "#DB2777",
-    bg: "bg-pink-50",
-    border: "border-pink-100",
-    text: "text-pink-700",
-    ring: "ring-pink-100",
-  },
-  {
-    dot: "#475569",
+    dot: "#334155",
     bg: "bg-slate-50",
-    border: "border-slate-100",
+    border: "border-slate-200",
     text: "text-slate-700",
-    ring: "ring-slate-100",
+    ring: "ring-slate-200",
+  },
+  {
+    dot: "#9F1239",
+    bg: "bg-rose-50",
+    border: "border-rose-100",
+    text: "text-rose-800",
+    ring: "ring-rose-100",
+  },
+  {
+    dot: "#92400E",
+    bg: "bg-stone-50",
+    border: "border-stone-200",
+    text: "text-stone-700",
+    ring: "ring-stone-200",
+  },
+  {
+    dot: "#5B21B6",
+    bg: "bg-zinc-50",
+    border: "border-zinc-200",
+    text: "text-zinc-700",
+    ring: "ring-zinc-200",
+  },
+  {
+    dot: "#0F766E",
+    bg: "bg-neutral-50",
+    border: "border-neutral-200",
+    text: "text-neutral-700",
+    ring: "ring-neutral-200",
+  },
+  {
+    dot: "#7F1D1D",
+    bg: "bg-gray-50",
+    border: "border-gray-200",
+    text: "text-gray-700",
+    ring: "ring-gray-200",
   },
 ] as const;
 
@@ -173,16 +173,10 @@ export function FamilyOverviewCard({
               <div className="overflow-hidden rounded-xl border border-slate-100 bg-white">
                 <ul className="divide-y divide-slate-100">
                   {summary.policies.slice(0, 8).map((policy) => (
-                    <li
-                      key={policy.id}
-                      className={cn(
-                        "relative",
-                        toneByClientId.get(policy.owner.id)?.bg
-                      )}
-                    >
+                    <li key={policy.id} className="relative bg-white">
                       <Link
                         href={`/policies/${policy.id}`}
-                        className="flex items-center gap-3 px-3 py-3 transition-colors hover:bg-white/70"
+                        className="flex items-center gap-3 px-3 py-3 transition-colors hover:bg-slate-50"
                       >
                         <span
                           className="h-12 w-1.5 shrink-0 rounded-full"
