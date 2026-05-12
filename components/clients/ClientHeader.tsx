@@ -181,26 +181,33 @@ export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHead
         </div>
 
         {/* Actions */}
-        <div className="flex flex-wrap gap-2 md:flex-col md:gap-2">
+        <div className="flex w-full flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50/70 p-1.5 shadow-inner shadow-white md:w-auto md:min-w-[17rem] md:self-center">
           <ClientReportButton
             client={client}
             policies={reportPolicies}
-            className="border border-[#002147]/10 shadow-[0_10px_24px_-16px_rgba(0,33,71,0.8)]"
+            className="h-8 w-full justify-center border border-[#002147]/10 shadow-[0_10px_24px_-16px_rgba(0,33,71,0.8)]"
           />
-          <Button variant="outline" size="sm" onClick={onEdit}>
-            <Pencil className="h-3.5 w-3.5 mr-1.5" />
-            Edit
-          </Button>
-          <Link
-            href={`/policies/new?clientId=${client.id}`}
-            className={cn(
-              buttonVariants({ size: "sm" }),
-              "bg-navy hover:bg-navy/90 text-white"
-            )}
-          >
-            <Plus className="h-3.5 w-3.5 mr-1.5" />
-            Add Policy
-          </Link>
+          <div className="grid grid-cols-2 gap-1.5">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onEdit}
+              className="h-8 bg-white text-slate-700 shadow-sm ring-1 ring-slate-200/70 hover:bg-slate-50 hover:text-slate-950"
+            >
+              <Pencil className="h-3.5 w-3.5 mr-1.5" />
+              Edit
+            </Button>
+            <Link
+              href={`/policies/new?clientId=${client.id}`}
+              className={cn(
+                buttonVariants({ variant: "ghost", size: "sm" }),
+                "h-8 bg-white text-slate-700 shadow-sm ring-1 ring-slate-200/70 hover:bg-slate-50 hover:text-slate-950"
+              )}
+            >
+              <Plus className="h-3.5 w-3.5 mr-1.5" />
+              Policy
+            </Link>
+          </div>
         </div>
       </div>
 
