@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   ArrowLeft,
   Check,
+  Crown,
   Mail,
   Pencil,
   Phone as PhoneIcon,
@@ -62,6 +63,7 @@ export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHead
       ),
     [client.id, policies]
   );
+  const isVipClient = client.tags.includes("VIP");
 
   // Open the compose drawer prefilled with the client's email and the
   // configured signature. No template is applied — the advisor is writing
@@ -130,8 +132,23 @@ export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHead
         {/* Identity + contact */}
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2 mb-2">
-            <h1 className="text-2xl md:text-3xl font-semibold text-slate-900 tracking-tight leading-tight">
-              {client.firstName} {client.lastName}
+            <h1
+              className={cn(
+                "inline-flex min-w-0 items-center gap-2 text-2xl md:text-3xl font-semibold tracking-tight leading-tight",
+                isVipClient ? "text-amber-900" : "text-slate-900"
+              )}
+            >
+              <span className="truncate">
+                {client.firstName} {client.lastName}
+              </span>
+              {isVipClient ? (
+                <span
+                  className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-500 ring-1 ring-amber-100"
+                  aria-label="VIP client"
+                >
+                  <Crown className="h-3.5 w-3.5" />
+                </span>
+              ) : null}
             </h1>
             <Button
               type="button"

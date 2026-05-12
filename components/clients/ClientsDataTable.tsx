@@ -7,6 +7,7 @@ import {
   ArrowDown,
   ArrowUp,
   ChevronsUpDown,
+  Crown,
   Pencil,
   Send,
   Trash2,
@@ -443,6 +444,7 @@ export function ClientsDataTable() {
                 <tbody className="divide-y divide-slate-100">
                   {result.rows.map((r) => {
                     const isChecked = selected.has(r.id);
+                    const isVipClient = r.tags.includes("VIP");
                     return (
                       <tr
                         key={r.id}
@@ -471,8 +473,23 @@ export function ClientsDataTable() {
                               size="sm"
                             />
                             <div className="min-w-0">
-                              <p className="font-semibold text-slate-900 truncate">
-                                {r.firstName} {r.lastName}
+                              <p
+                                className={cn(
+                                  "flex items-center gap-1.5 truncate font-semibold",
+                                  isVipClient
+                                    ? "text-amber-900"
+                                    : "text-slate-900"
+                                )}
+                              >
+                                <span className="truncate">
+                                  {r.firstName} {r.lastName}
+                                </span>
+                                {isVipClient ? (
+                                  <Crown
+                                    className="h-3.5 w-3.5 shrink-0 text-amber-500"
+                                    aria-label="VIP client"
+                                  />
+                                ) : null}
                               </p>
                               {r.email ? (
                                 <p className="text-xs text-slate-500 truncate md:hidden">
