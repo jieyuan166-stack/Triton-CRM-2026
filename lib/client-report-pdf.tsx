@@ -10,6 +10,7 @@ import {
 } from "@react-pdf/renderer";
 
 import type { Client, Policy } from "@/lib/types";
+import { formatDate as formatCalendarDate } from "@/lib/date-utils";
 
 const styles = StyleSheet.create({
   page: {
@@ -198,9 +199,7 @@ function formatCurrency(value?: number) {
 
 function formatDate(value?: string) {
   if (!value) return "Not provided";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "2-digit" });
+  return formatCalendarDate(value, "en-CA");
 }
 
 function buildAddress(client: Client) {

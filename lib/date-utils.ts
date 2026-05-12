@@ -8,6 +8,25 @@ const FREQ_MONTHS: Record<PaymentFrequency, number> = {
   Annual: 12,
 };
 
+/** Parse date-only values without timezone drift.
+ *
+ * Native `new Date("2018-02-05")` treats the string as UTC. In Vancouver that
+ * renders as Feb 4, which is wrong for CRM/business dates entered by humans.
+ * For plain `YYYY-MM-DD` values, construct the Date with local calendar parts.
+ * Timestamp values with time components still go through the native parser.
+ */
+export function parseCalendarDate(input: string): Date {
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(input);
+  if (dateOnly) {
+    return new Date(
+      Number(dateOnly[1]),
+      Number(dateOnly[2]) - 1,
+      Number(dateOnly[3])
+    );
+  }
+  return new Date(input);
+}
+
 /**
  * Calculate the next premium due date by walking forward in `frequency` steps
  * from `effectiveDate` until the date is strictly after `today`.
@@ -18,7 +37,7 @@ export function calcNextPremiumDate(
   frequency: PaymentFrequency,
   today: Date = new Date()
 ): string {
-  const start = new Date(effectiveDate);
+  const start = parseCalendarDate(effectiveDate);
   if (today < start) return effectiveDate;
 
   const monthsStep = FREQ_MONTHS[frequency];
@@ -26,7 +45,11 @@ export function calcNextPremiumDate(
   while (next <= today) {
     next.setMonth(next.getMonth() + monthsStep);
   }
-  return next.toISOString().slice(0, 10);
+  return [
+    next.getFullYear(),
+    String(next.getMonth() + 1).padStart(2, "0"),
+    String(next.getDate()).padStart(2, "0"),
+  ].join("-");
 }
 
 /** Parse either an ISO date ("YYYY-MM-DD"...) or a yearless "MM-DD" string
@@ -63,7 +86,7 @@ export function daysUntil(input: string, today: Date = new Date()): number {
     );
   }
 
-  const target = new Date(input);
+  const target = parseCalendarDate(input);
   const targetStart = new Date(
     target.getFullYear(),
     target.getMonth(),
@@ -76,7 +99,7 @@ export function daysUntil(input: string, today: Date = new Date()): number {
 
 /** Format an ISO date as e.g. "May 6, 2026". Locale-aware via Intl. */
 export function formatDate(isoDate: string, locale = "en-CA"): string {
-  return new Date(isoDate).toLocaleDateString(locale, {
+  return parseCalendarDate(isoDate).toLocaleDateString(locale, {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -109,7 +132,7 @@ export function formatRelative(isoDate: string, today: Date = new Date()): strin
 
 /** Age in years from a birthday ISO string. */
 export function calcAge(birthday: string, today: Date = new Date()): number {
-  const b = new Date(birthday);
+  const b = parseCalendarDate(birthday);
   let age = today.getFullYear() - b.getFullYear();
   const m = today.getMonth() - b.getMonth();
   if (m < 0 || (m === 0 && today.getDate() < b.getDate())) age--;
