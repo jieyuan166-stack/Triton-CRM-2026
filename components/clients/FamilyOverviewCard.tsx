@@ -214,7 +214,6 @@ export function FamilyOverviewCard({
                                 isVip={calculateClientTags(policy.owner, policies).includes("VIP")}
                                 size="xs"
                                 className="font-semibold"
-                                lastNameClassName="bg-white/70"
                               />
                             </span>
                             <span className="text-[10px] text-slate-400">

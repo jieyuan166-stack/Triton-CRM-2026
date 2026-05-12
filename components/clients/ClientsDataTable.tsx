@@ -465,12 +465,13 @@ export function ClientsDataTable() {
                         <td className="py-2.5 pr-3">
                           <Link
                             href={`/clients/${r.id}`}
-                            className="flex items-center gap-3 min-w-0"
+                            className="flex items-center gap-2.5 min-w-0"
                           >
                             <ClientAvatar
                               firstName={r.firstName}
                               lastName={r.lastName}
-                              size="sm"
+                              size="xs"
+                              className="bg-slate-50 text-slate-500 ring-slate-100"
                             />
                             <div className="min-w-0">
                               <ClientNameDisplay
