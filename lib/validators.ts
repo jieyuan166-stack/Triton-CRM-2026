@@ -3,7 +3,6 @@ import { z } from "zod";
 import {
   CANADIAN_POSTAL_CODE_REGEX,
   PROVINCE_CODES,
-  RELATIONSHIP_TYPES,
 } from "./constants";
 import {
   CARRIERS,
@@ -176,8 +175,7 @@ const optionalString = z
   .optional()
   .or(z.literal("").transform(() => undefined));
 
-export const clientFormSchema = z
-  .object({
+export const clientFormSchema = z.object({
     firstName: z.string().trim().min(1, "First name is required"),
     lastName: z.string().trim().min(1, "Last name is required"),
     email: z
@@ -206,27 +204,7 @@ export const clientFormSchema = z
 
     birthday: optionalString,
 
-    linkedToId: z
-      .string()
-      .optional()
-      .or(z.literal("").transform(() => undefined)),
-    relationship: z
-      .enum(RELATIONSHIP_TYPES as unknown as [string, ...string[]])
-      .optional(),
-
     notes: optionalString,
-  })
-  // Conditional: if linkedToId is set, relationship is required (and vice versa).
-  .refine(
-    (d) => {
-      if (d.linkedToId && !d.relationship) return false;
-      if (d.relationship && !d.linkedToId) return false;
-      return true;
-    },
-    {
-      message: "Relationship is required when a client is linked",
-      path: ["relationship"],
-    }
-  );
+  });
 
 export type ClientFormValues = z.infer<typeof clientFormSchema>;

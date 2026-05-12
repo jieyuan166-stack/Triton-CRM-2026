@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import type {
   Beneficiary,
   Client,
+  ClientRelationship,
   EmailHistoryEntry,
   FollowUp,
   Policy,
@@ -17,6 +18,7 @@ type DataSnapshot = {
   clients: Client[];
   policies: Policy[];
   followUps: FollowUp[];
+  relationships: ClientRelationship[];
 };
 
 function dateOnly(value: Date | string | null | undefined): string | undefined {
@@ -150,8 +152,26 @@ function serializeFollowUp(
   };
 }
 
+function serializeRelationship(
+  relationship: {
+    id: string;
+    fromClientId: string;
+    toClientId: string;
+    relationship: string;
+    createdAt: Date;
+  }
+): ClientRelationship {
+  return {
+    id: relationship.id,
+    fromClientId: relationship.fromClientId,
+    toClientId: relationship.toClientId,
+    relationship: relationship.relationship as ClientRelationship["relationship"],
+    createdAt: relationship.createdAt.toISOString(),
+  };
+}
+
 async function readData(): Promise<DataSnapshot> {
-  const [clients, policies, followUps] = await Promise.all([
+  const [clients, policies, followUps, relationships] = await Promise.all([
     db.client.findMany({
       include: { emailHistory: { orderBy: { date: "desc" } } },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
@@ -164,12 +184,16 @@ async function readData(): Promise<DataSnapshot> {
       include: { createdBy: { select: { name: true } } },
       orderBy: { date: "desc" },
     }),
+    db.clientRelationship.findMany({
+      orderBy: { createdAt: "asc" },
+    }),
   ]);
 
   return {
     clients: clients.map(serializeClient),
     policies: policies.map(serializePolicy),
     followUps: followUps.map(serializeFollowUp),
+    relationships: relationships.map(serializeRelationship),
   };
 }
 
@@ -236,10 +260,12 @@ async function replaceAll(snapshot: {
   clients?: Client[];
   policies?: Policy[];
   followUps?: FollowUp[];
+  relationships?: ClientRelationship[];
 }, userId: string) {
   const clients = Array.isArray(snapshot.clients) ? snapshot.clients : [];
   const policies = Array.isArray(snapshot.policies) ? snapshot.policies : [];
   const followUps = Array.isArray(snapshot.followUps) ? snapshot.followUps : [];
+  const relationships = Array.isArray(snapshot.relationships) ? snapshot.relationships : [];
   const clientIds = new Set(clients.map((c) => c.id));
 
   await db.$transaction(async (tx) => {
@@ -247,6 +273,7 @@ async function replaceAll(snapshot: {
     await tx.emailHistory.deleteMany();
     await tx.followUp.deleteMany();
     await tx.policy.deleteMany();
+    await tx.clientRelationship.deleteMany();
     await tx.client.deleteMany();
 
     for (const c of clients) {
@@ -281,6 +308,41 @@ async function replaceAll(snapshot: {
           },
         });
       }
+    }
+
+    const seenRelationships = new Set<string>();
+    const relationshipRows = [
+      ...relationships,
+      ...clients
+        .filter((c) => c.linkedToId && c.relationship)
+        .map((c) => ({
+          id: `${c.id}_${c.linkedToId}`,
+          fromClientId: c.id,
+          toClientId: c.linkedToId!,
+          relationship: c.relationship!,
+          createdAt: c.createdAt,
+        } satisfies ClientRelationship)),
+    ];
+    for (const relationship of relationshipRows) {
+      if (
+        !clientIds.has(relationship.fromClientId) ||
+        !clientIds.has(relationship.toClientId) ||
+        relationship.fromClientId === relationship.toClientId
+      ) {
+        continue;
+      }
+      const key = `${relationship.fromClientId}:${relationship.toClientId}`;
+      if (seenRelationships.has(key)) continue;
+      seenRelationships.add(key);
+      await tx.clientRelationship.create({
+        data: {
+          id: relationship.id,
+          fromClientId: relationship.fromClientId,
+          toClientId: relationship.toClientId,
+          relationship: relationship.relationship,
+          createdAt: toDate(relationship.createdAt) ?? new Date(),
+        },
+      });
     }
 
     for (const p of policies.filter((p) => clientIds.has(p.clientId))) {
@@ -358,6 +420,52 @@ export async function POST(request: Request) {
       case "client.delete": {
         await db.client.delete({ where: { id: String(payload.id) } });
         await auditLog({ action: "delete_client", entityType: "client", entityId: String(payload.id) });
+        break;
+      }
+      case "clientRelationships.replace": {
+        const clientId = String(payload.clientId);
+        const rows = Array.isArray(payload.relationships)
+          ? (payload.relationships as ClientRelationship[])
+          : [];
+        const liveClients = await db.client.findMany({
+          select: { id: true },
+        });
+        const liveClientIds = new Set(liveClients.map((client) => client.id));
+        await db.$transaction(async (tx) => {
+          await tx.clientRelationship.deleteMany({
+            where: {
+              OR: [{ fromClientId: clientId }, { toClientId: clientId }],
+            },
+          });
+          const seen = new Set<string>();
+          for (const relationship of rows) {
+            if (
+              relationship.fromClientId !== clientId ||
+              !liveClientIds.has(relationship.toClientId) ||
+              relationship.toClientId === clientId
+            ) {
+              continue;
+            }
+            const key = `${relationship.fromClientId}:${relationship.toClientId}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            await tx.clientRelationship.create({
+              data: {
+                id: relationship.id,
+                fromClientId: relationship.fromClientId,
+                toClientId: relationship.toClientId,
+                relationship: relationship.relationship,
+                createdAt: toDate(relationship.createdAt) ?? new Date(),
+              },
+            });
+          }
+        });
+        await auditLog({
+          action: "replace_client_relationships",
+          entityType: "client",
+          entityId: clientId,
+          metadata: { count: rows.length },
+        });
         break;
       }
       case "policy.create": {

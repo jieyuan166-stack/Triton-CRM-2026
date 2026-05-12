@@ -32,6 +32,7 @@ export interface BackupSnapshot {
   clients: unknown[];
   policies: unknown[];
   followUps: unknown[];
+  relationships?: unknown[];
 }
 
 export interface BackupRecord {

@@ -9,6 +9,7 @@ import { ClientHeader } from "@/components/clients/ClientHeader";
 import { ClientInfoCard } from "@/components/clients/ClientInfoCard";
 import { ClientPoliciesCard } from "@/components/clients/ClientPoliciesCard";
 import { CommunicationLog } from "@/components/clients/CommunicationLog";
+import { FamilyOverviewCard } from "@/components/clients/FamilyOverviewCard";
 import { FollowUpTimeline } from "@/components/clients/FollowUpTimeline";
 import { NewClientDialog } from "@/components/clients/NewClientDialog";
 import { EmptyState } from "@/components/ui-shared/EmptyState";
@@ -24,6 +25,9 @@ export default function ClientDetailPage() {
     getClientWithStats,
     getPoliciesByClient,
     getFollowUpsByClient,
+    clients,
+    policies: allPolicies,
+    relationships,
   } = useData();
 
   const client = getClientWithStats(id);
@@ -74,6 +78,17 @@ export default function ClientDetailPage() {
           <FollowUpTimeline clientId={client.id} followUps={followUps} />
         </div>
       </div>
+
+      {fullClient ? (
+        <div className="mt-4 md:mt-6">
+          <FamilyOverviewCard
+            client={fullClient}
+            clients={clients}
+            policies={allPolicies}
+            relationships={relationships}
+          />
+        </div>
+      ) : null}
 
       {/* Communication Log — full width below the three-up grid so the
           newest send is the first thing visible after Follow-ups, and so

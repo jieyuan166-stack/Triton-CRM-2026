@@ -126,16 +126,6 @@ export async function POST(request: Request) {
     );
   }
 
-  if (data.linkedToId && !(await db.client.findUnique({ where: { id: data.linkedToId } }))) {
-    return NextResponse.json(
-      {
-        error: "Linked client not found",
-        issues: { fieldErrors: { linkedToId: ["Client not found"] } },
-      },
-      { status: 400 },
-    );
-  }
-
   const createdRow = await db.client.create({
     data: {
       firstName: data.firstName,
@@ -148,8 +138,6 @@ export async function POST(request: Request) {
       province: data.province || null,
       postalCode: data.postalCode || null,
       birthday: data.birthday ? new Date(data.birthday) : null,
-      linkedToId: data.linkedToId || null,
-      relationship: data.relationship || null,
       notes: data.notes || null,
     },
   });

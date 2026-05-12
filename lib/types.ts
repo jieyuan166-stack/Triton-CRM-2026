@@ -190,6 +190,14 @@ export interface Client {
   createdAt: string;
 }
 
+export interface ClientRelationship {
+  id: string;
+  fromClientId: string;
+  toClientId: string;
+  relationship: ClientLinkRelationship;
+  createdAt: string;
+}
+
 /** All Canadian provinces & territories — kept for label lookup. */
 export const PROVINCES: { code: string; label: string }[] = [
   { code: "AB", label: "Alberta" },

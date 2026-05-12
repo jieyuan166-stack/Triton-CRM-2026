@@ -24,7 +24,9 @@ import { toast } from "sonner";
 import {
   Check,
   Loader2,
+  Plus,
   Search,
+  Trash2,
   UserPlus,
   X,
 } from "lucide-react";
@@ -55,8 +57,10 @@ import {
   RELATIONSHIP_TYPES,
   formatPostalCode,
   isProvinceCode,
+  isRelationshipType,
 } from "@/lib/constants";
-import { provinceLabel, type Client } from "@/lib/types";
+import { inverseRelationship } from "@/lib/family";
+import { provinceLabel, type Client, type ClientRelationship } from "@/lib/types";
 import { formatPhone } from "@/lib/phone-format";
 import {
   clientFormSchema,
@@ -87,10 +91,14 @@ const DEFAULTS: Partial<ClientFormValues> = {
   province: undefined,
   postalCode: "",
   birthday: undefined,
-  linkedToId: undefined,
-  relationship: undefined,
   notes: "",
 };
+
+interface RelationshipDraft {
+  id: string;
+  toClientId?: string;
+  relationship?: ClientRelationship["relationship"];
+}
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
@@ -103,9 +111,16 @@ export function NewClientDialog({
   client,
   onCreated,
 }: NewClientDialogProps) {
-  const { clients, createClient, updateClient } = useData();
+  const {
+    clients,
+    createClient,
+    updateClient,
+    getClientRelationships,
+    replaceClientRelationships,
+  } = useData();
   const router = useRouter();
   const isEdit = !!client;
+  const [relationshipDrafts, setRelationshipDrafts] = useState<RelationshipDraft[]>([]);
 
   const {
     register,
@@ -135,18 +150,40 @@ export function NewClientDialog({
         province: client.province,
         postalCode: client.postalCode ?? "",
         birthday: client.birthday,
-        linkedToId: client.linkedToId,
-        relationship: client.relationship,
         notes: client.notes ?? "",
       } as ClientFormValues);
+      const relationships = getClientRelationships(client.id);
+      const drafts = relationships.map((relationship) => {
+        const outgoing = relationship.fromClientId === client.id;
+        const visibleRelationship = outgoing
+          ? relationship.relationship
+          : inverseRelationship(relationship.relationship);
+        return {
+          id: relationship.id,
+          toClientId: outgoing
+            ? relationship.toClientId
+            : relationship.fromClientId,
+          relationship: isRelationshipType(visibleRelationship)
+            ? visibleRelationship
+            : undefined,
+        } satisfies RelationshipDraft;
+      });
+      if (drafts.length === 0 && client.linkedToId && client.relationship) {
+        drafts.push({
+          id: `legacy_${client.id}_${client.linkedToId}`,
+          toClientId: client.linkedToId,
+          relationship: client.relationship,
+        });
+      }
+      setRelationshipDrafts(drafts);
     } else {
       reset(DEFAULTS as ClientFormValues);
+      setRelationshipDrafts([]);
     }
-  }, [open, client, reset]);
+  }, [open, client, getClientRelationships, reset]);
 
   const phone = watch("phone") ?? "";
   const postalCode = watch("postalCode") ?? "";
-  const linkedToId = watch("linkedToId");
 
   function handlePhoneChange(e: ChangeEvent<HTMLInputElement>) {
     setValue("phone", formatPhone(e.target.value), { shouldValidate: false });
@@ -157,7 +194,42 @@ export function NewClientDialog({
     });
   }
 
+  function validateRelationshipDrafts() {
+    const active = relationshipDrafts.filter(
+      (draft) => draft.toClientId || draft.relationship
+    );
+    const incomplete = active.some(
+      (draft) => !draft.toClientId || !draft.relationship
+    );
+    if (incomplete) {
+      toast.error("Linked client is incomplete", {
+        description: "Choose both a client and a relationship, or remove the row.",
+      });
+      return null;
+    }
+    const seen = new Set<string>();
+    const duplicates = active.some((draft) => {
+      if (!draft.toClientId) return false;
+      if (seen.has(draft.toClientId)) return true;
+      seen.add(draft.toClientId);
+      return false;
+    });
+    if (duplicates) {
+      toast.error("Duplicate linked client", {
+        description: "Each family member can only be linked once.",
+      });
+      return null;
+    }
+    return active.map((draft) => ({
+      toClientId: draft.toClientId!,
+      relationship: draft.relationship!,
+    }));
+  }
+
   async function onSubmit(values: ClientFormValues) {
+    const nextRelationships = validateRelationshipDrafts();
+    if (!nextRelationships) return;
+
     // Common patch payload (sans id / createdAt — those stay).
     const patch = {
       firstName: values.firstName,
@@ -170,8 +242,6 @@ export function NewClientDialog({
       province: values.province as Client["province"],
       postalCode: values.postalCode,
       birthday: values.birthday,
-      linkedToId: values.linkedToId,
-      relationship: values.relationship as Client["relationship"],
       notes: values.notes,
     };
 
@@ -181,6 +251,7 @@ export function NewClientDialog({
         toast.error("Could not update client");
         return;
       }
+      replaceClientRelationships(updated.id, nextRelationships);
       toast.success("Client updated", {
         description: `${updated.firstName} ${updated.lastName} saved`,
       });
@@ -202,6 +273,7 @@ export function NewClientDialog({
     }
 
     const created = createClient(patch);
+    replaceClientRelationships(created.id, nextRelationships);
     toast.success("Client created", {
       description: `${created.firstName} ${created.lastName} added to your book`,
       action: {
@@ -395,47 +467,112 @@ export function NewClientDialog({
             </div>
           </Section>
 
-          {/* === Linked client === */}
-          <Section title="Linked Client (Relationship)">
-            <LinkedClientPicker
-              clients={clients.filter((c) => c.id !== client?.id)}
-              selectedId={linkedToId}
-              onSelect={(id) => {
-                setValue("linkedToId", id, { shouldValidate: true });
-                if (!id) {
-                  setValue("relationship", undefined, { shouldValidate: true });
+          {/* === Linked clients === */}
+          <Section title="Linked Clients (Family / Relationship)" optional>
+            <div className="space-y-3">
+              {relationshipDrafts.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-5 text-center">
+                  <p className="text-sm font-medium text-slate-700">
+                    No linked clients yet
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Add family members or business relationships here.
+                  </p>
+                </div>
+              ) : (
+                relationshipDrafts.map((draft, index) => {
+                  const selectedIds = new Set(
+                    relationshipDrafts
+                      .filter((item) => item.id !== draft.id)
+                      .map((item) => item.toClientId)
+                      .filter(Boolean)
+                  );
+                  const availableClients = clients.filter(
+                    (candidate) =>
+                      candidate.id !== client?.id && !selectedIds.has(candidate.id)
+                  );
+                  return (
+                    <div
+                      key={draft.id}
+                      className="grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-3 md:grid-cols-[minmax(0,1fr)_180px_auto]"
+                    >
+                      <LinkedClientPicker
+                        clients={availableClients}
+                        selectedId={draft.toClientId}
+                        onSelect={(id) => {
+                          setRelationshipDrafts((prev) =>
+                            prev.map((item) =>
+                              item.id === draft.id
+                                ? { ...item, toClientId: id }
+                                : item
+                            )
+                          );
+                        }}
+                      />
+                      <Select
+                        value={draft.relationship ?? ""}
+                        onValueChange={(v) =>
+                          setRelationshipDrafts((prev) =>
+                            prev.map((item) =>
+                              item.id === draft.id
+                                ? {
+                                    ...item,
+                                    relationship: v as ClientRelationship["relationship"],
+                                  }
+                                : item
+                            )
+                          )
+                        }
+                      >
+                        <SelectTrigger
+                          id={`cli-relationship-${index}`}
+                          className="w-full"
+                        >
+                          <SelectValue placeholder="Relationship" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {RELATIONSHIP_TYPES.map((r) => (
+                            <SelectItem key={r} value={r}>
+                              {r}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="justify-self-start text-slate-400 hover:text-red-600 md:justify-self-end"
+                        onClick={() =>
+                          setRelationshipDrafts((prev) =>
+                            prev.filter((item) => item.id !== draft.id)
+                          )
+                        }
+                        aria-label="Remove linked client"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  );
+                })
+              )}
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="rounded-lg"
+                onClick={() =>
+                  setRelationshipDrafts((prev) => [
+                    ...prev,
+                    { id: `draft_${Date.now()}_${Math.random().toString(36).slice(2, 8)}` },
+                  ])
                 }
-              }}
-            />
-            {linkedToId ? (
-              <div className="mt-3 space-y-1.5">
-                <Label htmlFor="cli-relationship">
-                  Relationship <span className="text-accent-red">*</span>
-                </Label>
-                <Select
-                  value={watch("relationship") ?? ""}
-                  onValueChange={(v) =>
-                    setValue("relationship", v as never, {
-                      shouldValidate: true,
-                    })
-                  }
-                >
-                  <SelectTrigger id="cli-relationship" className="w-full md:w-72">
-                    <SelectValue placeholder="Select relationship" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {RELATIONSHIP_TYPES.map((r) => (
-                      <SelectItem key={r} value={r}>
-                        {r}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FieldError
-                  message={(errors.relationship?.message as string) ?? undefined}
-                />
-              </div>
-            ) : null}
+              >
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                Add Linked Client
+              </Button>
+            </div>
           </Section>
 
           {/* === Notes === */}

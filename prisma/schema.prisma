@@ -41,6 +41,8 @@ model Client {
   updatedAt            DateTime       @updatedAt
   linkedTo             Client?        @relation("ClientLinks", fields: [linkedToId], references: [id])
   linkedClients        Client[]       @relation("ClientLinks")
+  relationshipsFrom    ClientRelationship[] @relation("ClientRelationshipFrom")
+  relationshipsTo      ClientRelationship[] @relation("ClientRelationshipTo")
   policies             Policy[]
   followUps            FollowUp[]
   emailHistory         EmailHistory[]
@@ -48,6 +50,20 @@ model Client {
 
   @@index([lastName, firstName])
   @@index([province])
+}
+
+model ClientRelationship {
+  id           String   @id @default(cuid())
+  fromClientId String
+  toClientId   String
+  relationship String
+  createdAt    DateTime @default(now())
+  fromClient   Client   @relation("ClientRelationshipFrom", fields: [fromClientId], references: [id], onDelete: Cascade)
+  toClient     Client   @relation("ClientRelationshipTo", fields: [toClientId], references: [id], onDelete: Cascade)
+
+  @@unique([fromClientId, toClientId])
+  @@index([fromClientId])
+  @@index([toClientId])
 }
 
 model Policy {

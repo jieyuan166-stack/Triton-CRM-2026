@@ -19,6 +19,7 @@ import { type BackupSnapshot } from "@/lib/settings-types";
 import type {
   Beneficiary,
   Client,
+  ClientRelationship,
   ClientWithStats,
   EmailHistoryEntry,
   FollowUp,
@@ -32,6 +33,7 @@ interface DataContextValue {
   clients: Client[];
   policies: Policy[];
   followUps: FollowUp[];
+  relationships: ClientRelationship[];
 
   // queries
   getClient(id: string): Client | undefined;
@@ -40,11 +42,16 @@ interface DataContextValue {
   getPolicy(id: string): Policy | undefined;
   getPoliciesByClient(clientId: string): Policy[];
   getFollowUpsByClient(clientId: string): FollowUp[];
+  getClientRelationships(clientId: string): ClientRelationship[];
 
   // mutations — clients
   createClient(input: Omit<Client, "id" | "createdAt">): Client;
   updateClient(id: string, patch: Partial<Omit<Client, "id">>): Client | null;
   deleteClient(id: string): boolean;
+  replaceClientRelationships(
+    clientId: string,
+    input: Array<{ toClientId: string; relationship: ClientRelationship["relationship"] }>
+  ): ClientRelationship[];
 
   // mutations — policies. Caller supplies premiumDate explicitly (Insurance
   // + Annually only); for Monthly / Investment it can be left undefined.
@@ -131,14 +138,38 @@ function pruneOrphans<T extends { clientId: string }>(
   return list.filter((x) => live.has(x.clientId));
 }
 
+function pruneRelationships(
+  list: ClientRelationship[],
+  clients: Pick<Client, "id">[]
+): ClientRelationship[] {
+  if (list.length === 0) return list;
+  const live = new Set(clients.map((c) => c.id));
+  const seen = new Set<string>();
+  return list.filter((relationship) => {
+    if (
+      !live.has(relationship.fromClientId) ||
+      !live.has(relationship.toClientId) ||
+      relationship.fromClientId === relationship.toClientId
+    ) {
+      return false;
+    }
+    const key = `${relationship.fromClientId}:${relationship.toClientId}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function sanitizeSnapshot(snapshot: {
   clients?: unknown[];
   policies?: unknown[];
   followUps?: unknown[];
+  relationships?: unknown[];
 }): {
   clients: Client[];
   policies: Policy[];
   followUps: FollowUp[];
+  relationships: ClientRelationship[];
 } {
   const clients = Array.isArray(snapshot.clients)
     ? (snapshot.clients.filter(
@@ -164,11 +195,22 @@ function sanitizeSnapshot(snapshot: {
           typeof (f as FollowUp).clientId === "string"
       ) as FollowUp[])
     : [];
+  const relationships = Array.isArray(snapshot.relationships)
+    ? (snapshot.relationships.filter(
+        (r): r is ClientRelationship =>
+          !!r &&
+          typeof r === "object" &&
+          typeof (r as ClientRelationship).id === "string" &&
+          typeof (r as ClientRelationship).fromClientId === "string" &&
+          typeof (r as ClientRelationship).toClientId === "string"
+      ) as ClientRelationship[])
+    : [];
 
   return {
     clients,
     policies: pruneOrphans(policies, clients),
     followUps: pruneOrphans(followUps, clients),
+    relationships: pruneRelationships(relationships, clients),
   };
 }
 
@@ -176,11 +218,13 @@ function readInitialData(): {
   clients: Client[];
   policies: Policy[];
   followUps: FollowUp[];
+  relationships: ClientRelationship[];
 } {
   return {
     clients: seedClients,
     policies: pruneOrphans(seedPolicies, seedClients),
     followUps: pruneOrphans(seedFollowUps, seedClients),
+    relationships: [],
   };
 }
 
@@ -211,6 +255,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [clients, setClients] = useState<Client[]>(initialData.clients);
   const [policies, setPolicies] = useState<Policy[]>(initialData.policies);
   const [followUps, setFollowUps] = useState<FollowUp[]>(initialData.followUps);
+  const [relationships, setRelationships] = useState<ClientRelationship[]>(
+    initialData.relationships
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -221,6 +268,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           clients?: Client[];
           policies?: Policy[];
           followUps?: FollowUp[];
+          relationships?: ClientRelationship[];
         }>;
       })
       .then((data) => {
@@ -229,6 +277,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setClients(next.clients);
         setPolicies(next.policies);
         setFollowUps(next.followUps);
+        setRelationships(next.relationships);
       })
       .catch((error) => {
         console.error("[DataProvider] Prisma data hydrate failed", error);
@@ -292,6 +341,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [followUps]
   );
 
+  const getClientRelationships = useCallback(
+    (clientId: string) =>
+      relationships.filter(
+        (relationship) =>
+          relationship.fromClientId === clientId ||
+          relationship.toClientId === clientId
+      ),
+    [relationships]
+  );
+
   // === Mutations: clients ===
   const createClient: DataContextValue["createClient"] = useCallback((input) => {
     const next: Client = {
@@ -338,6 +397,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setClients((prev) => prev.filter((c) => c.id !== id));
       setPolicies((prev) => prev.filter((p) => p.clientId !== id));
       setFollowUps((prev) => prev.filter((f) => f.clientId !== id));
+      setRelationships((prev) =>
+        prev.filter(
+          (relationship) =>
+            relationship.fromClientId !== id && relationship.toClientId !== id
+        )
+      );
       if (existed) {
         persistInBackground("client.delete", { id });
       }
@@ -345,6 +410,47 @@ export function DataProvider({ children }: { children: ReactNode }) {
     },
     [clients]
   );
+
+  const replaceClientRelationships: DataContextValue["replaceClientRelationships"] =
+    useCallback(
+      (clientId, input) => {
+        const liveClientIds = new Set(clients.map((client) => client.id));
+        const seen = new Set<string>();
+        const nextRows: ClientRelationship[] = input.flatMap((item) => {
+          if (
+            !item.toClientId ||
+            item.toClientId === clientId ||
+            !liveClientIds.has(item.toClientId) ||
+            seen.has(item.toClientId)
+          ) {
+            return [];
+          }
+          seen.add(item.toClientId);
+          return [{
+            id: uid("rel"),
+            fromClientId: clientId,
+            toClientId: item.toClientId,
+            relationship: item.relationship,
+            createdAt: new Date().toISOString(),
+          }];
+        });
+
+        setRelationships((prev) => [
+          ...prev.filter(
+            (relationship) =>
+              relationship.fromClientId !== clientId &&
+              relationship.toClientId !== clientId
+          ),
+          ...nextRows,
+        ]);
+        persistInBackground("clientRelationships.replace", {
+          clientId,
+          relationships: nextRows,
+        });
+        return nextRows;
+      },
+      [clients]
+    );
 
   // === Mutations: policies ===
   const createPolicy: DataContextValue["createPolicy"] = useCallback((input) => {
@@ -518,8 +624,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       clients,
       policies,
       followUps,
+      relationships,
     };
-  }, [clients, policies, followUps]);
+  }, [clients, policies, followUps, relationships]);
 
   const replaceAll: DataContextValue["replaceAll"] = useCallback(
     (snapshot) => {
@@ -558,9 +665,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
         ),
         nextClients
       );
+      const nextRelationships = pruneRelationships(
+        Array.isArray(snapshot.relationships)
+          ? (snapshot.relationships as ClientRelationship[]).filter(
+              (r) =>
+                !!r &&
+                typeof r === "object" &&
+                typeof r.id === "string" &&
+                typeof r.fromClientId === "string" &&
+                typeof r.toClientId === "string"
+            )
+          : [],
+        nextClients
+      );
       setClients(nextClients);
       setPolicies(nextPolicies);
       setFollowUps(nextFollowUps);
+      setRelationships(nextRelationships);
       persistInBackground("data.replaceAll", {
         snapshot: {
           version: 1,
@@ -568,6 +689,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           clients: nextClients,
           policies: nextPolicies,
           followUps: nextFollowUps,
+          relationships: nextRelationships,
         },
       });
       return { ok: true };
@@ -580,15 +702,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
       clients,
       policies,
       followUps,
+      relationships,
       getClient,
       getClientWithStats,
       listClientsWithStats,
       getPolicy,
       getPoliciesByClient,
       getFollowUpsByClient,
+      getClientRelationships,
       createClient,
       updateClient,
       deleteClient,
+      replaceClientRelationships,
       createPolicy,
       updatePolicy,
       deletePolicy,
@@ -606,15 +731,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
       clients,
       policies,
       followUps,
+      relationships,
       getClient,
       getClientWithStats,
       listClientsWithStats,
       getPolicy,
       getPoliciesByClient,
       getFollowUpsByClient,
+      getClientRelationships,
       createClient,
       updateClient,
       deleteClient,
+      replaceClientRelationships,
       createPolicy,
       updatePolicy,
       deletePolicy,
