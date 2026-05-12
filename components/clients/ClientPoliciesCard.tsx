@@ -29,27 +29,41 @@ const CATEGORY_SECTION_STYLE = {
 } as const;
 
 const BADGE_CLASS =
-  "h-5 border-0 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ring-1 rounded-md leading-none";
+  "h-5 border-0 px-2 py-0.5 text-[10px] font-semibold tracking-wider ring-1 rounded-md leading-none";
 
-function normalizeLenderName(lender?: string | null) {
-  return (lender ?? "")
-    .replace(/\b(INVESTMENT|BANK|LOAN|CORP|CORPORATION|LTD|LLC|INC)\b/gi, "")
-    .replace(/\s+/g, " ")
-    .trim();
+function displayLenderName(lender?: string | null) {
+  const value = (lender ?? "").trim();
+  const normalized = value.toLowerCase();
+
+  if (normalized === "b2b bank") return "B2B Bank";
+  if (normalized === "ia loan") return "iA Loan";
+  return value;
+}
+
+function lenderTone(lender?: string | null) {
+  const normalized = (lender ?? "").trim().toLowerCase();
+
+  if (normalized === "manulife bank") return "bg-emerald-100 text-emerald-700 ring-emerald-200";
+  if (normalized === "b2b bank") return "bg-amber-100 text-amber-800 ring-amber-200";
+  if (normalized === "ia loan") return "bg-blue-100 text-blue-700 ring-blue-200";
+  if (normalized === "national bank") return "bg-red-50 text-red-600 ring-red-100";
+  return "bg-emerald-50 text-emerald-700 ring-emerald-100";
 }
 
 function PolicyTypeBadge({ policy }: { policy: Policy }) {
   const isLoan = policy.category === "Investment" && !!policy.isInvestmentLoan;
-  const lender = normalizeLenderName(policy.lender);
+  const lender = displayLenderName(policy.lender);
   const label = isLoan
     ? lender
-      ? `Loan · ${lender}`
-      : "Loan"
-    : policy.category;
+      ? `LOAN · ${lender}`
+      : "LOAN"
+    : policy.category.toUpperCase();
   const tone =
-    policy.category === "Investment"
-      ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
-      : "bg-blue-50 text-blue-700 ring-blue-100";
+    isLoan
+      ? lenderTone(policy.lender)
+      : policy.category === "Investment"
+        ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
+        : "bg-blue-50 text-blue-700 ring-blue-100";
 
   return <Badge className={cn(BADGE_CLASS, tone)}>{label}</Badge>;
 }
@@ -102,30 +116,38 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
               <ul className="divide-y divide-slate-100">
                 {sectionPolicies.map((p) => (
                     <li key={p.id}>
-                      <Link href={`/policies/${p.id}`} className={cn("flex items-stretch gap-3 px-5 py-3 transition-colors md:px-6", style.row)}>
-                        <span className="w-1 self-stretch rounded-full shrink-0" style={{ backgroundColor: CARRIER_COLORS[p.carrier] }} />
-                        <div className="flex-1 min-w-0">
-                          <div className="mb-0.5 flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+                      <Link
+                        href={`/policies/${p.id}`}
+                        className={cn("block border-l-2 p-5 transition-colors", style.row)}
+                        style={{ borderLeftColor: CARRIER_COLORS[p.carrier] }}
+                      >
+                        <div className="min-w-0">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-semibold leading-snug text-triton-text">
+                              <p className="text-sm font-medium leading-snug text-triton-text">
                                 {p.productName || p.productType}
                               </p>
-                              <p className="truncate text-xs leading-snug text-triton-muted">
-                                {p.carrier} · {p.productType} · {p.policyNumber}
+                              <p className="mt-1 text-xs leading-snug text-slate-500">
+                                {p.carrier} · {p.productType} · #{p.policyNumber}
                               </p>
                             </div>
-                            <div className="flex flex-row-reverse flex-wrap items-center gap-2">
+                            <div className="flex shrink-0 flex-wrap items-center justify-start gap-2 sm:max-w-[46%] sm:justify-end">
                               <PolicyTypeBadge policy={p} />
                               {p.isCorporateInsurance && p.businessName ? (
                                 <Badge className={cn(BADGE_CLASS, "bg-slate-100 text-slate-600 ring-slate-200")}>
-                                  Corporate
+                                  CORPORATE
                                 </Badge>
                               ) : null}
                             </div>
                           </div>
-                          <div className={cn("grid gap-x-5 gap-y-2", p.category === "Investment" ? "grid-cols-2" : "grid-cols-3")}>
+                          <div
+                            className={cn(
+                              "mt-4 grid gap-x-5 gap-y-3",
+                              p.category === "Investment" ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 sm:grid-cols-3"
+                            )}
+                          >
                             <div className="space-y-1">
-                              <p className="text-[9px] uppercase tracking-wide text-slate-400 font-medium leading-none">
+                              <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold leading-none">
                                 {p.category === "Investment" ? "Initial Amount" : "Face Amount"}
                               </p>
                               <p className="text-xs font-medium text-triton-text tabular-nums leading-tight">
@@ -134,7 +156,7 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
                             </div>
                             {p.category === "Investment" ? null : (
                               <div className="space-y-1">
-                                <p className="text-[9px] uppercase tracking-wide text-slate-400 font-medium leading-none">Premium</p>
+                                <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold leading-none">Premium</p>
                                 <p className="text-xs font-medium text-triton-text tabular-nums leading-tight">
                                   {formatCurrency(p.premium)}
                                   <span className="text-[10px] text-triton-muted font-normal">
@@ -144,7 +166,7 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
                               </div>
                             )}
                             <div className="space-y-1">
-                              <p className="text-[9px] uppercase tracking-wide text-slate-400 font-medium leading-none">
+                              <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold leading-none">
                                 {p.category === "Investment" ? "Effective Date" : "Premium Date"}
                               </p>
                               <p className="text-xs font-medium text-triton-text tabular-nums leading-tight">
