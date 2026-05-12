@@ -15,7 +15,7 @@ services:
       - triton-net
     volumes:
       - triton-data:/app/prisma/data
-      - /volume1/docker/triton-crm/backups:/app/backups
+      - /volume1/docker/.docker-triton-backups:/app/backups
     environment:
       DATABASE_URL: file:/app/prisma/data/triton.db
       AUTH_URL: ${AUTH_URL:-https://crm.tritonwealth.ca}
