@@ -74,6 +74,9 @@ interface DataContextValue {
     entry: Omit<EmailHistoryEntry, "id" | "date"> &
       Partial<Pick<EmailHistoryEntry, "id" | "date">>
   ): EmailHistoryEntry | null;
+  /** Delete one or more sent-email history entries for a client. Returns
+   *  the number removed from local state. */
+  deleteEmailHistory(clientId: string, entryIds: string[]): number;
 
   /** Stamp `lastRenewalEmailAt` on a policy so the Upcoming Premiums
    *  widget hides it for the suppression window. ISO timestamp; defaults
@@ -448,6 +451,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return saved;
     }, [clients]);
 
+  const deleteEmailHistory: DataContextValue["deleteEmailHistory"] =
+    useCallback((clientId, entryIds) => {
+      const ids = Array.from(new Set(entryIds.filter(Boolean)));
+      if (ids.length === 0) return 0;
+      let removed = 0;
+      setClients((prev) =>
+        prev.map((c) => {
+          if (c.id !== clientId) return c;
+          const before = c.emailHistory ?? [];
+          const nextHistory = before.filter((entry) => !ids.includes(entry.id));
+          removed = before.length - nextHistory.length;
+          return { ...c, emailHistory: nextHistory };
+        })
+      );
+      persistInBackground("emailHistory.delete", { clientId, entryIds: ids });
+      return removed;
+    }, []);
+
   const markRenewalEmailSent: DataContextValue["markRenewalEmailSent"] =
     useCallback((policyId, at) => {
       const stamp = at ?? new Date().toISOString();
@@ -574,6 +595,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       createFollowUp,
       deleteFollowUp,
       appendEmailHistory,
+      deleteEmailHistory,
       markRenewalEmailSent,
       markBirthdayEmailSent,
       prependClientNote,
@@ -599,6 +621,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       createFollowUp,
       deleteFollowUp,
       appendEmailHistory,
+      deleteEmailHistory,
       markRenewalEmailSent,
       markBirthdayEmailSent,
       prependClientNote,

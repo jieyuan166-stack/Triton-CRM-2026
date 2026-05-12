@@ -446,6 +446,28 @@ export async function POST(request: Request) {
         await auditLog({ action: "send_email", entityType: "client", entityId: clientId });
         break;
       }
+      case "emailHistory.delete": {
+        const clientId = String(payload.clientId);
+        const entryIds = Array.isArray(payload.entryIds)
+          ? payload.entryIds.map((id) => String(id)).filter(Boolean)
+          : [];
+        if (entryIds.length === 0) {
+          return NextResponse.json({ ok: false, error: "No email history ids provided" }, { status: 400 });
+        }
+        await db.emailHistory.deleteMany({
+          where: {
+            clientId,
+            id: { in: entryIds },
+          },
+        });
+        await auditLog({
+          action: "delete_email_history",
+          entityType: "client",
+          entityId: clientId,
+          metadata: { count: entryIds.length },
+        });
+        break;
+      }
       case "policy.markRenewalEmailSent": {
         await db.policy.update({
           where: { id: String(payload.policyId) },

@@ -80,7 +80,7 @@ export default function ClientDetailPage() {
           long bodies have room to expand. Source is fullClient.emailHistory
           (ClientWithStats doesn't carry emailHistory by design). */}
       <div className="mt-4 md:mt-6">
-        <CommunicationLog history={fullClient?.emailHistory} />
+        <CommunicationLog clientId={client.id} history={fullClient?.emailHistory} />
       </div>
 
       <NewClientDialog
