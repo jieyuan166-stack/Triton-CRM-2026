@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useData } from "@/components/providers/DataProvider";
 import { useSettings } from "@/components/providers/SettingsProvider";
+import type { EmailTemplateAttachment } from "@/lib/settings-types";
 import {
   plainTextToEmailHtml,
   renderEmailBody,
@@ -59,6 +60,7 @@ export interface EmailPreviewPayload {
   /** Required when template === "renewal" — identifies the policy whose
    *  renewal-suppression timestamp should be stamped. */
   policyId?: string;
+  attachments?: EmailTemplateAttachment[];
 }
 
 /** Result handed to onSent so callers can perform additional bookkeeping
@@ -111,7 +113,7 @@ export function EmailPreviewDialog({
       setBcc(payload.bcc ?? "");
       setSubject(payload.subject);
       setBody(payload.body);
-      setAttachments([]);
+      setAttachments(payload.attachments ?? []);
       setSending(false);
     }
   }, [open, payload]);

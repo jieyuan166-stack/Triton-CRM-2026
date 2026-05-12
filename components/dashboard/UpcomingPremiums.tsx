@@ -29,7 +29,7 @@ const MAX_SENT = 5;
 export function UpcomingPremiums() {
   const { policies, clients } = useData();
   const { settings } = useSettings();
-  const renewalTpl = settings.templates.find((t) => t.id === "renewal") ?? { subject: "", body: "" };
+  const renewalTpl = settings.templates.find((t) => t.id === "renewal") ?? { subject: "", body: "", attachments: [] };
 
   const now = Date.now();
   const upcomingRows = useMemo(
@@ -107,6 +107,7 @@ export function UpcomingPremiums() {
       contextLabel: clientName, to: client.email,
       subject: applyTemplate(renewalTpl.subject, vars),
       body: applyTemplate(renewalTpl.body, vars),
+      attachments: renewalTpl.attachments ?? [],
       clientId: client.id, template: "renewal", policyId: p.id,
     });
     setDialogOpen(true);
@@ -127,6 +128,7 @@ export function UpcomingPremiums() {
       contextLabel: `${emails.length} clients`, to: "", bcc: Array.from(new Set(emails)).join(", "),
       subject: applyTemplate(renewalTpl.subject, vars),
       body: applyTemplate(renewalTpl.body, vars),
+      attachments: renewalTpl.attachments ?? [],
     });
     setDialogOpen(true);
   }

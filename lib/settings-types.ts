@@ -60,6 +60,7 @@ export interface EmailTemplate {
   label: string;
   subject: string;
   body: string;
+  attachments?: EmailTemplateAttachment[];
   /** Hint chips shown under the body editor — purely informational. */
   variables: string[];
 }
@@ -75,6 +76,14 @@ export interface EmailSignature {
    *  Outlook render it correctly without sanitising styles away. Used as
    *  the html signature segment when sending via /api/send-email. */
   html?: string;
+}
+
+export interface EmailTemplateAttachment {
+  id: string;
+  filename: string;
+  contentType: string;
+  size: number;
+  content: string;
 }
 
 export interface AppSettings {

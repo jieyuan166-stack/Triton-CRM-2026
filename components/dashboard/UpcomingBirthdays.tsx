@@ -38,7 +38,7 @@ function daysUntilNextBirthday(birthday: string, today: Date = new Date()): numb
 export function UpcomingBirthdays() {
   const { clients } = useData();
   const { settings } = useSettings();
-  const birthdayTpl = settings.templates.find((t) => t.id === "birthday") ?? { subject: "", body: "" };
+  const birthdayTpl = settings.templates.find((t) => t.id === "birthday") ?? { subject: "", body: "", attachments: [] };
 
   const now = Date.now();
   const upcomingRows = useMemo(
@@ -108,6 +108,7 @@ export function UpcomingBirthdays() {
       contextLabel: clientName, to: row.client.email,
       subject: applyTemplate(birthdayTpl.subject, vars),
       body: applyTemplate(birthdayTpl.body, vars),
+      attachments: birthdayTpl.attachments ?? [],
       clientId: row.client.id, template: "birthday",
     });
     setDialogOpen(true);
@@ -121,6 +122,7 @@ export function UpcomingBirthdays() {
       contextLabel: `${emails.length} clients`, to: "", bcc: Array.from(new Set(emails)).join(", "),
       subject: applyTemplate(birthdayTpl.subject, vars),
       body: applyTemplate(birthdayTpl.body, vars),
+      attachments: birthdayTpl.attachments ?? [],
     });
     setDialogOpen(true);
   }

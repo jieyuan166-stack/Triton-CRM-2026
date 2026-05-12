@@ -1,8 +1,8 @@
 // components/settings/TemplatesSection.tsx
 "use client";
 
-import { useState } from "react";
-import { Check, RotateCcw, Save, Sparkles, Variable } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, FileText, ImageIcon, Paperclip, RotateCcw, Save, Sparkles, Trash2, Variable } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,7 @@ import {
   SIGNATURE_TEMPLATES,
   htmlToPlainText,
 } from "@/lib/signature-templates";
-import type { EmailTemplate, EmailTemplateId } from "@/lib/settings-types";
+import type { EmailTemplate, EmailTemplateAttachment, EmailTemplateId } from "@/lib/settings-types";
 
 export function TemplatesSection() {
   const { settings, updateTemplate, resetTemplate, updateSignature } =
@@ -162,36 +162,72 @@ function TemplateEditor({
   onReset,
 }: {
   template: EmailTemplate;
-  onSave: (patch: { subject: string; body: string }) => void;
+  onSave: (patch: { subject: string; body: string; attachments?: EmailTemplateAttachment[] }) => void;
   onReset: () => void;
 }) {
   const [subject, setSubject] = useState(template.subject);
   const [body, setBody] = useState(template.body);
+  const [attachments, setAttachments] = useState<EmailTemplateAttachment[]>(
+    template.attachments ?? []
+  );
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Re-hydrate when the underlying template changes (e.g. after reset).
-  // Compare by reference; React triggers TabsContent remount otherwise.
-  if (
-    subject !== template.subject &&
-    body !== template.body &&
-    subject === "" &&
-    body === ""
-  ) {
+  useEffect(() => {
     setSubject(template.subject);
     setBody(template.body);
-  }
+    setAttachments(template.attachments ?? []);
+  }, [template.id, template.subject, template.body, template.attachments]);
 
   const dirty =
     subject.trim() !== template.subject.trim() ||
-    body !== template.body;
+    body !== template.body ||
+    JSON.stringify(attachments) !== JSON.stringify(template.attachments ?? []);
+
+  function arrayBufferToBase64(buffer: ArrayBuffer) {
+    const bytes = new Uint8Array(buffer);
+    let binary = "";
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    return window.btoa(binary);
+  }
+
+  function formatBytes(bytes: number) {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  async function handleAttachmentChange(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    const nextFiles = Array.from(files);
+    const encoded = await Promise.all(
+      nextFiles.map(async (file) => ({
+        id: `${template.id}-${file.name}-${file.size}-${file.lastModified}`,
+        filename: file.name,
+        contentType: file.type || "application/octet-stream",
+        size: file.size,
+        content: arrayBufferToBase64(await file.arrayBuffer()),
+      }))
+    );
+    setAttachments((prev) => [...prev, ...encoded]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function removeAttachment(id: string) {
+    setAttachments((prev) => prev.filter((attachment) => attachment.id !== id));
+  }
 
   function handleSave() {
-    onSave({ subject: subject.trim(), body });
+    onSave({ subject: subject.trim(), body, attachments });
   }
 
   function handleReset() {
     onReset();
     setSubject(template.subject);
     setBody(template.body);
+    setAttachments(template.attachments ?? []);
   }
 
   return (
@@ -213,6 +249,72 @@ function TemplateEditor({
           value={body}
           onChange={(e) => setBody(e.target.value)}
         />
+      </div>
+
+      <div className="rounded-lg border border-slate-200 bg-white px-3 py-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 flex items-center gap-1">
+              <Paperclip className="h-3 w-3" />
+              Template attachments
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              These files are attached automatically whenever this template is sent.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Paperclip className="mr-1.5 h-3.5 w-3.5" />
+            Add File
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="application/pdf,image/*"
+            className="hidden"
+            onChange={(event) => void handleAttachmentChange(event.target.files)}
+          />
+        </div>
+        {attachments.length > 0 ? (
+          <div className="mt-3 space-y-1.5">
+            {attachments.map((attachment) => {
+              const isImage = attachment.contentType.startsWith("image/");
+              return (
+                <div
+                  key={attachment.id}
+                  className="flex items-center gap-2 rounded-md bg-slate-50 px-2.5 py-2 text-xs text-slate-700 ring-1 ring-slate-100"
+                >
+                  {isImage ? (
+                    <ImageIcon className="h-3.5 w-3.5 text-slate-400" />
+                  ) : (
+                    <FileText className="h-3.5 w-3.5 text-slate-400" />
+                  )}
+                  <span className="min-w-0 flex-1 truncate">{attachment.filename}</span>
+                  <span className="shrink-0 text-[11px] text-slate-400">
+                    {formatBytes(attachment.size)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeAttachment(attachment.id)}
+                    className="shrink-0 rounded p-1 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
+                    aria-label={`Remove ${attachment.filename}`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="mt-3 rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-500">
+            No default attachment for this template.
+          </p>
+        )}
       </div>
 
       {/* Variables hint */}
