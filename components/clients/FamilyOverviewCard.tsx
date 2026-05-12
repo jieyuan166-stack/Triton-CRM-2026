@@ -23,6 +23,51 @@ const CATEGORY_TONE: Record<string, string> = {
   Investment: "bg-emerald-50 text-emerald-700 ring-emerald-100",
 };
 
+const MEMBER_TONES = [
+  {
+    dot: "#2563EB",
+    bg: "bg-blue-50",
+    border: "border-blue-100",
+    text: "text-blue-700",
+    ring: "ring-blue-100",
+  },
+  {
+    dot: "#059669",
+    bg: "bg-emerald-50",
+    border: "border-emerald-100",
+    text: "text-emerald-700",
+    ring: "ring-emerald-100",
+  },
+  {
+    dot: "#D97706",
+    bg: "bg-amber-50",
+    border: "border-amber-100",
+    text: "text-amber-700",
+    ring: "ring-amber-100",
+  },
+  {
+    dot: "#7C3AED",
+    bg: "bg-violet-50",
+    border: "border-violet-100",
+    text: "text-violet-700",
+    ring: "ring-violet-100",
+  },
+  {
+    dot: "#DB2777",
+    bg: "bg-pink-50",
+    border: "border-pink-100",
+    text: "text-pink-700",
+    ring: "ring-pink-100",
+  },
+  {
+    dot: "#475569",
+    bg: "bg-slate-50",
+    border: "border-slate-100",
+    text: "text-slate-700",
+    ring: "ring-slate-100",
+  },
+] as const;
+
 export function FamilyOverviewCard({
   client,
   clients,
@@ -30,6 +75,16 @@ export function FamilyOverviewCard({
   relationships,
 }: FamilyOverviewCardProps) {
   const summary = buildFamilySummary(client, clients, policies, relationships);
+  const familyMembers = [
+    client,
+    ...summary.linkedClients.map((link) => link.client),
+  ];
+  const toneByClientId = new Map(
+    familyMembers.map((member, index) => [
+      member.id,
+      MEMBER_TONES[index % MEMBER_TONES.length],
+    ])
+  );
 
   if (summary.linkedClients.length === 0) return null;
 
@@ -59,8 +114,20 @@ export function FamilyOverviewCard({
                 <Link
                   key={link.relationshipId}
                   href={`/clients/${link.client.id}`}
-                  className="group flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-3 transition-colors hover:border-slate-200 hover:bg-white"
+                  className={cn(
+                    "group flex items-center gap-3 rounded-xl border px-3 py-3 transition-colors hover:bg-white",
+                    toneByClientId.get(link.client.id)?.bg ?? "bg-slate-50/70",
+                    toneByClientId.get(link.client.id)?.border ??
+                      "border-slate-100"
+                  )}
                 >
+                  <span
+                    className="h-9 w-1 rounded-full"
+                    style={{
+                      backgroundColor:
+                        toneByClientId.get(link.client.id)?.dot ?? "#94A3B8",
+                    }}
+                  />
                   <ClientAvatar
                     firstName={link.client.firstName}
                     lastName={link.client.lastName}
@@ -103,28 +170,53 @@ export function FamilyOverviewCard({
                 </p>
               </div>
             ) : (
-              <div className="overflow-hidden rounded-xl border border-slate-100">
+              <div className="overflow-hidden rounded-xl border border-slate-100 bg-white">
                 <ul className="divide-y divide-slate-100">
                   {summary.policies.slice(0, 8).map((policy) => (
-                    <li key={policy.id}>
+                    <li
+                      key={policy.id}
+                      className={cn(
+                        "relative",
+                        toneByClientId.get(policy.owner.id)?.bg
+                      )}
+                    >
                       <Link
                         href={`/policies/${policy.id}`}
-                        className="flex items-center gap-3 px-3 py-3 transition-colors hover:bg-slate-50"
+                        className="flex items-center gap-3 px-3 py-3 transition-colors hover:bg-white/70"
                       >
                         <span
-                          className="h-9 w-1 shrink-0 rounded-full"
+                          className="h-12 w-1.5 shrink-0 rounded-full"
                           style={{
                             backgroundColor:
-                              CARRIER_COLORS[policy.carrier] ?? "#94A3B8",
+                              toneByClientId.get(policy.owner.id)?.dot ??
+                              CARRIER_COLORS[policy.carrier] ??
+                              "#94A3B8",
                           }}
                         />
                         <div className="min-w-0 flex-1">
+                          <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                            <span
+                              className={cn(
+                                "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1",
+                                toneByClientId.get(policy.owner.id)?.bg ??
+                                  "bg-slate-50",
+                                toneByClientId.get(policy.owner.id)?.text ??
+                                  "text-slate-700",
+                                toneByClientId.get(policy.owner.id)?.ring ??
+                                  "ring-slate-100"
+                              )}
+                            >
+                              {policy.owner.firstName} {policy.owner.lastName}
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              {policy.carrier}
+                            </span>
+                          </div>
                           <p className="truncate text-sm font-semibold text-slate-900">
                             {policy.productName || policy.productType}
                           </p>
                           <p className="truncate text-xs text-slate-500">
-                            {policy.owner.firstName} {policy.owner.lastName} ·{" "}
-                            {policy.carrier} · {policy.policyNumber}
+                            {policy.productType} · {policy.policyNumber}
                           </p>
                         </div>
                         <div className="text-right">
