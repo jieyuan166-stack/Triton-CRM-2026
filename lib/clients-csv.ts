@@ -172,9 +172,9 @@ export function buildCsvFieldMapping(headers: string[]): CsvFieldMapping {
   const mappedFields: Partial<Record<CanonicalField, string>> = {};
 
   for (const [field, aliases] of Object.entries(FIELD_ALIASES) as [CanonicalField, string[]][]) {
-    const match = aliases.find((alias) => normalizedMap.has(alias));
+    const match = aliases.find((alias) => normalizedMap.has(normalizeHeader(alias)));
     if (match) {
-      mappedFields[field] = normalizedMap.get(match);
+      mappedFields[field] = normalizedMap.get(normalizeHeader(match));
     }
   }
 
@@ -246,6 +246,25 @@ function findCarrier(value: string) {
 function findProductType(value: string) {
   const normalized = value.trim().toLowerCase();
   return SUPPORTED_PRODUCT_TYPES.find((type) => type.toLowerCase() === normalized);
+}
+
+function parseCategory(value: string): Policy["category"] | undefined {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "insurance") return "Insurance";
+  if (normalized === "investment" || normalized === "investments") return "Investment";
+  return undefined;
+}
+
+function parsePaymentFrequency(value: string): Policy["paymentFrequency"] | undefined {
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return undefined;
+  if (normalized === "annually" || normalized === "annual") return "Annual";
+  if (normalized === "monthly") return "Monthly";
+  if (normalized === "quarterly") return "Quarterly";
+  if (normalized === "semi-annual" || normalized === "semi annual" || normalized === "semiannually") {
+    return "Semi-Annual";
+  }
+  return undefined;
 }
 
 export function formatProductsForCsv(products: Policy[]) {
@@ -367,21 +386,46 @@ export function parseImportedRows(rows: RawRecord[]): { mapping: CsvFieldMapping
         .map((item) => item.trim())
         .filter(Boolean)
         .forEach((item, productIndex) => {
-          const [carrierPart, productTypePart, premiumPart] = item.split("|").map((part) => part.trim());
-          if (!carrierPart || !productTypePart || !premiumPart) {
+          const parts = item.split("|").map((part) => part.trim());
+          const isEnhanced = parts.length >= 9;
+          const [
+            carrierPart,
+            categoryPartOrProductType,
+            productTypePartOrPremium,
+            premiumPartOrAmount,
+            amountPart,
+            policyNumberPart,
+            effectiveDatePart,
+            paymentFrequencyPart,
+            productNamePart,
+          ] = parts;
+
+          const categoryPart = isEnhanced ? categoryPartOrProductType : "Insurance";
+          const productTypePart = isEnhanced ? productTypePartOrPremium : categoryPartOrProductType;
+          const premiumPart = isEnhanced ? premiumPartOrAmount : productTypePartOrPremium;
+
+          if (!carrierPart || !categoryPart || !productTypePart || premiumPart === undefined || premiumPart === "") {
             errors.push({
               field: "products",
-              message: `Product entry "${item}" must be Carrier|Product Type|Premium.`,
+              message: `Product entry "${item}" must be Carrier|Product Type|Premium or Carrier|Category|ProductType|Premium|Amount|PolicyNumber|EffectiveDate|PaymentFrequency|ProductName.`,
             });
             return;
           }
 
           const carrier = findCarrier(carrierPart);
+          const category = parseCategory(categoryPart);
           const productType = findProductType(productTypePart);
           const premium = parseCurrency(premiumPart);
+          const amount = isEnhanced ? parseCurrency(amountPart ?? "") : 0;
+          const effectiveDate = isEnhanced ? parseDate(effectiveDatePart ?? "") : undefined;
+          const paymentFrequency = isEnhanced ? parsePaymentFrequency(paymentFrequencyPart ?? "") : undefined;
 
           if (!carrier) {
             errors.push({ field: "products", message: `Unsupported carrier "${carrierPart}".` });
+            return;
+          }
+          if (!category) {
+            errors.push({ field: "products", message: `Unsupported category "${categoryPart}".` });
             return;
           }
           if (!productType) {
@@ -392,20 +436,34 @@ export function parseImportedRows(rows: RawRecord[]): { mapping: CsvFieldMapping
             errors.push({ field: "products", message: `Invalid premium "${premiumPart}".` });
             return;
           }
+          if (isEnhanced && Number.isNaN(amount)) {
+            errors.push({ field: "products", message: `Invalid amount "${amountPart}".` });
+            return;
+          }
+          if (isEnhanced && effectiveDatePart && !effectiveDate) {
+            errors.push({ field: "products", message: `Invalid effective date "${effectiveDatePart}".` });
+            return;
+          }
+          if (isEnhanced && paymentFrequencyPart && !paymentFrequency) {
+            errors.push({ field: "products", message: `Unsupported payment frequency "${paymentFrequencyPart}".` });
+            return;
+          }
 
           products.push({
             carrier,
-            category: "Insurance",
+            category,
             productType,
-            productName: productType,
+            productName: productNamePart || productType,
             policyNumber:
-              rowPolicyNumber && productIndex === 0
-                ? rowPolicyNumber
-                : `IMP-${timestamp}-${index + 1}-${productIndex + 1}`,
-            sumAssured: 0,
+              policyNumberPart
+                ? policyNumberPart
+                : rowPolicyNumber && productIndex === 0
+                  ? rowPolicyNumber
+                  : `IMP-${timestamp}-${index + 1}-${productIndex + 1}`,
+            sumAssured: isEnhanced ? amount : 0,
             premium,
-            paymentFrequency: "Annually" as Policy["paymentFrequency"],
-            effectiveDate: new Date().toISOString().slice(0, 10),
+            paymentFrequency: paymentFrequency ?? "Annual",
+            effectiveDate: effectiveDate ?? new Date().toISOString().slice(0, 10),
             status: "active",
           });
         });
