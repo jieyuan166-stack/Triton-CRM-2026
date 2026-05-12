@@ -2,7 +2,7 @@
 set -eu
 
 CONTAINER_NAME="${CONTAINER_NAME:-triton-crm}"
-BACKUP_DIR="${BACKUP_DIR:-/volume1/docker/.docker-triton-backups}"
+BACKUP_DIR="${BACKUP_DIR:-/volume1/docker/triton-crm/backups}"
 DB_PATH="${DB_PATH:-/app/prisma/data/triton.db}"
 RETENTION_DAYS="${RETENTION_DAYS:-30}"
 

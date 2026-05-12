@@ -1,7 +1,7 @@
 // lib/backup-service.ts
 // Backup service abstraction. In production this talks to Next.js route
 // handlers that write real files to BACKUP_DIR (/app/backups in Docker,
-// mounted to /volume1/docker/.docker-triton-backups on the NAS).
+// mounted to /volume1/docker/triton-crm/backups on the NAS).
 
 import type { BackupRecord, BackupSnapshot } from "./settings-types";
 

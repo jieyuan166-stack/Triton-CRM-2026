@@ -135,7 +135,7 @@ export function BackupsSection() {
             <p className="text-xs text-triton-muted mt-0.5">
               Manual snapshots and daily database backups are real files stored on the NAS at{" "}
               <code className="font-mono text-[11px] px-1 py-0.5 rounded bg-slate-100">
-                /volume1/docker/.docker-triton-backups/
+                /volume1/docker/triton-crm/backups/
               </code>
               .
             </p>
