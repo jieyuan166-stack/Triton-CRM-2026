@@ -8,11 +8,13 @@ import {
   ArrowUp,
   ChevronsUpDown,
   Pencil,
+  Send,
   Trash2,
   Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useData } from "@/components/providers/DataProvider";
+import { useSettings } from "@/components/providers/SettingsProvider";
 import { ClientAvatar } from "@/components/ui-shared/ClientAvatar";
 import { ConfirmDialog } from "@/components/ui-shared/ConfirmDialog";
 import { DynamicTagBadge } from "@/components/ui-shared/DynamicTagBadge";
@@ -20,9 +22,22 @@ import { EmptyState } from "@/components/ui-shared/EmptyState";
 import { Pagination } from "@/components/ui-shared/Pagination";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
+import {
+  EmailPreviewDialog,
+  type EmailPreviewPayload,
+} from "@/components/dashboard/EmailPreviewDialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ClientsToolbar } from "@/components/clients/ClientsToolbar";
 import { NewClientDialog } from "@/components/clients/NewClientDialog";
 import type { Client } from "@/lib/types";
+import type { EmailTemplateId } from "@/lib/settings-types";
+import { applyTemplate } from "@/lib/templates";
 import {
   queryClients,
   type ClientSortKey,
@@ -63,6 +78,7 @@ function provinceBadgeClass(province: string) {
 
 export function ClientsDataTable() {
   const { clients, policies, followUps, deleteClient } = useData();
+  const { settings } = useSettings();
 
   const [search, setSearch] = useState("");
   const [provinces, setProvinces] = useState<string[]>([]);
@@ -71,6 +87,12 @@ export function ClientsDataTable() {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState<RowsPerPage>(25);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selectedTemplateId, setSelectedTemplateId] =
+    useState<EmailTemplateId>("festival");
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [emailPayload, setEmailPayload] = useState<EmailPreviewPayload | null>(
+    null
+  );
   const [editing, setEditing] = useState<Client | null>(null);
 
   // Delete confirmation state. We track these as separate flags so the bulk
@@ -131,6 +153,17 @@ export function ClientsDataTable() {
     [search, provinces, tagsFilter, sort, page, perPage, clients, policies, followUps]
   );
 
+  const selectedClients = useMemo(
+    () => clients.filter((client) => selected.has(client.id)),
+    [clients, selected]
+  );
+  const selectedClientsWithEmail = selectedClients.filter((client) =>
+    client.email?.trim()
+  );
+  const selectedTemplate =
+    settings.templates.find((template) => template.id === selectedTemplateId) ??
+    settings.templates[0];
+
   // Reset to page 1 whenever filter/sort changes
   function setSearchAndReset(v: string) {
     setSearch(v);
@@ -188,6 +221,54 @@ export function ClientsDataTable() {
     });
   }
 
+  function openSelectedEmail() {
+    if (!selectedTemplate) {
+      toast.error("No email template is available.");
+      return;
+    }
+
+    if (selectedClientsWithEmail.length === 0) {
+      toast.error("No selected clients have an email address.");
+      return;
+    }
+
+    const singleClient =
+      selectedClientsWithEmail.length === 1 ? selectedClientsWithEmail[0] : null;
+    const clientName = singleClient
+      ? `${singleClient.firstName} ${singleClient.lastName}`.trim()
+      : "there";
+    const vars = {
+      "Client Name": clientName,
+      Date: new Date().toLocaleDateString("en-CA", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      }),
+      Carrier: "",
+      "Policy Name": "",
+      "Face Amount": "",
+      "Premium Amount": "",
+    };
+
+    setEmailPayload({
+      contextLabel: singleClient
+        ? clientName
+        : `${selectedClientsWithEmail.length} clients`,
+      to: singleClient
+        ? singleClient.email
+        : settings.email.fromEmail || settings.profile.email,
+      bcc: singleClient
+        ? undefined
+        : selectedClientsWithEmail.map((client) => client.email).join(", "),
+      subject: applyTemplate(selectedTemplate.subject, vars),
+      body: applyTemplate(selectedTemplate.body, vars),
+      attachments: selectedTemplate.attachments ?? [],
+      clientId: singleClient?.id,
+      template: selectedTemplate.id === "birthday" ? "birthday" : "custom",
+    });
+    setEmailDialogOpen(true);
+  }
+
   const empty = result.total === 0;
   const hasFilters =
     !!search.trim() || provinces.length > 0 || tagsFilter.length > 0;
@@ -220,15 +301,46 @@ export function ClientsDataTable() {
 
       {/* Bulk action bar (visible when selection > 0) */}
       {selected.size > 0 ? (
-        <div className="flex items-center justify-between bg-accent-blue/5 border border-accent-blue/20 rounded-lg px-4 py-2 mb-3">
-          <span className="text-sm text-accent-blue font-medium">
-            {selected.size} selected
-          </span>
-          <div className="flex items-center gap-1">
+        <div className="mb-3 flex flex-col gap-2 rounded-lg border border-accent-blue/20 bg-accent-blue/5 px-4 py-2.5 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-accent-blue">
+              {selected.size} selected
+            </span>
+            <span className="text-xs text-slate-500">
+              {selectedClientsWithEmail.length} with email
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Select
+              value={selectedTemplateId}
+              onValueChange={(value) =>
+                setSelectedTemplateId(value as EmailTemplateId)
+              }
+            >
+              <SelectTrigger className="h-8 w-[150px] border-accent-blue/20 bg-white text-xs">
+                <SelectValue placeholder="Template" />
+              </SelectTrigger>
+              <SelectContent>
+                {settings.templates.map((template) => (
+                  <SelectItem key={template.id} value={template.id}>
+                    {template.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              size="sm"
+              className="h-8 bg-navy text-white hover:bg-navy/90"
+              onClick={openSelectedEmail}
+              disabled={selectedClientsWithEmail.length === 0}
+            >
+              <Send className="mr-1.5 h-3.5 w-3.5" />
+              Send Email
+            </Button>
             <Button
               size="sm"
               variant="ghost"
-              className="h-7 text-accent-red hover:bg-accent-red/10 hover:text-accent-red"
+              className="h-8 text-accent-red hover:bg-accent-red/10 hover:text-accent-red"
               onClick={() => setDeletingBulk(true)}
             >
               <Trash2 className="h-3.5 w-3.5 mr-1.5" />
@@ -237,7 +349,7 @@ export function ClientsDataTable() {
             <Button
               size="sm"
               variant="ghost"
-              className="h-7 text-accent-blue hover:bg-accent-blue/10"
+              className="h-8 text-accent-blue hover:bg-accent-blue/10"
               onClick={() => setSelected(new Set())}
             >
               Clear
@@ -270,7 +382,7 @@ export function ClientsDataTable() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400 bg-slate-50/60 border-b border-slate-100">
-                    <th className="pl-5 md:pl-6 pr-2 py-3 w-10">
+                    <th className="w-10 py-2.5 pl-5 pr-2 md:pl-6">
                       <Checkbox
                         aria-label="Select all on page"
                         checked={allOnPageChecked}
@@ -291,7 +403,7 @@ export function ClientsDataTable() {
                       return (
                         <th
                           key={col.key}
-                          className={cn("py-3 pr-3", col.className)}
+                          className={cn("py-2.5 pr-3", col.className)}
                         >
                           {isSortable ? (
                             <button
@@ -323,7 +435,7 @@ export function ClientsDataTable() {
                       );
                     })}
                     {/* Actions column */}
-                    <th className="py-3 pr-5 md:pr-6 w-16 text-right">
+                    <th className="w-16 py-2.5 pr-5 text-right md:pr-6">
                       <span className="sr-only">Actions</span>
                     </th>
                   </tr>
@@ -341,14 +453,14 @@ export function ClientsDataTable() {
                             : "hover:bg-slate-50"
                         )}
                       >
-                        <td className="pl-5 md:pl-6 pr-2 py-4 align-middle">
+                        <td className="py-2.5 pl-5 pr-2 align-middle md:pl-6">
                           <Checkbox
                             aria-label={`Select ${r.firstName} ${r.lastName}`}
                             checked={isChecked}
                             onCheckedChange={(c) => toggleOne(r.id, c === true)}
                           />
                         </td>
-                        <td className="py-4 pr-3">
+                        <td className="py-2.5 pr-3">
                           <Link
                             href={`/clients/${r.id}`}
                             className="flex items-center gap-3 min-w-0"
@@ -370,17 +482,17 @@ export function ClientsDataTable() {
                             </div>
                           </Link>
                         </td>
-                        <td className="py-4 pr-3">
-                          <p className="text-xs text-slate-700 truncate max-w-[16rem]">
+                        <td className="py-2.5 pr-3">
+                          <p className="max-w-[16rem] truncate text-[13px] font-medium text-sky-700">
                             {r.email ?? "—"}
                           </p>
                           {r.phone ? (
-                            <p className="text-[11px] text-slate-500">
+                            <p className="text-[11px] text-slate-400">
                               {r.phone}
                             </p>
                           ) : null}
                         </td>
-                        <td className="py-4 pr-3">
+                        <td className="py-2.5 pr-3">
                           {r.province ? (
                             <span
                               className={cn(
@@ -394,7 +506,7 @@ export function ClientsDataTable() {
                             <span className="text-slate-400">—</span>
                           )}
                         </td>
-                        <td className="py-4 pr-3">
+                        <td className="py-2.5 pr-3">
                           {r.tags.length === 0 ? (
                             <span className="text-slate-400">—</span>
                           ) : (
@@ -405,7 +517,7 @@ export function ClientsDataTable() {
                             </div>
                           )}
                         </td>
-                        <td className="py-4 pr-3">
+                        <td className="py-2.5 pr-3">
                           {r.lastContactAt ? (
                             <span className="text-sm text-slate-700 tabular-nums">
                               {formatRelative(r.lastContactAt)}
@@ -416,7 +528,7 @@ export function ClientsDataTable() {
                             </span>
                           )}
                         </td>
-                        <td className="py-4 pr-5 md:pr-6 text-right">
+                        <td className="py-2.5 pr-5 text-right md:pr-6">
                           <div className="inline-flex items-center justify-end gap-0.5">
                             <Button
                               type="button"
@@ -482,6 +594,14 @@ export function ClientsDataTable() {
           if (!o) setEditing(null);
         }}
         client={editing ?? undefined}
+      />
+
+
+      <EmailPreviewDialog
+        open={emailDialogOpen}
+        onOpenChange={setEmailDialogOpen}
+        payload={emailPayload}
+        onSent={() => setSelected(new Set())}
       />
 
       {/* Single-row delete confirmation. We pass the full client object via
