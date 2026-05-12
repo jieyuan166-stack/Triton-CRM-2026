@@ -71,12 +71,12 @@ export type PaymentFrequency =
  *  type union for legacy records but are no longer offered for new policies. */
 export const PAYMENT_FREQUENCIES: PaymentFrequency[] = ["Monthly", "Annual"];
 
-/** Display label for a payment frequency. Spec calls "Annual" → "Annually". */
+/** Display label for a payment frequency. */
 export const PAYMENT_FREQUENCY_LABELS: Record<PaymentFrequency, string> = {
   Monthly: "Monthly",
   Quarterly: "Quarterly",
   "Semi-Annual": "Semi-Annual",
-  Annual: "Annually",
+  Annual: "Yearly",
 };
 
 export type PolicyStatus = "active" | "lapsed" | "pending";

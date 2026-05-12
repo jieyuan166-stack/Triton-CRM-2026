@@ -8,7 +8,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { WidgetCard } from "@/components/ui-shared/WidgetCard";
 import { EmptyState } from "@/components/ui-shared/EmptyState";
 import { CARRIER_COLORS } from "@/lib/carrier-colors";
-import { formatMonthDay, formatRelative } from "@/lib/date-utils";
+import { formatDate, formatMonthDay, formatRelative } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/format";
 import { PAYMENT_FREQUENCY_LABELS, type Policy } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -80,37 +80,54 @@ export function ClientPoliciesCard({
                       Corporate · {p.businessName}
                     </p>
                   ) : null}
-                  <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div
+                    className={cn(
+                      "grid gap-2 text-xs",
+                      p.category === "Investment"
+                        ? "grid-cols-2"
+                        : "grid-cols-3"
+                    )}
+                  >
                     <div>
                       <p className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">
-                        Face Amount
+                        {p.category === "Investment"
+                          ? "Initial Investment Amount"
+                          : "Face Amount"}
                       </p>
                       <p className="font-semibold text-triton-text tabular-nums">
                         {formatCurrency(p.sumAssured)}
                       </p>
                     </div>
+                    {p.category === "Investment" ? null : (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">
+                          Premium
+                        </p>
+                        <p className="font-semibold text-triton-text tabular-nums">
+                          {formatCurrency(p.premium)}
+                          <span className="text-triton-muted font-normal">
+                            {" "}
+                            /{PAYMENT_FREQUENCY_LABELS[
+                              p.paymentFrequency
+                            ].toLowerCase()}
+                          </span>
+                        </p>
+                      </div>
+                    )}
                     <div>
                       <p className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">
-                        Premium
+                        {p.category === "Investment"
+                          ? "Effective Date"
+                          : "Premium Date"}
                       </p>
                       <p className="font-semibold text-triton-text tabular-nums">
-                        {formatCurrency(p.premium)}
-                        <span className="text-triton-muted font-normal">
-                          {" "}
-                          /{PAYMENT_FREQUENCY_LABELS[p.paymentFrequency]
-                            .toLowerCase()
-                            .slice(0, 3)}
-                        </span>
+                        {p.category === "Investment"
+                          ? formatDate(p.effectiveDate)
+                          : p.premiumDate
+                          ? formatMonthDay(p.premiumDate)
+                          : "—"}
                       </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">
-                        Premium Date
-                      </p>
-                      <p className="font-semibold text-triton-text tabular-nums">
-                        {p.premiumDate ? formatMonthDay(p.premiumDate) : "—"}
-                      </p>
-                      {p.premiumDate ? (
+                      {p.category !== "Investment" && p.premiumDate ? (
                         <p className="text-[10px] text-triton-muted">
                           {formatRelative(p.premiumDate)}
                         </p>
