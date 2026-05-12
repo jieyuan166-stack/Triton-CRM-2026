@@ -23,6 +23,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useData } from "@/components/providers/DataProvider";
 import { ClientAvatar } from "@/components/ui-shared/ClientAvatar";
 import { ClientReportButton } from "@/components/clients/ClientReportButton";
@@ -112,7 +117,7 @@ export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHead
         Back to clients
       </Link>
 
-      <div className="flex flex-col md:flex-row md:items-center gap-5">
+      <div className="flex flex-col gap-5 md:flex-row md:items-center">
         {/* Avatar */}
         <ClientAvatar
           firstName={client.firstName}
@@ -164,9 +169,9 @@ export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHead
           </div>
         </div>
 
-        {/* AUM block */}
-        <div className="flex md:flex-col md:items-end gap-3 md:gap-1 md:text-right md:border-l md:border-slate-200 md:pl-6">
-          <div>
+        {/* AUM + Actions */}
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-end md:self-center">
+          <div className="shrink-0 md:min-w-[7.5rem] md:text-right">
             <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
               AUM
             </p>
@@ -178,21 +183,13 @@ export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHead
               {client.activePolicyCount === 1 ? "policy" : "policies"}
             </p>
           </div>
-        </div>
 
-        {/* Actions */}
-        <div className="flex w-full flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50/70 p-1.5 shadow-inner shadow-white md:w-auto md:min-w-[17rem] md:self-center">
-          <ClientReportButton
-            client={client}
-            policies={reportPolicies}
-            className="h-8 w-full justify-center border border-[#002147]/10 shadow-[0_10px_24px_-16px_rgba(0,33,71,0.8)]"
-          />
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="flex flex-wrap items-center gap-4">
             <Button
               variant="ghost"
               size="sm"
               onClick={onEdit}
-              className="h-8 bg-white text-slate-700 shadow-sm ring-1 ring-slate-200/70 hover:bg-slate-50 hover:text-slate-950"
+              className="h-9 px-2.5 text-slate-600 hover:bg-slate-100 hover:text-slate-950"
             >
               <Pencil className="h-3.5 w-3.5 mr-1.5" />
               Edit
@@ -200,13 +197,26 @@ export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHead
             <Link
               href={`/policies/new?clientId=${client.id}`}
               className={cn(
-                buttonVariants({ variant: "ghost", size: "sm" }),
-                "h-8 bg-white text-slate-700 shadow-sm ring-1 ring-slate-200/70 hover:bg-slate-50 hover:text-slate-950"
+                buttonVariants({ variant: "outline", size: "sm" }),
+                "h-9 border-[#002147]/35 bg-white px-3 text-[#002147] hover:border-[#002147]/55 hover:bg-[#002147]/5 hover:text-[#001832]"
               )}
             >
               <Plus className="h-3.5 w-3.5 mr-1.5" />
               Policy
             </Link>
+            <Tooltip>
+              <TooltipTrigger render={<span className="inline-flex" />}>
+                <ClientReportButton
+                  client={client}
+                  policies={reportPolicies}
+                  iconOnly
+                  className="h-9 w-9"
+                />
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                Generate Portfolio Report
+              </TooltipContent>
+            </Tooltip>
           </div>
         </div>
       </div>
