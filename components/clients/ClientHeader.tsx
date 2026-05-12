@@ -9,11 +9,10 @@ import {
   Mail,
   Pencil,
   Phone as PhoneIcon,
-  Plus,
   Tags,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -23,11 +22,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useData } from "@/components/providers/DataProvider";
 import { ClientAvatar } from "@/components/ui-shared/ClientAvatar";
 import { ClientReportButton } from "@/components/clients/ClientReportButton";
@@ -131,6 +125,16 @@ export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHead
             <h1 className="text-2xl md:text-3xl font-semibold text-slate-900 tracking-tight leading-tight">
               {client.firstName} {client.lastName}
             </h1>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              onClick={onEdit}
+              aria-label={`Edit ${client.firstName} ${client.lastName}`}
+              className="h-6 w-6 rounded-full text-slate-300 opacity-70 hover:bg-slate-100 hover:text-slate-600 hover:opacity-100"
+            >
+              <Pencil className="h-3 w-3" />
+            </Button>
             {client.tags.map((t) => (
               <DynamicTagBadge key={t} tag={t} />
             ))}
@@ -169,8 +173,8 @@ export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHead
           </div>
         </div>
 
-        {/* AUM + Actions */}
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-end md:self-center">
+        {/* AUM + report */}
+        <div className="flex flex-col gap-3 md:items-end md:self-center">
           <div className="shrink-0 md:min-w-[7.5rem] md:text-right">
             <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
               AUM
@@ -184,40 +188,11 @@ export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHead
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onEdit}
-              className="h-9 px-2.5 text-slate-600 hover:bg-slate-100 hover:text-slate-950"
-            >
-              <Pencil className="h-3.5 w-3.5 mr-1.5" />
-              Edit
-            </Button>
-            <Link
-              href={`/policies/new?clientId=${client.id}`}
-              className={cn(
-                buttonVariants({ variant: "outline", size: "sm" }),
-                "h-9 border-[#002147]/35 bg-white px-3 text-[#002147] hover:border-[#002147]/55 hover:bg-[#002147]/5 hover:text-[#001832]"
-              )}
-            >
-              <Plus className="h-3.5 w-3.5 mr-1.5" />
-              Policy
-            </Link>
-            <Tooltip>
-              <TooltipTrigger render={<span className="inline-flex" />}>
-                <ClientReportButton
-                  client={client}
-                  policies={reportPolicies}
-                  iconOnly
-                  className="h-9 w-9"
-                />
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                Generate Portfolio Report
-              </TooltipContent>
-            </Tooltip>
-          </div>
+          <ClientReportButton
+            client={client}
+            policies={reportPolicies}
+            className="self-start md:self-end"
+          />
         </div>
       </div>
 

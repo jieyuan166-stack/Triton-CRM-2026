@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { FileBarChart2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -12,14 +13,14 @@ type ClientReportButtonProps = {
   client: Client;
   policies: Policy[];
   className?: string;
-  iconOnly?: boolean;
+  label?: string;
 };
 
 export function ClientReportButton({
   client,
   policies,
   className,
-  iconOnly = false,
+  label = "Portfolio Review",
 }: ClientReportButtonProps) {
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -58,33 +59,18 @@ export function ClientReportButton({
   return (
     <Button
       type="button"
-      size={iconOnly ? "icon-lg" : "sm"}
-      variant={iconOnly ? "ghost" : "default"}
+      size="sm"
+      variant="outline"
       onClick={handleDownload}
       disabled={isGenerating}
-      aria-label="Generate Portfolio Report"
+      aria-label={label}
       className={cn(
-        iconOnly
-          ? "text-[#002147] hover:bg-slate-100 hover:text-[#001832] disabled:opacity-70"
-          : "rounded-lg bg-[#002147] text-white shadow-sm transition hover:bg-[#001832] disabled:opacity-70",
+        "h-9 rounded-xl border-blue-100 bg-blue-50/70 px-3.5 text-[#002147] shadow-[0_1px_0_rgba(15,23,42,0.03)] transition duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:bg-white hover:text-[#001832] hover:shadow-sm active:translate-y-0 disabled:opacity-70",
         className
       )}
     >
-      <svg
-        aria-hidden="true"
-        className={cn("h-4 w-4", !iconOnly && "mr-2")}
-        viewBox="0 0 384 512"
-        fill="currentColor"
-      >
-        <path d="M64 0C28.7 0 0 28.7 0 64v384c0 35.3 28.7 64 64 64h256c35.3 0 64-28.7 64-64V160H256c-17.7 0-32-14.3-32-32V0H64zm192 0v128h128L256 0zM64 256c0-17.7 14.3-32 32-32h64c35.3 0 64 28.7 64 64s-28.7 64-64 64h-32v32c0 17.7-14.3 32-32 32s-32-14.3-32-32V256zm96 32H128v32h32c17.7 0 32-14.3 32-32s-14.3-32-32-32zm96-64h32c35.3 0 64 28.7 64 64v64c0 35.3-28.7 64-64 64h-32c-17.7 0-32-14.3-32-32V256c0-17.7 14.3-32 32-32zm32 160c17.7 0 32-14.3 32-32v-64c0-17.7-14.3-32-32-32h-32v128h32z" />
-      </svg>
-      {iconOnly ? (
-        <span className="sr-only">
-          {isGenerating ? "Generating portfolio report" : "Generate Portfolio Report"}
-        </span>
-      ) : (
-        isGenerating ? "Generating..." : "Report"
-      )}
+      <FileBarChart2 className="mr-1.5 h-3.5 w-3.5" />
+      {isGenerating ? "Generating..." : label}
     </Button>
   );
 }
