@@ -127,6 +127,7 @@ export interface User {
 import type {
   ProvinceCode,
   RelationshipType as ClientLinkRelationship,
+  TagValue,
 } from "./constants";
 
 /** A single past email send to this client. The Client.emailHistory list
@@ -174,6 +175,12 @@ export interface Client {
   /** Append-only log of emails the advisor has sent. Surfaced as the
    *  Communication Log on the client detail page. */
   emailHistory?: EmailHistoryEntry[];
+
+  /** Advisor-controlled tag overrides. `manualTags` adds tags that are not
+   *  currently produced by the dynamic rules; `hiddenTags` hides dynamic tags
+   *  the advisor has intentionally removed from this client. */
+  manualTags?: TagValue[];
+  hiddenTags?: TagValue[];
 
   /** ISO timestamp of the last birthday email sent to this client. The
    *  Upcoming Birthdays widget uses this to suppress rows that have
@@ -283,10 +290,6 @@ export interface FollowUp {
 }
 
 // === Derived view types ===
-
-// Forward-ref to the dynamic-tag value union without creating a new dep
-// cycle through lib/client-tags. (Pure type alias.)
-import type { TagValue } from "./constants";
 
 export interface ClientWithStats extends Client {
   aum: number;

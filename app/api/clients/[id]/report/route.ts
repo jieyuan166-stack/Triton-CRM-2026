@@ -4,6 +4,7 @@ import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 
 import { buildClientReportFilename } from "@/lib/client-report";
+import { isTagValue, type TagValue } from "@/lib/constants";
 import { renderClientReportPdf } from "@/lib/client-report-pdf";
 import type { Client, Policy } from "@/lib/types";
 import { auditLog, requireSession, unauthorized } from "@/lib/api-security";
@@ -20,6 +21,18 @@ type ReportSnapshot = {
   client: Client;
   policies: Policy[];
 };
+
+function parseTagList(value: string | null | undefined): TagValue[] | undefined {
+  if (!value) return undefined;
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!Array.isArray(parsed)) return undefined;
+    const tags = parsed.filter(isTagValue);
+    return tags.length > 0 ? tags : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 async function getLogoDataUri() {
   const publicDir = path.join(/* turbopackIgnore: true */ process.cwd(), "public");
@@ -73,7 +86,10 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   const { id } = await context.params;
   const row = await db.client.findUnique({
     where: { id },
-    include: { policies: { include: { beneficiaries: true } } },
+    include: {
+      emailHistory: { orderBy: { date: "desc" } },
+      policies: { include: { beneficiaries: true } },
+    },
   });
 
   if (!row) {
@@ -93,10 +109,19 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     postalCode: row.postalCode ?? undefined,
     birthday: row.birthday?.toISOString().slice(0, 10),
     notes: row.notes ?? undefined,
+    manualTags: parseTagList(row.manualTags),
+    hiddenTags: parseTagList(row.hiddenTags),
     linkedToId: row.linkedToId ?? undefined,
     relationship: row.relationship as Client["relationship"],
     lastBirthdayEmailAt: row.lastBirthdayEmailAt?.toISOString(),
     lastContactedAt: row.lastContactedAt?.toISOString(),
+    emailHistory: row.emailHistory.map((entry) => ({
+      id: entry.id,
+      date: entry.date.toISOString(),
+      subject: entry.subject,
+      body: entry.body,
+      templateLabel: entry.templateLabel ?? undefined,
+    })),
     createdAt: row.createdAt.toISOString(),
   };
   const policies = row.policies.map((policy) => ({

@@ -69,7 +69,7 @@ export default function ClientDetailPage() {
           - lg: 3 cols all in one row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         <div className="md:col-span-1 lg:col-span-1">
-          <ClientInfoCard client={client} />
+          <ClientInfoCard client={client} onEdit={() => setEditOpen(true)} />
         </div>
         <div className="md:col-span-1 lg:col-span-1">
           <ClientPoliciesCard clientId={client.id} policies={policies} />

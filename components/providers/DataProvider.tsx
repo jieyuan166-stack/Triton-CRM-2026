@@ -14,6 +14,7 @@ import {
   type ReactNode,
 } from "react";
 import { calculateClientTags } from "@/lib/client-tags";
+import { removeCommunicationNoteBlocks } from "@/lib/communication-notes";
 import { seedClients, seedFollowUps, seedPolicies } from "@/lib/mock-data";
 import { type BackupSnapshot } from "@/lib/settings-types";
 import type {
@@ -566,9 +567,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
         prev.map((c) => {
           if (c.id !== clientId) return c;
           const before = c.emailHistory ?? [];
+          const removedEntries = before.filter((entry) => ids.includes(entry.id));
           const nextHistory = before.filter((entry) => !ids.includes(entry.id));
           removed = before.length - nextHistory.length;
-          return { ...c, emailHistory: nextHistory };
+          return {
+            ...c,
+            emailHistory: nextHistory,
+            notes: removeCommunicationNoteBlocks(c.notes, removedEntries),
+          };
         })
       );
       persistInBackground("emailHistory.delete", { clientId, entryIds: ids });

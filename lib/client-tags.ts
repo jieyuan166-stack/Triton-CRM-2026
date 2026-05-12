@@ -4,7 +4,7 @@
 // All tags are derived from client + policy state — never persisted on the
 // Client record. Computing on-read avoids drift when policies change.
 
-import { TAG_VALUES, type TagValue } from "./constants";
+import { TAG_VALUES, isTagValue, type TagValue } from "./constants";
 import type { Client, PaymentFrequency, Policy } from "./types";
 
 export type DynamicTag = TagValue;
@@ -39,7 +39,7 @@ function annualPremium(p: Policy): number {
  *
  * Returned in a stable display order so tag rows look consistent.
  */
-export function calculateClientTags(
+export function calculateAutoClientTags(
   client: Client,
   policies: Policy[]
 ): DynamicTag[] {
@@ -73,4 +73,23 @@ export function calculateClientTags(
   if (hasLoan) tags.push("Loan");
   if (hasCorporate) tags.push("Corporate");
   return tags;
+}
+
+/**
+ * Compute visible client tags:
+ * - start with dynamic system tags
+ * - remove advisor-hidden dynamic tags
+ * - add advisor-manual tags
+ */
+export function calculateClientTags(
+  client: Client,
+  policies: Policy[]
+): DynamicTag[] {
+  const auto = calculateAutoClientTags(client, policies);
+  const manual = new Set((client.manualTags ?? []).filter(isTagValue));
+  const hidden = new Set((client.hiddenTags ?? []).filter(isTagValue));
+
+  return TAG_VALUES.filter(
+    (tag) => (auto.includes(tag) && !hidden.has(tag)) || manual.has(tag)
+  );
 }

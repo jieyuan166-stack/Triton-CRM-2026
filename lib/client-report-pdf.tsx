@@ -165,14 +165,41 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 48,
     right: 48,
-    bottom: 34,
-    borderTopColor: "#EEF2F6",
+    bottom: 24,
+    borderTopColor: "#E3C86A",
     borderTopWidth: 1,
     paddingTop: 8,
     flexDirection: "row",
     justifyContent: "space-between",
-    color: "#94A3B8",
     fontSize: 8,
+  },
+  footerBrand: {
+    color: "#002147",
+    fontWeight: 700,
+  },
+  footerMeta: {
+    color: "#A48928",
+  },
+  communicationList: {
+    gap: 6,
+  },
+  communicationRow: {
+    borderColor: "#E7EBEF",
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    backgroundColor: "#FBFCFD",
+  },
+  communicationDate: {
+    color: "#64748B",
+    fontSize: 8,
+    marginBottom: 2,
+  },
+  communicationSubject: {
+    color: "#002147",
+    fontSize: 9,
+    fontWeight: 700,
   },
   disclosure: {
     color: "#334155",
@@ -202,6 +229,19 @@ function formatDate(value?: string) {
   return formatCalendarDate(value, "en-CA");
 }
 
+function formatDateTime(value?: string) {
+  if (!value) return "Not provided";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Not provided";
+  const day = formatCalendarDate(value, "en-CA");
+  const time = date.toLocaleTimeString("en-CA", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  return `${day} ${time}`;
+}
+
 function buildAddress(client: Client) {
   return [client.streetAddress, client.unit ? `Unit ${client.unit}` : "", client.city, client.province, client.postalCode]
     .filter(Boolean)
@@ -223,6 +263,9 @@ function ReportDocument({
   const totalFaceAmount = activePolicies.reduce((sum, policy) => sum + (policy.sumAssured || 0), 0);
   const totalPremium = activePolicies.reduce((sum, policy) => sum + (policy.premium || 0), 0);
   const name = clientName(client);
+  const communicationLog = [...(client.emailHistory ?? [])]
+    .sort((a, b) => (a.date < b.date ? 1 : -1))
+    .slice(0, 6);
 
   const columns = [
     { key: "carrier", width: "14%" },
@@ -321,8 +364,8 @@ function ReportDocument({
         </View>
 
         <View style={styles.footer}>
-          <Text>Triton Wealth Management Corporation</Text>
-          <Text>Confidential</Text>
+          <Text style={styles.footerBrand}>Triton Wealth Management Corporation</Text>
+          <Text style={styles.footerMeta}>Confidential Portfolio Review</Text>
         </View>
       </Page>
 
@@ -335,7 +378,34 @@ function ReportDocument({
           </View>
         </View>
         <Text style={styles.eyebrow}>Important Information</Text>
-        <Text style={styles.title}>Disclosure</Text>
+        <Text style={styles.title}>Communication & Disclosure</Text>
+
+        <View style={styles.section}>
+          <View style={styles.sectionTitle}>
+            <Text style={styles.sectionTitleText}>Communication Log</Text>
+            <Text style={styles.sectionNumber}>03</Text>
+          </View>
+          <View style={[styles.sectionBody, styles.communicationList]}>
+            {communicationLog.length === 0 ? (
+              <Text style={{ color: "#94A3B8", paddingVertical: 10, textAlign: "center" }}>
+                No communication log entries recorded.
+              </Text>
+            ) : (
+              communicationLog.map((entry) => (
+                <View key={entry.id} style={styles.communicationRow}>
+                  <Text style={styles.communicationDate}>{formatDateTime(entry.date)}</Text>
+                  <Text style={styles.communicationSubject}>
+                    {entry.templateLabel
+                      ? `Sent "${entry.templateLabel}" Email`
+                      : entry.subject || "Sent email"}
+                  </Text>
+                </View>
+              ))
+            )}
+          </View>
+        </View>
+
+        <Text style={[styles.eyebrow, { marginTop: 18 }]}>Disclosure</Text>
         <View style={styles.disclosure}>
           <Text style={styles.disclosureParagraph}>
             This report is provided for informational and review purposes only. It is not intended to constitute
@@ -354,8 +424,8 @@ function ReportDocument({
           </Text>
         </View>
         <View style={styles.footer}>
-          <Text>Triton Wealth Management Corporation</Text>
-          <Text>Page 2</Text>
+          <Text style={styles.footerBrand}>Triton Wealth Management Corporation</Text>
+          <Text style={styles.footerMeta}>Page 2 · Confidential</Text>
         </View>
       </Page>
     </Document>

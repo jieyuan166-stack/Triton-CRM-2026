@@ -2,12 +2,25 @@ import { NextResponse } from "next/server";
 
 import { auditLog, requireSession, unauthorized } from "@/lib/api-security";
 import { parseClientQueryParams, queryClients } from "@/lib/clients-query";
+import { isTagValue, type TagValue } from "@/lib/constants";
 import { db } from "@/lib/db";
 import { clientFormSchema } from "@/lib/validators";
 import type { Client, FollowUp, Policy } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+function parseTagList(value: string | null | undefined): TagValue[] | undefined {
+  if (!value) return undefined;
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!Array.isArray(parsed)) return undefined;
+    const tags = parsed.filter(isTagValue);
+    return tags.length > 0 ? tags : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 export async function GET(request: Request) {
   const session = await requireSession();
@@ -35,6 +48,8 @@ export async function GET(request: Request) {
     postalCode: c.postalCode ?? undefined,
     birthday: c.birthday?.toISOString().slice(0, 10),
     notes: c.notes ?? undefined,
+    manualTags: parseTagList(c.manualTags),
+    hiddenTags: parseTagList(c.hiddenTags),
     linkedToId: c.linkedToId ?? undefined,
     relationship: c.relationship as Client["relationship"],
     emailHistory: c.emailHistory.map((entry) => ({
@@ -157,6 +172,8 @@ export async function POST(request: Request) {
     linkedToId: createdRow.linkedToId ?? undefined,
     relationship: createdRow.relationship as Client["relationship"],
     notes: createdRow.notes ?? undefined,
+    manualTags: parseTagList(createdRow.manualTags),
+    hiddenTags: parseTagList(createdRow.hiddenTags),
     createdAt: createdRow.createdAt.toISOString(),
   };
 

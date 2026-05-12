@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { auditLog, requireSession, unauthorized } from "@/lib/api-security";
+import { isTagValue, type TagValue } from "@/lib/constants";
+import { removeCommunicationNoteBlocks } from "@/lib/communication-notes";
 import { db } from "@/lib/db";
 import type {
   Beneficiary,
@@ -51,6 +53,24 @@ function stripUndefined<T extends Record<string, unknown>>(input: T): T {
   ) as T;
 }
 
+function parseTagList(value: string | null | undefined): TagValue[] | undefined {
+  if (!value) return undefined;
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!Array.isArray(parsed)) return undefined;
+    const tags = parsed.filter(isTagValue);
+    return tags.length > 0 ? tags : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function serializeTagList(value: TagValue[] | undefined, partial: boolean) {
+  if (value === undefined) return partial ? undefined : null;
+  const tags = value.filter(isTagValue);
+  return tags.length > 0 ? JSON.stringify(tags) : null;
+}
+
 function serializeClient(
   c: Awaited<ReturnType<typeof db.client.findMany>>[number] & {
     emailHistory?: Array<{
@@ -75,6 +95,8 @@ function serializeClient(
     postalCode: c.postalCode ?? undefined,
     birthday: dateOnly(c.birthday),
     notes: c.notes ?? undefined,
+    manualTags: parseTagList(c.manualTags),
+    hiddenTags: parseTagList(c.hiddenTags),
     linkedToId: c.linkedToId ?? undefined,
     relationship: c.relationship as Client["relationship"],
     emailHistory: (c.emailHistory ?? []).map((entry) => ({
@@ -216,6 +238,8 @@ function clientData(input: Partial<Client>, partial = false) {
     postalCode: nullableString(input.postalCode, partial),
     birthday: input.birthday === undefined ? (partial ? undefined : null) : input.birthday ? toNullDate(input.birthday) : null,
     notes: nullableString(input.notes, partial),
+    manualTags: serializeTagList(input.manualTags, partial),
+    hiddenTags: serializeTagList(input.hiddenTags, partial),
     linkedToId: nullableString(input.linkedToId, partial),
     relationship: input.relationship === undefined ? (partial ? undefined : null) : input.relationship || null,
     lastBirthdayEmailAt: input.lastBirthdayEmailAt ? toNullDate(input.lastBirthdayEmailAt) : undefined,
@@ -562,12 +586,41 @@ export async function POST(request: Request) {
         if (entryIds.length === 0) {
           return NextResponse.json({ ok: false, error: "No email history ids provided" }, { status: 400 });
         }
+        const [entries, client] = await Promise.all([
+          db.emailHistory.findMany({
+            where: { clientId, id: { in: entryIds } },
+            select: {
+              id: true,
+              date: true,
+              subject: true,
+              body: true,
+              templateLabel: true,
+            },
+          }),
+          db.client.findUnique({ where: { id: clientId }, select: { notes: true } }),
+        ]);
         await db.emailHistory.deleteMany({
           where: {
             clientId,
             id: { in: entryIds },
           },
         });
+        const nextNotes = removeCommunicationNoteBlocks(
+          client?.notes ?? undefined,
+          entries.map((entry) => ({
+            id: entry.id,
+            date: entry.date.toISOString(),
+            subject: entry.subject,
+            body: entry.body,
+            templateLabel: entry.templateLabel ?? undefined,
+          }))
+        );
+        if (nextNotes !== client?.notes) {
+          await db.client.update({
+            where: { id: clientId },
+            data: { notes: nextNotes ?? null },
+          });
+        }
         await auditLog({
           action: "delete_email_history",
           entityType: "client",

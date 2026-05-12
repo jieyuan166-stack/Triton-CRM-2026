@@ -33,6 +33,8 @@ model Client {
   postalCode           String?
   birthday             DateTime?
   notes                String?
+  manualTags           String?
+  hiddenTags           String?
   linkedToId           String?
   relationship         String?
   lastBirthdayEmailAt  DateTime?
