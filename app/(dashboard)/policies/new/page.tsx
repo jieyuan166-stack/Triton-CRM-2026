@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useData } from "@/components/providers/DataProvider";
 import { PolicyForm } from "@/components/policies/PolicyForm";
@@ -30,10 +31,7 @@ function NewPolicyContent() {
     // sync with the URL (e.g. user changed routes mid-edit).
     const clientId = presetClient ?? values.clientId;
     if (!clientId) {
-       
-      console.error(
-        "[NewPolicy] No clientId in URL or form state — refusing to save."
-      );
+      toast.error("Please choose a client before creating a policy.");
       return;
     }
 
@@ -55,27 +53,34 @@ function NewPolicyContent() {
         ? values.premiumDate
         : undefined;
 
-    const created = createPolicy({
-      clientId,
-      carrier: values.carrier as never,
-      category: values.category,
-      productType: values.productType as never,
-      productName: values.productName?.trim() || values.productType,
-      policyNumber: values.policyNumber,
-      sumAssured,
-      premium,
-      paymentFrequency,
-      effectiveDate: values.effectiveDate,
-      premiumDate,
-      status: isInv ? "active" : values.status ?? "active",
-      isCorporateInsurance,
-      businessName: isCorporateInsurance ? values.businessName : undefined,
-      isInvestmentLoan,
-      lender: isInvestmentLoan ? (values.lender as never) : undefined,
-      loanAmount: isInvestmentLoan ? values.loanAmount : undefined,
-      beneficiaries: [],
-    });
-    router.push(`/policies/${created.id}`);
+    try {
+      createPolicy({
+        clientId,
+        carrier: values.carrier as never,
+        category: values.category,
+        productType: values.productType as never,
+        productName: values.productName?.trim() || values.productType,
+        policyNumber: values.policyNumber,
+        sumAssured,
+        premium,
+        paymentFrequency,
+        effectiveDate: values.effectiveDate,
+        premiumDate,
+        status: isInv ? "active" : values.status ?? "active",
+        isCorporateInsurance,
+        businessName: isCorporateInsurance ? values.businessName : undefined,
+        isInvestmentLoan,
+        lender: isInvestmentLoan ? (values.lender as never) : undefined,
+        loanAmount: isInvestmentLoan ? values.loanAmount : undefined,
+        beneficiaries: [],
+      });
+      toast.success("Policy created");
+      router.push(presetClient ? `/clients/${presetClient}` : "/policies");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Unable to create policy."
+      );
+    }
   }
 
   return (
