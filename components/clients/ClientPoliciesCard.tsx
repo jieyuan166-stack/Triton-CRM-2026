@@ -14,12 +14,6 @@ import { formatCurrency } from "@/lib/format";
 import { PAYMENT_FREQUENCY_LABELS, type Policy } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-const STATUS_STYLE: Record<string, string> = {
-  active: "bg-accent-green/15 text-emerald-700 border-0",
-  pending: "bg-accent-amber/15 text-amber-700 border-0",
-  lapsed: "bg-accent-red/15 text-red-700 border-0",
-};
-
 const CATEGORY_SECTION_STYLE = {
   Insurance: {
     label: "Insurance Policies",
@@ -34,6 +28,9 @@ const CATEGORY_SECTION_STYLE = {
     row: "hover:bg-emerald-50/40",
   },
 } as const;
+
+const POLICY_BADGE_CLASS =
+  "border-0 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ring-1";
 
 interface ClientPoliciesCardProps {
   clientId: string;
@@ -110,7 +107,7 @@ export function ClientPoliciesCard({
                     <Link
                       href={`/policies/${p.id}`}
                       className={cn(
-                        "flex items-stretch gap-3 px-5 py-3.5 transition-colors md:px-6",
+                        "flex items-stretch gap-3 px-5 py-3 transition-colors md:px-6",
                         style.row
                       )}
                     >
@@ -119,47 +116,46 @@ export function ClientPoliciesCard({
                         style={{ backgroundColor: CARRIER_COLORS[p.carrier] }}
                       />
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-3 mb-1">
-                          <p className="text-sm font-semibold text-triton-text truncate">
+                        <div className="mb-0.5 flex items-start justify-between gap-3">
+                          <p className="truncate text-sm font-semibold leading-snug text-triton-text">
                             {p.productName || p.productType}
                           </p>
-                          <div className="flex flex-wrap justify-end gap-1.5 shrink-0">
+                          <div className="flex flex-wrap justify-end gap-2 shrink-0">
                             <Badge
                               className={cn(
-                                "border-0 text-[10px] font-semibold ring-1",
+                                POLICY_BADGE_CLASS,
                                 style.badge
                               )}
                             >
                               {p.category}
                             </Badge>
                             {p.category === "Investment" && p.isInvestmentLoan ? (
-                              <Badge className="border-0 bg-indigo-100 text-indigo-700">
-                                Investment Loan
+                              <Badge
+                                className={cn(
+                                  POLICY_BADGE_CLASS,
+                                  style.badge
+                                )}
+                              >
+                                {p.lender
+                                  ? `Investment Loan: ${p.lender}`
+                                  : "Investment Loan"}
                               </Badge>
                             ) : null}
-                            <Badge className={STATUS_STYLE[p.status]}>
-                              {p.status}
-                            </Badge>
                           </div>
                         </div>
-                        <p className="text-xs text-triton-muted mb-2 truncate">
+                        <p className="mb-1.5 truncate text-xs leading-snug text-triton-muted">
                           {p.carrier} · {p.productType} · {p.policyNumber}
                         </p>
-                        <div className="flex flex-wrap gap-1.5 mb-2">
+                        <div className="mb-1.5 flex flex-wrap gap-2">
                           {p.isCorporateInsurance && p.businessName ? (
-                            <p className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 ring-1 ring-slate-200/60">
+                            <p className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-600 ring-1 ring-slate-200/60">
                               Corporate · {p.businessName}
-                            </p>
-                          ) : null}
-                          {p.category === "Investment" && p.isInvestmentLoan && p.lender ? (
-                            <p className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100">
-                              Lender · {p.lender}
                             </p>
                           ) : null}
                         </div>
                         <div
                           className={cn(
-                            "grid gap-2 text-xs",
+                            "grid gap-2 text-xs leading-tight",
                             p.category === "Investment"
                               ? "grid-cols-2"
                               : "grid-cols-3"
@@ -171,7 +167,7 @@ export function ClientPoliciesCard({
                                 ? "Initial Investment Amount"
                                 : "Face Amount"}
                             </p>
-                            <p className="font-semibold text-triton-text tabular-nums">
+                            <p className="font-semibold leading-snug text-triton-text tabular-nums">
                               {formatCurrency(p.sumAssured)}
                             </p>
                           </div>
@@ -180,7 +176,7 @@ export function ClientPoliciesCard({
                               <p className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">
                                 Premium
                               </p>
-                              <p className="font-semibold text-triton-text tabular-nums">
+                              <p className="font-semibold leading-snug text-triton-text tabular-nums">
                                 {formatCurrency(p.premium)}
                                 <span className="text-triton-muted font-normal">
                                   {" "}
@@ -197,7 +193,7 @@ export function ClientPoliciesCard({
                                 ? "Effective Date"
                                 : "Premium Date"}
                             </p>
-                            <p className="font-semibold text-triton-text tabular-nums">
+                            <p className="font-semibold leading-snug text-triton-text tabular-nums">
                               {p.category === "Investment"
                                 ? formatDate(p.effectiveDate)
                                 : p.premiumDate
