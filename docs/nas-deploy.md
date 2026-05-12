@@ -78,7 +78,7 @@ Create `/etc/cron.daily/triton-backup`:
 ```bash
 #!/bin/sh
 DATE=$(date +%Y%m%d)
-BACKUP_DIR=/volume1/backups/triton
+BACKUP_DIR=/volume1/docker/triton-crm/backups
 mkdir -p "$BACKUP_DIR"
 docker exec triton-crm sqlite3 /app/prisma/data/triton.db ".backup /tmp/triton.db"
 docker cp triton-crm:/tmp/triton.db "$BACKUP_DIR/triton-$DATE.db"
