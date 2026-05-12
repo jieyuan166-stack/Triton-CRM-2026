@@ -123,37 +123,37 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
                               ) : null}
                             </div>
                           </div>
-                          <div className={cn("grid gap-x-4 gap-y-1.5", p.category === "Investment" ? "grid-cols-2" : "grid-cols-3")}>
-                            <div>
-                              <p className="text-[10px] uppercase tracking-wider text-slate-400 font-medium leading-none mb-0.5">
+                          <div className={cn("grid gap-x-5 gap-y-2", p.category === "Investment" ? "grid-cols-2" : "grid-cols-3")}>
+                            <div className="space-y-1">
+                              <p className="text-[9px] uppercase tracking-wide text-slate-400 font-medium leading-none">
                                 {p.category === "Investment" ? "Initial Amount" : "Face Amount"}
                               </p>
-                              <p className="text-[13px] font-semibold text-triton-text tabular-nums leading-tight">
+                              <p className="text-xs font-medium text-triton-text tabular-nums leading-tight">
                                 {formatCurrency(p.sumAssured)}
                               </p>
                             </div>
                             {p.category === "Investment" ? null : (
-                              <div>
-                                <p className="text-[10px] uppercase tracking-wider text-slate-400 font-medium leading-none mb-0.5">Premium</p>
-                                <p className="text-[13px] font-semibold text-triton-text tabular-nums leading-tight">
+                              <div className="space-y-1">
+                                <p className="text-[9px] uppercase tracking-wide text-slate-400 font-medium leading-none">Premium</p>
+                                <p className="text-xs font-medium text-triton-text tabular-nums leading-tight">
                                   {formatCurrency(p.premium)}
-                                  <span className="text-[11px] text-triton-muted font-normal">
+                                  <span className="text-[10px] text-triton-muted font-normal">
                                     /{PAYMENT_FREQUENCY_LABELS[p.paymentFrequency].toLowerCase()}
                                   </span>
                                 </p>
                               </div>
                             )}
-                            <div>
-                              <p className="text-[10px] uppercase tracking-wider text-slate-400 font-medium leading-none mb-0.5">
+                            <div className="space-y-1">
+                              <p className="text-[9px] uppercase tracking-wide text-slate-400 font-medium leading-none">
                                 {p.category === "Investment" ? "Effective Date" : "Premium Date"}
                               </p>
-                              <p className="text-[13px] font-semibold text-triton-text tabular-nums leading-tight">
+                              <p className="text-xs font-medium text-triton-text tabular-nums leading-tight">
                                 {p.category === "Investment"
                                   ? p.effectiveDate ? formatDate(p.effectiveDate) : "—"
                                   : p.premiumDate ? formatMonthDay(p.premiumDate) : "—"}
                               </p>
                               {p.premiumDate && p.category !== "Investment" ? (
-                                <p className="text-[10px] text-triton-muted leading-none">{formatRelative(p.premiumDate)}</p>
+                                <p className="text-[9px] text-triton-muted leading-none">{formatRelative(p.premiumDate)}</p>
                               ) : null}
                             </div>
                           </div>
