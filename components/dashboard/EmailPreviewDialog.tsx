@@ -318,8 +318,8 @@ export function EmailPreviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[90dvh] grid-rows-none flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
+        <DialogHeader className="shrink-0 border-b border-slate-100 px-4 py-4 pr-12">
           <DialogTitle>Compose Email</DialogTitle>
           <DialogDescription>
             {isBulk
@@ -330,7 +330,7 @@ export function EmailPreviewDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
           <div className="space-y-1.5">
             <Label htmlFor="email-to">To</Label>
             <Input
@@ -457,7 +457,7 @@ export function EmailPreviewDialog({
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="mx-0 mb-0 shrink-0 rounded-none rounded-b-xl border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-8px_24px_-20px_rgba(15,23,42,0.35)] backdrop-blur sm:flex-row">
           <Button
             className="bg-navy hover:bg-navy/90 text-white min-w-[140px]"
             onClick={handleSendDirect}
