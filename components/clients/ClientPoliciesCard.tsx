@@ -28,17 +28,30 @@ const CATEGORY_SECTION_STYLE = {
   },
 } as const;
 
-const BADGE_CLASS = "border-0 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ring-1 rounded-md leading-none";
+const BADGE_CLASS =
+  "h-5 border-0 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ring-1 rounded-md leading-none";
 
-function InvestmentBadge({ lender }: { lender?: string | null }) {
-  if (!lender) return null;
-  const name = lender.replace(/\b(INVESTMENT|BANK|CORP|CORPORATION|LTD|LLC|INC)\b/gi, "").trim();
-  return <Badge className={cn(BADGE_CLASS, "bg-amber-50 text-amber-700 ring-amber-100")}>LOAN · {name}</Badge>;
+function normalizeLenderName(lender?: string | null) {
+  return (lender ?? "")
+    .replace(/\b(INVESTMENT|BANK|LOAN|CORP|CORPORATION|LTD|LLC|INC)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
-function CategoryBadge({ category, isLoan }: { category: string; isLoan: boolean }) {
-  if (isLoan) return null;
-  return <Badge className={cn(BADGE_CLASS, "bg-slate-100 text-slate-600 ring-slate-200")}>{category}</Badge>;
+function PolicyTypeBadge({ policy }: { policy: Policy }) {
+  const isLoan = policy.category === "Investment" && !!policy.isInvestmentLoan;
+  const lender = normalizeLenderName(policy.lender);
+  const label = isLoan
+    ? lender
+      ? `Loan · ${lender}`
+      : "Loan"
+    : policy.category;
+  const tone =
+    policy.category === "Investment"
+      ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
+      : "bg-blue-50 text-blue-700 ring-blue-100";
+
+  return <Badge className={cn(BADGE_CLASS, tone)}>{label}</Badge>;
 }
 
 interface ClientPoliciesCardProps {
@@ -87,30 +100,29 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
               </div>
 
               <ul className="divide-y divide-slate-100">
-                {sectionPolicies.map((p) => {
-                  const isLoan = p.category === "Investment" && !!p.isInvestmentLoan;
-                  return (
+                {sectionPolicies.map((p) => (
                     <li key={p.id}>
                       <Link href={`/policies/${p.id}`} className={cn("flex items-stretch gap-3 px-5 py-3 transition-colors md:px-6", style.row)}>
                         <span className="w-1 self-stretch rounded-full shrink-0" style={{ backgroundColor: CARRIER_COLORS[p.carrier] }} />
-                        <div className="flex-1 min-w-0 pr-[72px]">
-                          <div className="flex items-start justify-between gap-2 mb-0.5">
-                            <p className="truncate text-sm font-semibold leading-snug text-triton-text">
-                              {p.productName || p.productType}
-                            </p>
-                            <div className="flex flex-row-reverse flex-wrap gap-1.5 shrink-0 items-center">
-                              <CategoryBadge category={p.category} isLoan={isLoan} />
-                              <InvestmentBadge lender={p.lender} />
+                        <div className="flex-1 min-w-0">
+                          <div className="mb-0.5 flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold leading-snug text-triton-text">
+                                {p.productName || p.productType}
+                              </p>
+                              <p className="truncate text-xs leading-snug text-triton-muted">
+                                {p.carrier} · {p.productType} · {p.policyNumber}
+                              </p>
+                            </div>
+                            <div className="flex flex-row-reverse flex-wrap items-center gap-2">
+                              <PolicyTypeBadge policy={p} />
+                              {p.isCorporateInsurance && p.businessName ? (
+                                <Badge className={cn(BADGE_CLASS, "bg-slate-100 text-slate-600 ring-slate-200")}>
+                                  Corporate
+                                </Badge>
+                              ) : null}
                             </div>
                           </div>
-                          <p className="mb-1 truncate text-xs text-triton-muted">
-                            {p.carrier} · {p.productType} · {p.policyNumber}
-                          </p>
-                          {p.isCorporateInsurance && p.businessName ? (
-                            <p className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-600 ring-1 ring-slate-200/60 mb-1">
-                              Corporate · {p.businessName}
-                            </p>
-                          ) : null}
                           <div className={cn("grid gap-x-4 gap-y-1.5", p.category === "Investment" ? "grid-cols-2" : "grid-cols-3")}>
                             <div>
                               <p className="text-[10px] uppercase tracking-wider text-slate-400 font-medium leading-none mb-0.5">
@@ -148,8 +160,7 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
                         </div>
                       </Link>
                     </li>
-                  );
-                })}
+                ))}
               </ul>
             </section>
           ))}
