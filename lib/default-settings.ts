@@ -56,6 +56,30 @@ function mergeEmailTemplates(input: unknown): AppSettings["templates"] {
   });
 }
 
+function mergeSignature(input: unknown): AppSettings["signature"] {
+  const raw =
+    input && typeof input === "object"
+      ? (input as Partial<AppSettings["signature"]>)
+      : {};
+  const merged = { ...DEFAULT_APP_SETTINGS.signature, ...raw };
+
+  // Upgrade the previous default signature layout in-place. It used inline
+  // contact spans, which let mobile email clients split "Email:" and the
+  // address onto separate lines. If the advisor has a clearly custom
+  // signature, keep it untouched.
+  if (
+    typeof raw.html === "string" &&
+    raw.html.includes("Jeffrey Yuan") &&
+    raw.html.includes("Independent Broker") &&
+    raw.html.includes("padding: 0 8px;") &&
+    raw.html.includes("jieyuan165@gmail.com")
+  ) {
+    return DEFAULT_APP_SETTINGS.signature;
+  }
+
+  return merged;
+}
+
 export function mergeAppSettings(input: unknown): AppSettings {
   if (!input || typeof input !== "object") return DEFAULT_APP_SETTINGS;
   const raw = input as Partial<AppSettings>;
@@ -63,6 +87,6 @@ export function mergeAppSettings(input: unknown): AppSettings {
     profile: { ...DEFAULT_APP_SETTINGS.profile, ...(raw.profile ?? {}) },
     email: { ...DEFAULT_APP_SETTINGS.email, ...(raw.email ?? {}) },
     templates: mergeEmailTemplates(raw.templates),
-    signature: { ...DEFAULT_APP_SETTINGS.signature, ...(raw.signature ?? {}) },
+    signature: mergeSignature(raw.signature),
   };
 }

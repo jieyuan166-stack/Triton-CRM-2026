@@ -10,8 +10,8 @@ import type { Client, PaymentFrequency, Policy } from "./types";
 export type DynamicTag = TagValue;
 export const DYNAMIC_TAGS = TAG_VALUES;
 
-/** Annual insurance premium (CAD) above which "VIP" is auto-applied. */
-export const VIP_PREMIUM_THRESHOLD = 100_000;
+/** Annual insurance premium (CAD) at or above which "VIP" is auto-applied. */
+export const VIP_PREMIUM_THRESHOLD = 50_000;
 
 const FREQUENCY_PER_YEAR: Record<PaymentFrequency, number> = {
   Monthly: 12,
@@ -55,7 +55,7 @@ export function calculateAutoClientTags(
     .reduce((sum, p) => sum + annualPremium(p), 0);
 
   const isVip =
-    insurancePremiumYear > VIP_PREMIUM_THRESHOLD ||
+    insurancePremiumYear >= VIP_PREMIUM_THRESHOLD ||
     (hasInsurance && hasInvestment);
 
   const hasLoan = live.some((p) => p.isInvestmentLoan === true);

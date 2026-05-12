@@ -61,7 +61,11 @@ export default function ClientDetailPage() {
 
   return (
     <>
-      <ClientHeader client={client} onEdit={() => setEditOpen(true)} />
+      <ClientHeader
+        client={client}
+        reportPolicies={policies}
+        onEdit={() => setEditOpen(true)}
+      />
 
       {/* Responsive layout:
           - mobile: stacked

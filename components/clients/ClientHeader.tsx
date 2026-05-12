@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { useData } from "@/components/providers/DataProvider";
 import { ClientAvatar } from "@/components/ui-shared/ClientAvatar";
+import { ClientReportButton } from "@/components/clients/ClientReportButton";
 import { DynamicTagBadge } from "@/components/ui-shared/DynamicTagBadge";
 import {
   EmailPreviewDialog,
@@ -33,15 +34,16 @@ import {
 import { formatCurrencyCompact } from "@/lib/format";
 import { calculateAutoClientTags } from "@/lib/client-tags";
 import { TAG_VALUES, type TagValue } from "@/lib/constants";
-import type { ClientWithStats } from "@/lib/types";
+import type { ClientWithStats, Policy } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 interface ClientHeaderProps {
   client: ClientWithStats;
+  reportPolicies?: Policy[];
   onEdit?: () => void;
 }
 
-export function ClientHeader({ client, onEdit }: ClientHeaderProps) {
+export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHeaderProps) {
   const { policies, updateClient } = useData();
   const [composeOpen, setComposeOpen] = useState(false);
   const [composePayload, setComposePayload] =
@@ -180,6 +182,11 @@ export function ClientHeader({ client, onEdit }: ClientHeaderProps) {
 
         {/* Actions */}
         <div className="flex flex-wrap gap-2 md:flex-col md:gap-2">
+          <ClientReportButton
+            client={client}
+            policies={reportPolicies}
+            className="border border-[#002147]/10 shadow-[0_10px_24px_-16px_rgba(0,33,71,0.8)]"
+          />
           <Button variant="outline" size="sm" onClick={onEdit}>
             <Pencil className="h-3.5 w-3.5 mr-1.5" />
             Edit

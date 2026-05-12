@@ -35,13 +35,13 @@ const minimalist = `
     <img src="${BROKER_BADGE_URL}" alt="Broker credentials" style="display: block; margin: 9px 0 8px; height: 56px; width: auto; border: 0;" />
     <div style="margin-top: 6px; color: ${MUTED}; font-size: 12px;">
       <div style="margin-bottom: 3px;">#1200-1200 W. 73rd Ave. Vancouver, BC V6P 6G5</div>
-      <span>Cell: <a href="tel:+17788376688" style="color: ${ACCENT}; text-decoration: none;">778-837-6688</a></span>
-      <span style="padding: 0 8px;">|</span>
-      <span>Fax: 604-261-2193</span>
-      <span style="padding: 0 8px;">|</span>
-      <span>Email: <a href="mailto:jieyuan165@gmail.com" style="color: ${ACCENT}; text-decoration: none;">jieyuan165@gmail.com</a></span>
-      <span style="padding: 0 8px;">|</span>
-      <span>Web: <a href="https://www.tritonwealth.ca" style="color: ${ACCENT}; text-decoration: none;">tritonwealth.ca</a></span>
+      <div style="margin-bottom: 3px;">
+        <span style="white-space: nowrap;">Cell: <a href="tel:+17788376688" style="color: ${ACCENT}; text-decoration: none;">778-837-6688</a></span>
+        <span style="padding: 0 8px; color: ${BORDER};">|</span>
+        <span style="white-space: nowrap;">Fax: 604-261-2193</span>
+      </div>
+      <div style="margin-bottom: 3px; white-space: nowrap;">Email: <a href="mailto:jieyuan165@gmail.com" style="color: ${ACCENT}; text-decoration: none;">jieyuan165@gmail.com</a></div>
+      <div style="white-space: nowrap;">Web: <a href="https://www.tritonwealth.ca" style="color: ${ACCENT}; text-decoration: none;">tritonwealth.ca</a></div>
     </div>
   </div>
 
@@ -72,7 +72,7 @@ const corporate = `
       <div style="margin-top: 6px; color: ${MUTED}; font-size: 12px;">
         <div>Cell: <a href="tel:+17788376688" style="color: ${ACCENT}; text-decoration: none;">778-837-6688</a></div>
         <div>Fax: 604-261-2193</div>
-        <div>Email: <a href="mailto:jieyuan165@gmail.com" style="color: ${ACCENT}; text-decoration: none;">jieyuan165@gmail.com</a></div>
+        <div style="white-space: nowrap;">Email: <a href="mailto:jieyuan165@gmail.com" style="color: ${ACCENT}; text-decoration: none;">jieyuan165@gmail.com</a></div>
         <div>Web: <a href="https://www.tritonwealth.ca" style="color: ${ACCENT}; text-decoration: none;">tritonwealth.ca</a></div>
       </div>
     </td>

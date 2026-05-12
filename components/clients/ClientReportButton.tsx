@@ -6,13 +6,15 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { buildClientReportFilename } from "@/lib/client-report";
 import type { Client, Policy } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 type ClientReportButtonProps = {
   client: Client;
   policies: Policy[];
+  className?: string;
 };
 
-export function ClientReportButton({ client, policies }: ClientReportButtonProps) {
+export function ClientReportButton({ client, policies, className }: ClientReportButtonProps) {
   const [isGenerating, setIsGenerating] = useState(false);
 
   const handleDownload = async () => {
@@ -50,9 +52,13 @@ export function ClientReportButton({ client, policies }: ClientReportButtonProps
   return (
     <Button
       type="button"
+      size="sm"
       onClick={handleDownload}
       disabled={isGenerating}
-      className="rounded-lg bg-[#002147] text-white shadow-sm transition hover:bg-[#001832] disabled:opacity-70"
+      className={cn(
+        "rounded-lg bg-[#002147] text-white shadow-sm transition hover:bg-[#001832] disabled:opacity-70",
+        className
+      )}
     >
       <svg aria-hidden="true" className="mr-2 h-4 w-4" viewBox="0 0 384 512" fill="currentColor">
         <path d="M64 0C28.7 0 0 28.7 0 64v384c0 35.3 28.7 64 64 64h256c35.3 0 64-28.7 64-64V160H256c-17.7 0-32-14.3-32-32V0H64zm192 0v128h128L256 0zM64 256c0-17.7 14.3-32 32-32h64c35.3 0 64 28.7 64 64s-28.7 64-64 64h-32v32c0 17.7-14.3 32-32 32s-32-14.3-32-32V256zm96 32H128v32h32c17.7 0 32-14.3 32-32s-14.3-32-32-32zm96-64h32c35.3 0 64 28.7 64 64v64c0 35.3-28.7 64-64 64h-32c-17.7 0-32-14.3-32-32V256c0-17.7 14.3-32 32-32zm32 160c17.7 0 32-14.3 32-32v-64c0-17.7-14.3-32-32-32h-32v128h32z" />

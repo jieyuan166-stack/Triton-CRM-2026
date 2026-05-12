@@ -1,7 +1,6 @@
 // app/(dashboard)/layout.tsx — shared layout for all dashboard routes
 "use client";
 
-import { ClientReportRouteButton } from "@/components/clients/ClientReportRouteButton";
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { TopNav } from "@/components/layout/TopNav";
@@ -63,7 +62,6 @@ export default function DashboardLayout({
         {/* Main content area */}
         <main className="flex-1 md:ml-60 min-h-0 overflow-auto bg-surface">
           <div className="p-6 md:p-8">{children}</div>
-        <ClientReportRouteButton />
       </main>
       </div>
       <Toaster position="top-right" richColors closeButton />
