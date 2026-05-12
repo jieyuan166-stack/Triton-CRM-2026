@@ -13,8 +13,10 @@ import { useRouter } from "next/navigation";
 import { CornerDownLeft, FileText, Search, Users, X } from "lucide-react";
 import { useData } from "@/components/providers/DataProvider";
 import { ClientAvatar } from "@/components/ui-shared/ClientAvatar";
+import { ClientNameDisplay } from "@/components/ui-shared/ClientNameDisplay";
 import { Input } from "@/components/ui/input";
 import { CARRIER_COLORS } from "@/lib/carrier-colors";
+import { calculateClientTags } from "@/lib/client-tags";
 import {
   flattenHits,
   searchAll,
@@ -205,7 +207,14 @@ export function GlobalSearch() {
                           size="xs"
                         />
                       }
-                      primary={hit.primary}
+                      primary={
+                        <ClientNameDisplay
+                          firstName={hit.client.firstName}
+                          lastName={hit.client.lastName}
+                          isVip={calculateClientTags(hit.client, policies).includes("VIP")}
+                          size="sm"
+                        />
+                      }
                       secondary={hit.secondary}
                     />
                   ))}
@@ -317,7 +326,7 @@ function SearchItem({
   onActivate: () => void;
   onHover: () => void;
   leading: React.ReactNode;
-  primary: string;
+  primary: React.ReactNode;
   secondary: string;
 }) {
   const isActive = index === activeIndex;
@@ -340,7 +349,7 @@ function SearchItem({
     >
       <span className="shrink-0">{leading}</span>
       <span className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-slate-900 truncate">{primary}</p>
+        <div className="min-w-0 truncate">{primary}</div>
         <p className="text-xs text-slate-500 truncate">{secondary}</p>
       </span>
     </button>

@@ -7,7 +7,6 @@ import {
   ArrowDown,
   ArrowUp,
   ChevronsUpDown,
-  Crown,
   Pencil,
   Send,
   Trash2,
@@ -17,6 +16,7 @@ import { toast } from "sonner";
 import { useData } from "@/components/providers/DataProvider";
 import { useSettings } from "@/components/providers/SettingsProvider";
 import { ClientAvatar } from "@/components/ui-shared/ClientAvatar";
+import { ClientNameDisplay } from "@/components/ui-shared/ClientNameDisplay";
 import { ConfirmDialog } from "@/components/ui-shared/ConfirmDialog";
 import { DynamicTagBadge } from "@/components/ui-shared/DynamicTagBadge";
 import { EmptyState } from "@/components/ui-shared/EmptyState";
@@ -473,24 +473,12 @@ export function ClientsDataTable() {
                               size="sm"
                             />
                             <div className="min-w-0">
-                              <p
-                                className={cn(
-                                  "flex items-center gap-1.5 truncate font-semibold",
-                                  isVipClient
-                                    ? "text-amber-900"
-                                    : "text-slate-900"
-                                )}
-                              >
-                                <span className="truncate">
-                                  {r.firstName} {r.lastName}
-                                </span>
-                                {isVipClient ? (
-                                  <Crown
-                                    className="h-3.5 w-3.5 shrink-0 text-amber-500"
-                                    aria-label="VIP client"
-                                  />
-                                ) : null}
-                              </p>
+                              <ClientNameDisplay
+                                firstName={r.firstName}
+                                lastName={r.lastName}
+                                isVip={isVipClient}
+                                size="sm"
+                              />
                               {r.email ? (
                                 <p className="text-xs text-slate-500 truncate md:hidden">
                                   {r.email}

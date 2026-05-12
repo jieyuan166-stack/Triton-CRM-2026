@@ -5,7 +5,9 @@ import { ArrowUpRight, Network, UsersRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { WidgetCard } from "@/components/ui-shared/WidgetCard";
 import { ClientAvatar } from "@/components/ui-shared/ClientAvatar";
+import { ClientNameDisplay } from "@/components/ui-shared/ClientNameDisplay";
 import { CARRIER_COLORS } from "@/lib/carrier-colors";
+import { calculateClientTags } from "@/lib/client-tags";
 import { buildFamilySummary } from "@/lib/family";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/format";
 import { getPolicyPortfolioAmount } from "@/lib/portfolio-metrics";
@@ -138,9 +140,12 @@ export function FamilyOverviewCard({
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-semibold text-slate-900">
-                        {link.client.firstName} {link.client.lastName}
-                      </p>
+                      <ClientNameDisplay
+                        firstName={link.client.firstName}
+                        lastName={link.client.lastName}
+                        isVip={calculateClientTags(link.client, policies).includes("VIP")}
+                        size="sm"
+                      />
                       <Badge className="shrink-0 border-0 bg-slate-100 text-[10px] font-medium text-slate-600">
                         {link.relationship}
                       </Badge>
@@ -203,7 +208,14 @@ export function FamilyOverviewCard({
                                   "ring-slate-100"
                               )}
                             >
-                              {policy.owner.firstName} {policy.owner.lastName}
+                              <ClientNameDisplay
+                                firstName={policy.owner.firstName}
+                                lastName={policy.owner.lastName}
+                                isVip={calculateClientTags(policy.owner, policies).includes("VIP")}
+                                size="xs"
+                                className="font-semibold"
+                                lastNameClassName="bg-white/70"
+                              />
                             </span>
                             <span className="text-[10px] text-slate-400">
                               {policy.carrier}

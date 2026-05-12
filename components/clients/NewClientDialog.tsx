@@ -51,6 +51,7 @@ import {
 } from "@/components/ui/select";
 import { useData } from "@/components/providers/DataProvider";
 import { ClientAvatar } from "@/components/ui-shared/ClientAvatar";
+import { ClientNameDisplay } from "@/components/ui-shared/ClientNameDisplay";
 import { AddressAutocomplete } from "@/components/clients/AddressAutocomplete";
 import {
   PROVINCE_CODES,
@@ -699,9 +700,11 @@ function LinkedClientPicker({
             size="xs"
           />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-slate-900 truncate">
-              {selected.firstName} {selected.lastName}
-            </p>
+            <ClientNameDisplay
+              firstName={selected.firstName}
+              lastName={selected.lastName}
+              size="sm"
+            />
             <p className="text-xs text-slate-500 truncate">{selected.email}</p>
           </div>
           <Button
@@ -763,9 +766,11 @@ function LinkedClientPicker({
                         size="xs"
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-900 truncate">
-                          {c.firstName} {c.lastName}
-                        </p>
+                        <ClientNameDisplay
+                          firstName={c.firstName}
+                          lastName={c.lastName}
+                          size="sm"
+                        />
                         <p className="text-xs text-slate-500 truncate">
                           {c.email}
                         </p>

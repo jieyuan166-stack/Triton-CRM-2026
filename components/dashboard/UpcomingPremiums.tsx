@@ -9,6 +9,7 @@ import { useData } from "@/components/providers/DataProvider";
 import { useSettings } from "@/components/providers/SettingsProvider";
 import { WidgetCard } from "@/components/ui-shared/WidgetCard";
 import { EmptyState } from "@/components/ui-shared/EmptyState";
+import { ClientNameDisplay } from "@/components/ui-shared/ClientNameDisplay";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +17,7 @@ import {
   type EmailPreviewPayload,
 } from "@/components/dashboard/EmailPreviewDialog";
 import { CARRIER_COLORS } from "@/lib/carrier-colors";
+import { calculateClientTags } from "@/lib/client-tags";
 import { daysUntil, formatDate, formatRelative } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/format";
 import { applyTemplate } from "@/lib/templates";
@@ -216,7 +218,16 @@ export function UpcomingPremiums() {
                       <Link href={`/clients/${p.clientId}`} className="flex min-w-0 flex-1 items-center gap-3 py-3.5">
                         <span className="w-1 self-stretch rounded-full shrink-0" style={{ backgroundColor: CARRIER_COLORS[p.carrier] }} />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-triton-text truncate">{clientName}</p>
+                          {client ? (
+                            <ClientNameDisplay
+                              firstName={client.firstName}
+                              lastName={client.lastName}
+                              isVip={calculateClientTags(client, policies).includes("VIP")}
+                              size="sm"
+                            />
+                          ) : (
+                            <p className="text-sm font-medium text-triton-text truncate">{clientName}</p>
+                          )}
                           <p className="text-xs text-triton-muted truncate">{p.carrier} · {p.productName}</p>
                         </div>
                         <div className="text-right shrink-0">
@@ -257,7 +268,16 @@ export function UpcomingPremiums() {
                     <li key={`${row.clientId}-${row.date}`} className="flex items-center gap-3 px-5 py-3.5 md:px-6">
                       <Link href={`/clients/${row.clientId}`} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg transition-colors hover:bg-slate-50/80">
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-triton-text truncate">{clientName}</p>
+                          {client ? (
+                            <ClientNameDisplay
+                              firstName={client.firstName}
+                              lastName={client.lastName}
+                              isVip={calculateClientTags(client, policies).includes("VIP")}
+                              size="sm"
+                            />
+                          ) : (
+                            <p className="text-sm font-medium text-triton-text truncate">{clientName}</p>
+                          )}
                           <p className="text-xs text-triton-muted truncate">{row.subject}</p>
                         </div>
                         <div className="text-right shrink-0">

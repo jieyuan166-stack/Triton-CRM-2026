@@ -10,6 +10,7 @@ import { useSettings } from "@/components/providers/SettingsProvider";
 import { WidgetCard } from "@/components/ui-shared/WidgetCard";
 import { EmptyState } from "@/components/ui-shared/EmptyState";
 import { ClientAvatar } from "@/components/ui-shared/ClientAvatar";
+import { ClientNameDisplay } from "@/components/ui-shared/ClientNameDisplay";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +18,7 @@ import {
   type EmailPreviewPayload,
 } from "@/components/dashboard/EmailPreviewDialog";
 import { calcAge, formatDate, formatRelative } from "@/lib/date-utils";
+import { calculateClientTags } from "@/lib/client-tags";
 import { applyTemplate } from "@/lib/templates";
 import { cn } from "@/lib/utils";
 
@@ -36,7 +38,7 @@ function daysUntilNextBirthday(birthday: string, today: Date = new Date()): numb
 }
 
 export function UpcomingBirthdays() {
-  const { clients } = useData();
+  const { clients, policies } = useData();
   const { settings } = useSettings();
   const birthdayTpl = settings.templates.find((t) => t.id === "birthday") ?? { subject: "", body: "", attachments: [] };
 
@@ -208,7 +210,12 @@ export function UpcomingBirthdays() {
                       <Link href={`/clients/${client.id}`} className="flex min-w-0 flex-1 items-center gap-3 py-3.5">
                         <ClientAvatar firstName={client.firstName} lastName={client.lastName} size="sm" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-slate-900 truncate">{clientName}</p>
+                          <ClientNameDisplay
+                            firstName={client.firstName}
+                            lastName={client.lastName}
+                            isVip={calculateClientTags(client, policies).includes("VIP")}
+                            size="sm"
+                          />
                           <p className="text-xs text-slate-500">Turning {turning}</p>
                         </div>
                         <div className="text-right shrink-0">
@@ -251,7 +258,16 @@ export function UpcomingBirthdays() {
                       <Link href={`/clients/${row.clientId}`} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg transition-colors hover:bg-slate-50/80">
                         <ClientAvatar firstName={client?.firstName ?? "?"} lastName={client?.lastName ?? "?"} size="sm" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-triton-text truncate">{clientName}</p>
+                          {client ? (
+                            <ClientNameDisplay
+                              firstName={client.firstName}
+                              lastName={client.lastName}
+                              isVip={calculateClientTags(client, policies).includes("VIP")}
+                              size="sm"
+                            />
+                          ) : (
+                            <p className="text-sm font-medium text-triton-text truncate">{clientName}</p>
+                          )}
                           <p className="text-xs text-triton-muted truncate">{row.subject}</p>
                         </div>
                         <div className="text-right shrink-0">

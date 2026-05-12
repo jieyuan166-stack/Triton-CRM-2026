@@ -6,7 +6,6 @@ import Link from "next/link";
 import {
   ArrowLeft,
   Check,
-  Crown,
   Mail,
   Pencil,
   Phone as PhoneIcon,
@@ -25,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { useData } from "@/components/providers/DataProvider";
 import { ClientAvatar } from "@/components/ui-shared/ClientAvatar";
+import { ClientNameDisplay } from "@/components/ui-shared/ClientNameDisplay";
 import { ClientReportButton } from "@/components/clients/ClientReportButton";
 import { DynamicTagBadge } from "@/components/ui-shared/DynamicTagBadge";
 import {
@@ -132,23 +132,13 @@ export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHead
         {/* Identity + contact */}
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2 mb-2">
-            <h1
-              className={cn(
-                "inline-flex min-w-0 items-center gap-2 text-2xl md:text-3xl font-semibold tracking-tight leading-tight",
-                isVipClient ? "text-amber-900" : "text-slate-900"
-              )}
-            >
-              <span className="truncate">
-                {client.firstName} {client.lastName}
-              </span>
-              {isVipClient ? (
-                <span
-                  className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-500 ring-1 ring-amber-100"
-                  aria-label="VIP client"
-                >
-                  <Crown className="h-3.5 w-3.5" />
-                </span>
-              ) : null}
+            <h1 className="min-w-0">
+              <ClientNameDisplay
+                firstName={client.firstName}
+                lastName={client.lastName}
+                isVip={isVipClient}
+                size="lg"
+              />
             </h1>
             <Button
               type="button"
