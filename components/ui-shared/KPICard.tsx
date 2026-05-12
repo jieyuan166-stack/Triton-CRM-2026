@@ -43,32 +43,34 @@ export function KPICard({
   return (
     <div
       className={cn(
-        "bg-card rounded-xl border border-slate-200 shadow-sm p-5 md:p-6 flex flex-col gap-3",
+        "bg-card rounded-xl border border-slate-200 shadow-sm p-3.5 sm:p-5 md:p-6 flex flex-col gap-2.5 md:gap-3",
         className
       )}
     >
-      <div className="flex items-start justify-between gap-3">
-        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <div className="flex items-start justify-between gap-2 md:gap-3">
+        <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-slate-500 leading-tight">
           {label}
         </span>
         {Icon ? (
           <div
             className={cn(
-              "h-9 w-9 rounded-lg flex items-center justify-center shrink-0",
+              "h-7 w-7 sm:h-9 sm:w-9 rounded-lg flex items-center justify-center shrink-0",
               ACCENT_BG[accent]
             )}
           >
-            <Icon className="h-4.5 w-4.5" strokeWidth={2} />
+            <Icon className="h-3.5 w-3.5 sm:h-4.5 sm:w-4.5" strokeWidth={2} />
           </div>
         ) : null}
       </div>
 
       <div className="flex flex-col gap-1">
-        <span className="text-3xl md:text-4xl font-bold text-triton-text tabular-nums leading-none">
+        <span className="text-2xl sm:text-3xl md:text-4xl font-bold text-triton-text tabular-nums leading-none">
           {value}
         </span>
         {subValue ? (
-          <span className="text-xs text-triton-muted">{subValue}</span>
+          <span className="text-[10px] sm:text-xs leading-snug text-triton-muted">
+            {subValue}
+          </span>
         ) : null}
       </div>
 
