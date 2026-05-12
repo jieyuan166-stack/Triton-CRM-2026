@@ -9,6 +9,7 @@
 
 import { calculateClientTags } from "./client-tags";
 import { TAG_VALUES, type TagValue } from "./constants";
+import { parseCalendarDate } from "./date-utils";
 import type { Client, FollowUp, Policy } from "./types";
 
 // ===== Contract =====
@@ -40,7 +41,7 @@ export interface ClientRow {
   province?: string;
   /** Stored on the Client (JSON array column in DB). */
   tags: TagValue[];
-  /** ISO timestamp of latest follow-up; undefined if no follow-ups yet. */
+  /** ISO timestamp/date of latest structured contact activity; undefined if no activity yet. */
   lastContactAt?: string;
   /** Derived stats (matches existing ClientWithStats) */
   aum: number;
@@ -69,6 +70,19 @@ function normalize(s: string | undefined | null): string {
   return (s ?? "").toLowerCase();
 }
 
+function latestContactDate(values: Array<string | undefined>): string | undefined {
+  let best: { value: string; time: number } | undefined;
+
+  for (const value of values) {
+    if (!value) continue;
+    const time = parseCalendarDate(value).getTime();
+    if (Number.isNaN(time)) continue;
+    if (!best || time > best.time) best = { value, time };
+  }
+
+  return best?.value;
+}
+
 function buildRow(
   client: Client,
   policies: Policy[],
@@ -79,10 +93,10 @@ function buildRow(
     .filter((p) => p.status === "active")
     .reduce((s, p) => s + p.sumAssured, 0);
 
-  const fups = followUps.filter((f) => f.clientId === client.id);
-  const lastContactAt = fups.length
-    ? fups.map((f) => f.date).sort().slice(-1)[0]
-    : undefined;
+  const lastContactAt = latestContactDate([
+    ...followUps.filter((f) => f.clientId === client.id).map((f) => f.date),
+    ...(client.emailHistory ?? []).map((entry) => entry.date),
+  ]);
 
   return {
     id: client.id,
