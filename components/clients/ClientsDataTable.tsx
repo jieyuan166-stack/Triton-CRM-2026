@@ -25,6 +25,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import {
   EmailPreviewDialog,
+  type EmailPreviewBatchItem,
   type EmailPreviewPayload,
 } from "@/components/dashboard/EmailPreviewDialog";
 import {
@@ -233,38 +234,69 @@ export function ClientsDataTable() {
       return;
     }
 
-    const singleClient =
-      selectedClientsWithEmail.length === 1 ? selectedClientsWithEmail[0] : null;
-    const clientName = singleClient
-      ? `${singleClient.firstName} ${singleClient.lastName}`.trim()
-      : "there";
-    const vars = {
-      "Client Name": clientName,
-      Date: new Date().toLocaleDateString("en-CA", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      }),
-      Carrier: "",
-      "Policy Name": "",
-      "Face Amount": "",
-      "Premium Amount": "",
+    const formatTemplateVars = (client: Client) => {
+      const clientName = `${client.firstName} ${client.lastName}`.trim();
+
+      return {
+        clientName,
+        vars: {
+          "Client Name": clientName,
+          Date: new Date().toLocaleDateString("en-CA", {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          }),
+          Carrier: "",
+          "Policy Name": "",
+          "Face Amount": "",
+          "Premium Amount": "",
+        },
+      };
     };
 
+    const singleClient =
+      selectedClientsWithEmail.length === 1 ? selectedClientsWithEmail[0] : null;
+
+    if (!singleClient) {
+      const templateKind: EmailPreviewBatchItem["template"] =
+        selectedTemplate.id === "birthday" ? "birthday" : "custom";
+      const batch: EmailPreviewBatchItem[] = selectedClientsWithEmail.map((client) => {
+        const { clientName, vars } = formatTemplateVars(client);
+
+        return {
+          contextLabel: clientName,
+          to: client.email,
+          subject: applyTemplate(selectedTemplate.subject, vars),
+          body: applyTemplate(selectedTemplate.body, vars),
+          clientId: client.id,
+          template: templateKind,
+        };
+      });
+
+      if (batch.length === 0) return;
+      const first = batch[0];
+
+      setEmailPayload({
+        contextLabel: `${batch.length} clients`,
+        to: "",
+        subject: first.subject,
+        body: first.body,
+        attachments: selectedTemplate.attachments ?? [],
+        batch,
+      });
+      setEmailDialogOpen(true);
+      return;
+    }
+
+    const { clientName, vars } = formatTemplateVars(singleClient);
+
     setEmailPayload({
-      contextLabel: singleClient
-        ? clientName
-        : `${selectedClientsWithEmail.length} clients`,
-      to: singleClient
-        ? singleClient.email
-        : settings.email.fromEmail || settings.profile.email,
-      bcc: singleClient
-        ? undefined
-        : selectedClientsWithEmail.map((client) => client.email).join(", "),
+      contextLabel: clientName,
+      to: singleClient.email,
       subject: applyTemplate(selectedTemplate.subject, vars),
       body: applyTemplate(selectedTemplate.body, vars),
       attachments: selectedTemplate.attachments ?? [],
-      clientId: singleClient?.id,
+      clientId: singleClient.id,
       template: selectedTemplate.id === "birthday" ? "birthday" : "custom",
     });
     setEmailDialogOpen(true);

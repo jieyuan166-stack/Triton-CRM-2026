@@ -119,14 +119,36 @@ export function UpcomingBirthdays() {
   }
 
   function openBulk() {
-    const emails = upcomingRows.filter((r) => selected.has(r.client.id)).map((r) => r.client.email).filter((e): e is string => !!e);
-    if (emails.length === 0) return;
-    const vars = { "Client Name": "there", Date: "" };
+    const batch = upcomingRows
+      .filter((r) => selected.has(r.client.id))
+      .map((row) => {
+        if (!row.client.email) return null;
+        const clientName =
+          `${row.client.firstName ?? ""} ${row.client.lastName ?? ""}`.trim() ||
+          "client";
+        const vars = {
+          "Client Name": clientName,
+          Date: row.client.birthday ? formatDate(row.client.birthday) : "",
+        };
+        return {
+          contextLabel: clientName,
+          to: row.client.email,
+          subject: applyTemplate(birthdayTpl.subject, vars),
+          body: applyTemplate(birthdayTpl.body, vars),
+          clientId: row.client.id,
+          template: "birthday" as const,
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => !!item);
+    if (batch.length === 0) return;
+    const first = batch[0];
     setPayload({
-      contextLabel: `${emails.length} clients`, to: "", bcc: Array.from(new Set(emails)).join(", "),
-      subject: applyTemplate(birthdayTpl.subject, vars),
-      body: applyTemplate(birthdayTpl.body, vars),
+      contextLabel: `${batch.length} clients`,
+      to: "",
+      subject: first.subject,
+      body: first.body,
       attachments: birthdayTpl.attachments ?? [],
+      batch,
     });
     setDialogOpen(true);
   }

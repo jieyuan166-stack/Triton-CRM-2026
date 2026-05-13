@@ -118,21 +118,43 @@ export function UpcomingPremiums() {
   }
 
   function openBulk() {
-    const emails = Array.from(selected)
+    const batch = Array.from(selected)
       .map((id) => upcomingRows.find((r) => r.id === id))
       .filter((p): p is NonNullable<typeof p> => !!p)
-      .map((p) => clients.find((c) => c.id === p.clientId)?.email)
-      .filter((e): e is string => !!e);
-    if (emails.length === 0) return;
-    const vars = {
-      "Client Name": "there", Carrier: "your carrier", "Policy Name": "your policy",
-      "Face Amount": "[Face Amount]", "Premium Amount": "[Premium Amount]", Date: "the coming weeks",
-    };
+      .map((p) => {
+        const client = clients.find((c) => c.id === p.clientId);
+        if (!client?.email) return null;
+        const clientName =
+          `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim() ||
+          "client";
+        const vars = {
+          "Client Name": clientName,
+          Carrier: p.carrier ?? "",
+          "Policy Name": p.productName ?? "",
+          "Face Amount": formatCurrency(p.sumAssured ?? 0),
+          "Premium Amount": formatCurrency(p.premium ?? 0),
+          Date: p.premiumDate ? formatDate(p.premiumDate) : "",
+        };
+        return {
+          contextLabel: clientName,
+          to: client.email,
+          subject: applyTemplate(renewalTpl.subject, vars),
+          body: applyTemplate(renewalTpl.body, vars),
+          clientId: client.id,
+          template: "renewal" as const,
+          policyId: p.id,
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => !!item);
+    if (batch.length === 0) return;
+    const first = batch[0];
     setPayload({
-      contextLabel: `${emails.length} clients`, to: "", bcc: Array.from(new Set(emails)).join(", "),
-      subject: applyTemplate(renewalTpl.subject, vars),
-      body: applyTemplate(renewalTpl.body, vars),
+      contextLabel: `${batch.length} clients`,
+      to: "",
+      subject: first.subject,
+      body: first.body,
       attachments: renewalTpl.attachments ?? [],
+      batch,
     });
     setDialogOpen(true);
   }

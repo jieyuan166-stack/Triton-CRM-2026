@@ -52,6 +52,10 @@ export interface EmailPreviewPayload {
    *  client detail page). Bulk sends (no single owning client) leave this
    *  undefined and skip the history write. */
   clientId?: string;
+  /** Bulk sends must be individualized. Each item is sent as its own SMTP
+   *  message so template variables resolve per client/policy instead of
+   *  leaking into one generic Bcc email. */
+  batch?: EmailPreviewBatchItem[];
   /** Which template the dialog was opened with — drives the post-send
    *  side effects. "renewal" stamps the policy's lastRenewalEmailAt;
    *  "birthday" stamps the client's lastBirthdayEmailAt; "custom" only
@@ -61,6 +65,17 @@ export interface EmailPreviewPayload {
    *  renewal-suppression timestamp should be stamped. */
   policyId?: string;
   attachments?: EmailTemplateAttachment[];
+}
+
+export interface EmailPreviewBatchItem {
+  contextLabel: string;
+  to: string;
+  subject: string;
+  body: string;
+  html?: string;
+  clientId?: string;
+  template?: "renewal" | "birthday" | "custom";
+  policyId?: string;
 }
 
 /** Result handed to onSent so callers can perform additional bookkeeping
@@ -120,8 +135,12 @@ export function EmailPreviewDialog({
 
   if (!payload) return null;
 
-  const isBulk = !!payload.bcc;
-  const recipientCount = isBulk
+  const batch = payload.batch ?? [];
+  const isBatch = batch.length > 0;
+  const isBulk = isBatch || !!payload.bcc;
+  const recipientCount = isBatch
+    ? batch.length
+    : isBulk
     ? bcc.split(",").map((s) => s.trim()).filter(Boolean).length
     : 1;
   const signatureHtml =
@@ -188,20 +207,36 @@ export function EmailPreviewDialog({
    *  Communication Log and close the dialog. */
   async function handleSendDirect() {
     setSending(true);
-    const bccList = bcc.split(",").map((s) => s.trim()).filter(Boolean);
-    const bodyWithSignature = renderEmailBody(body, {}, settings.signature);
-    const htmlWithSignature = renderEmailHtml(body, {}, settings.signature);
-    try {
+
+    async function sendOne(message: {
+      to: string;
+      subject: string;
+      body: string;
+      clientId?: string;
+      template?: "renewal" | "birthday" | "custom";
+      policyId?: string;
+      bcc?: string[];
+    }) {
+      const bodyWithSignature = renderEmailBody(
+        message.body,
+        {},
+        settings.signature
+      );
+      const htmlWithSignature = renderEmailHtml(
+        message.body,
+        {},
+        settings.signature
+      );
       const res = await fetch("/api/send-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          to: to.trim(),
-          bcc: bccList.length > 0 ? bccList : undefined,
-          subject,
+          to: message.to.trim(),
+          bcc: message.bcc && message.bcc.length > 0 ? message.bcc : undefined,
+          subject: message.subject,
           body: bodyWithSignature,
           html: htmlWithSignature,
-          clientId: payload?.clientId,
+          clientId: message.clientId,
           attachments: attachments.map(({ filename, contentType, content }) => ({
             filename,
             contentType,
@@ -215,23 +250,11 @@ export function EmailPreviewDialog({
         messageId?: string;
       };
       if (!res.ok || !json.ok) {
-        toast.error("Email failed to send", {
-          description: json.error ?? `Server responded ${res.status}`,
-        });
-        return;
+        throw new Error(json.error ?? `Server responded ${res.status}`);
       }
 
-      // === Post-success bookkeeping (runs in one render cycle) ===
-      //
-      // All side effects below mutate DataProvider state; React batches
-      // them into a single re-render so the dashboard widgets shrink in
-      // real time the moment the dialog closes — no manual refetch.
-      const clientId = payload?.clientId;
-      const template = payload?.template ?? "custom";
-
-      // Friendly label used by both the Communication Log row and the
-      // auto-note title. Two-tier mapping keeps the "Sent" suffix out of
-      // the data model so we don't double up on it later.
+      const clientId = message.clientId;
+      const template = message.template ?? "custom";
       const templateLabel =
         template === "renewal"
           ? "Renewal Reminder"
@@ -240,32 +263,76 @@ export function EmailPreviewDialog({
           : "Custom";
 
       if (clientId) {
-        // 1. Communication Log entry. Body is preserved verbatim for
-        // future export, but the rendered list only shows
-        // [icon · timestamp · "Sent <templateLabel> Email"].
-        appendEmailHistory(clientId, { subject, body, templateLabel });
+        appendEmailHistory(clientId, {
+          subject: message.subject,
+          body: message.body,
+          templateLabel,
+        });
 
-        // 2. Auto-note prepended to client.notes. Concise format per spec
-        // — title + timestamp + subject only, no body preview.
         const stamp = new Date().toLocaleString("en-CA", {
           dateStyle: "short",
           timeStyle: "short",
         });
-        const autoNote =
-          `Action Log: ${templateLabel} Sent\n${stamp} — ${subject}`;
-        prependClientNote(clientId, autoNote);
+        prependClientNote(
+          clientId,
+          `Action Log: ${templateLabel} Sent\n${stamp} — ${message.subject}`
+        );
       }
 
-      // 3. Stamp the suppression timestamp so the corresponding dashboard
-      // widget hides this row for the suppression window. Renewal needs
-      // a policyId; birthday is per-client.
-      if (template === "renewal" && payload?.policyId) {
-        markRenewalEmailSent(payload.policyId);
+      if (template === "renewal" && message.policyId) {
+        markRenewalEmailSent(message.policyId);
       }
       if (template === "birthday" && clientId) {
         markBirthdayEmailSent(clientId);
       }
 
+      return { clientId, template };
+    }
+
+    try {
+      if (isBatch) {
+        let sent = 0;
+        for (const item of batch) {
+          await sendOne({
+            to: item.to,
+            subject: item.subject,
+            body: item.body,
+            clientId: item.clientId,
+            template: item.template,
+            policyId: item.policyId,
+          });
+          sent += 1;
+        }
+
+        toast.success("Emails sent successfully", {
+          description: `${sent} individualized emails delivered.`,
+        });
+        onSent?.({
+          via: "smtp",
+          to: batch.map((item) => item.to).join(", "),
+          subject: `${sent} individualized emails`,
+          body: "Individualized bulk send",
+        });
+        onOpenChange(false);
+        return;
+      }
+
+      const bccList = bcc.split(",").map((s) => s.trim()).filter(Boolean);
+      await sendOne({
+        to: to.trim(),
+        bcc: bccList,
+        subject,
+        body,
+        clientId: payload?.clientId,
+        template: payload?.template,
+        policyId: payload?.policyId,
+      });
+
+      // === Post-success bookkeeping (runs in one render cycle) ===
+      //
+      // All side effects below mutate DataProvider state; React batches
+      // them into a single re-render so the dashboard widgets shrink in
+      // real time the moment the dialog closes — no manual refetch.
       toast.success("Email sent successfully", {
         description: `Delivered to ${payload?.contextLabel ?? to}`,
       });
@@ -274,7 +341,7 @@ export function EmailPreviewDialog({
         to: to.trim(),
         subject,
         body,
-        clientId,
+        clientId: payload?.clientId,
       });
       onOpenChange(false);
     } catch (e) {
@@ -288,10 +355,12 @@ export function EmailPreviewDialog({
 
   function recipientPills() {
     if (!isBulk) return null;
-    const list = bcc
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
+    const list = isBatch
+      ? batch.map((item) => item.to)
+      : bcc
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
     if (list.length === 0) return null;
     return (
       <div className="flex flex-wrap gap-1.5 mt-1.5">
@@ -306,6 +375,7 @@ export function EmailPreviewDialog({
               aria-label={`Remove ${email}`}
               className="hover:text-accent-red"
               onClick={() => {
+                if (isBatch) return;
                 const next = list.filter((_, j) => j !== i).join(", ");
                 setBcc(next);
               }}
@@ -325,7 +395,11 @@ export function EmailPreviewDialog({
           <DialogTitle>Compose Email</DialogTitle>
           <DialogDescription>
             {isBulk
-              ? `Bulk message — ${recipientCount} ${
+              ? isBatch
+                ? `Individualized bulk send — ${recipientCount} ${
+                    recipientCount === 1 ? "email" : "emails"
+                  }`
+                : `Bulk message — ${recipientCount} ${
                   recipientCount === 1 ? "recipient" : "recipients"
                 } via Bcc`
               : `To ${payload.contextLabel}`}
@@ -337,12 +411,17 @@ export function EmailPreviewDialog({
             <Label htmlFor="email-to">To</Label>
             <Input
               id="email-to"
-              type="email"
-              value={to}
+              type={isBatch ? "text" : "email"}
+              value={isBatch ? `${recipientCount} individualized emails` : to}
               onChange={(e) => setTo(e.target.value)}
-              placeholder={isBulk ? "your@email.ca (or leave blank)" : ""}
+              placeholder={isBulk ? "" : ""}
+              readOnly={isBatch}
             />
-            {isBulk ? (
+            {isBatch ? (
+              <p className="text-[11px] text-triton-muted">
+                The system sends one personalized email per client. No Bcc is used.
+              </p>
+            ) : isBulk ? (
               <p className="text-[11px] text-triton-muted">
                 Recipients are placed in <strong>Bcc</strong> for privacy.
               </p>
@@ -351,13 +430,17 @@ export function EmailPreviewDialog({
 
           {isBulk ? (
             <div className="space-y-1.5">
-              <Label htmlFor="email-bcc">Bcc</Label>
-              <Input
-                id="email-bcc"
-                value={bcc}
-                onChange={(e) => setBcc(e.target.value)}
-                placeholder="comma-separated emails"
-              />
+              <Label htmlFor="email-bcc">
+                {isBatch ? "Recipients" : "Bcc"}
+              </Label>
+              {!isBatch ? (
+                <Input
+                  id="email-bcc"
+                  value={bcc}
+                  onChange={(e) => setBcc(e.target.value)}
+                  placeholder="comma-separated emails"
+                />
+              ) : null}
               {recipientPills()}
             </div>
           ) : null}
@@ -368,7 +451,13 @@ export function EmailPreviewDialog({
               id="email-subject"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
+              readOnly={isBatch}
             />
+            {isBatch ? (
+              <p className="text-[11px] text-triton-muted">
+                Previewing the first personalized email. Each recipient gets their own subject and message.
+              </p>
+            ) : null}
           </div>
 
           <div className="space-y-1.5">
@@ -379,6 +468,7 @@ export function EmailPreviewDialog({
               className="resize-none"
               value={body}
               onChange={(e) => setBody(e.target.value)}
+              readOnly={isBatch}
             />
             {signatureHtml ? (
               <div className="rounded-lg border border-slate-200 bg-slate-50">
@@ -464,7 +554,10 @@ export function EmailPreviewDialog({
             className="bg-navy hover:bg-navy/90 text-white min-w-[140px]"
             onClick={handleSendDirect}
             disabled={
-              !subject.trim() || !body.trim() || !to.trim() || sending
+              sending ||
+              (isBatch
+                ? batch.length === 0
+                : !subject.trim() || !body.trim() || !to.trim())
             }
             title="Send directly via Gmail SMTP"
           >
