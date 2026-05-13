@@ -37,7 +37,7 @@ export function WidgetCard({
         <div className="flex items-center gap-2.5 min-w-0">
           {icon ? <span className="shrink-0">{icon}</span> : null}
           <div className="min-w-0">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+            <h3 className="label-caps">
               {title}
             </h3>
             {description ? (

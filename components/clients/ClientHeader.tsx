@@ -195,7 +195,7 @@ export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHead
               <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
                 Insurance Face Amount
               </p>
-              <p className="mt-1 text-xl md:text-2xl font-semibold text-slate-900 font-number leading-none tracking-tight">
+              <p className="mt-1 text-xl md:text-2xl font-semibold text-slate-900 font-finance leading-none tracking-tight">
                 {formatCurrency(clientMetrics.insuranceFaceAmount)}
               </p>
               <p className="mt-1 text-xs text-slate-500">
@@ -206,7 +206,7 @@ export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHead
               <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
                 Investment AUM
               </p>
-              <p className="mt-1 text-xl md:text-2xl font-semibold text-slate-900 font-number leading-none tracking-tight">
+              <p className="mt-1 text-xl md:text-2xl font-semibold text-slate-900 font-finance leading-none tracking-tight">
                 {formatCurrency(clientMetrics.investmentAum)}
               </p>
               <p className="mt-1 text-xs text-slate-500">

@@ -122,7 +122,7 @@ export function FollowUpTimeline({
         >
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="fup-type" className="text-xs">
+              <Label htmlFor="fup-type" className="label-caps">
                 Type
               </Label>
               <Select
@@ -142,7 +142,7 @@ export function FollowUpTimeline({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="fup-date" className="text-xs">
+              <Label htmlFor="fup-date" className="label-caps">
                 Date
               </Label>
               <Input
@@ -156,7 +156,7 @@ export function FollowUpTimeline({
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="fup-summary" className="text-xs">
+            <Label htmlFor="fup-summary" className="label-caps">
               Summary <span className="text-accent-red">*</span>
             </Label>
             <Input
@@ -169,7 +169,7 @@ export function FollowUpTimeline({
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="fup-details" className="text-xs">
+            <Label htmlFor="fup-details" className="label-caps">
               Details
             </Label>
             <Textarea

@@ -75,10 +75,10 @@ export function UniversalDataCard({
           >
             {metrics.map((metric, index) => (
               <div key={index} className="space-y-1">
-                <p className="text-[10px] font-semibold uppercase leading-none tracking-wider text-slate-400">
+                <p className="label-caps leading-none">
                   {metric.label}
                 </p>
-                <p className="text-xs font-medium leading-tight font-number text-triton-text">
+                <p className="text-xs font-medium leading-tight text-triton-text">
                   {metric.value}
                 </p>
                 {metric.helper ? (

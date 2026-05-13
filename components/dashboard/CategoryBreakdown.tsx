@@ -81,7 +81,7 @@ function buildProtectionByProduct(
 function centerValueClass(value: number) {
   const label = formatCurrencyShort(value);
   return cn(
-    "font-number font-semibold text-slate-900 leading-none",
+    "font-finance font-semibold text-slate-900 leading-none",
     label.length > 8 ? "text-base" : "text-lg"
   );
 }
@@ -182,7 +182,7 @@ function MiniRing({
               <span className="min-w-0 flex-1 truncate text-xs font-medium text-slate-700">
                 {item.name}
               </span>
-              <span className="font-number text-xs font-semibold text-slate-900">
+              <span className="font-finance text-xs font-semibold text-slate-900">
                 {formatCurrencyShort(item.value)}
               </span>
               <span className="w-9 text-right font-number text-[10px] text-slate-400">

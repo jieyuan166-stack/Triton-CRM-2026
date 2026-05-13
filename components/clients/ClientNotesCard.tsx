@@ -46,15 +46,15 @@ export function ClientNotesCard({ client }: ClientNotesCardProps) {
     <UniversalDataCard
       accentColor="#E9D5FF"
       title={
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-          Client Notes
+        <span className="label-caps">
+          CLIENT NOTES
         </span>
       }
       badges={
         status === "saving" ? (
-          <span className="text-[10px] font-medium text-slate-400">Saving</span>
+          <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Saving</span>
         ) : status === "saved" ? (
-          <span className="text-[10px] font-medium text-purple-500">Saved</span>
+          <span className="text-[10px] font-medium uppercase tracking-wider text-purple-500">Saved</span>
         ) : null
       }
       className="rounded-xl border border-slate-100 bg-white shadow-sm"

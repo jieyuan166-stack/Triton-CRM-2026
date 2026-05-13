@@ -50,7 +50,7 @@ function buildPolicyMetrics(policy: Policy): UniversalDataMetric[] {
   const metrics: UniversalDataMetric[] = [
     {
       label: amountLabel,
-      value: formatCurrency(policy.sumAssured),
+      value: <span className="font-finance">{formatCurrency(policy.sumAssured)}</span>,
     },
   ];
 
@@ -58,12 +58,12 @@ function buildPolicyMetrics(policy: Policy): UniversalDataMetric[] {
     metrics.push({
       label: "Premium",
       value: (
-        <>
+        <span className="font-finance">
           {formatCurrency(policy.premium)}
           <span className="text-[10px] font-normal text-triton-muted">
             /{PAYMENT_FREQUENCY_LABELS[policy.paymentFrequency].toLowerCase()}
           </span>
-        </>
+        </span>
       ),
     });
   }

@@ -173,6 +173,11 @@
     font-feature-settings: "tnum" 1, "cv11", "ss01";
   }
 
+  .font-finance {
+    font-family: Arial, Helvetica, sans-serif;
+    font-variant-numeric: tabular-nums;
+  }
+
   .label-caps {
     @apply text-[10px] font-semibold uppercase tracking-wider text-slate-400;
   }

@@ -64,11 +64,11 @@ export function KPICard({
       </div>
 
       <div className="flex flex-col gap-1">
-        <span className="font-number text-2xl sm:text-3xl font-semibold text-triton-text leading-none tracking-tight">
+        <span className="font-finance text-2xl sm:text-3xl font-semibold text-triton-text leading-none tracking-tight">
           {value}
         </span>
         {subValue ? (
-          <span className="text-[10px] sm:text-xs leading-snug text-triton-muted">
+          <span className="font-finance text-[10px] sm:text-xs leading-snug text-triton-muted">
             {subValue}
           </span>
         ) : null}

@@ -1,31 +1,23 @@
 // components/clients/ClientInfoCard.tsx
 "use client";
 
-import { Cake, Mail, MapPin, Pencil } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { WidgetCard } from "@/components/ui-shared/WidgetCard";
 import { calcAge, formatDate } from "@/lib/date-utils";
 import type { Client } from "@/lib/types";
 
 interface RowProps {
-  icon: React.ElementType;
   label: string;
   value?: React.ReactNode;
 }
 
-function Row({ icon: Icon, label, value }: RowProps) {
+function Row({ label, value }: RowProps) {
   return (
-    <li className="flex items-start gap-3">
-      <div className="h-8 w-8 rounded-lg bg-slate-50 flex items-center justify-center shrink-0">
-        <Icon className="h-3.5 w-3.5 text-slate-400" strokeWidth={2} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
-          {label}
-        </p>
-        <p className="text-sm text-triton-text break-words">
-          {value || <span className="text-triton-muted">—</span>}
-        </p>
-      </div>
+    <li className="min-w-0">
+      <p className="label-caps">{label}</p>
+      <p className="mt-1 text-sm font-normal leading-relaxed text-slate-800 break-words">
+        {value || <span className="text-slate-400">—</span>}
+      </p>
     </li>
   );
 }
@@ -66,24 +58,22 @@ export function ClientInfoCard({ client, onEdit }: ClientInfoCardProps) {
       }
       className={onEdit ? "cursor-pointer transition group-hover:border-accent-blue/30 group-hover:shadow-md" : undefined}
     >
-      <ul className="space-y-4">
+      <ul className="space-y-5">
         <Row
-          icon={Cake}
           label="Birthday"
           value={
             client.birthday ? (
               <>
                 {formatDate(client.birthday)}{" "}
-                <span className="text-triton-muted">
+                <span className="text-slate-500">
                   ({calcAge(client.birthday)} yrs)
                 </span>
               </>
             ) : null
           }
         />
-        <Row icon={Mail} label="Email" value={client.email} />
+        <Row label="Email" value={client.email} />
         <Row
-          icon={MapPin}
           label="Address"
           value={
             [

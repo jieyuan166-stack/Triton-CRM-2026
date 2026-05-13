@@ -66,8 +66,8 @@ function buildPolicyRows(policies: Policy[]) {
           <td>${escapeHtml(policy.category)}</td>
           <td>${escapeHtml(policy.productType)}</td>
           <td>${escapeHtml(policy.policyNumber || "N/A")}</td>
-          <td>${formatCurrency(policy.sumAssured)}</td>
-          <td>${formatCurrency(policy.premium)}</td>
+          <td class="money">${formatCurrency(policy.sumAssured)}</td>
+          <td class="money">${formatCurrency(policy.premium)}</td>
           <td>${escapeHtml(policy.paymentFrequency || "N/A")}</td>
           <td><span class="status">${escapeHtml(policy.status || "active")}</span></td>
         </tr>
@@ -204,6 +204,7 @@ export function buildClientReportHtml({
       .metric-value {
         margin-top: 5px;
         color: #002147;
+        font-family: Arial, Helvetica, sans-serif;
         font-size: 18px;
         font-weight: 700;
       }
@@ -260,6 +261,9 @@ export function buildClientReportHtml({
         padding: 8px 7px;
         border-bottom: 1px solid #f1f5f9;
         vertical-align: top;
+      }
+      .money {
+        font-family: Arial, Helvetica, sans-serif;
       }
       .products-table tr:last-child td { border-bottom: 0; }
       .status {
