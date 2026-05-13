@@ -3,7 +3,6 @@
 
 import { useState } from "react";
 import {
-  Calendar as CalendarIcon,
   ListChecks,
   Mail,
   MessageCircle,
@@ -25,9 +24,12 @@ import {
 } from "@/components/ui/select";
 import { WidgetCard } from "@/components/ui-shared/WidgetCard";
 import { EmptyState } from "@/components/ui-shared/EmptyState";
+import { UniversalDataCard } from "@/components/ui-shared/UniversalDataCard";
+import { StatusBadge } from "@/components/ui-shared/StatusBadge";
 import { useData } from "@/components/providers/DataProvider";
 import { FOLLOW_UP_TYPES, type FollowUp, type FollowUpType } from "@/lib/types";
 import { formatDate, todayISO } from "@/lib/date-utils";
+import { cn } from "@/lib/utils";
 
 const TYPE_ICON: Record<FollowUpType, React.ElementType> = {
   Phone: PhoneIcon,
@@ -43,6 +45,14 @@ const TYPE_COLOR: Record<FollowUpType, string> = {
   Meeting: "bg-accent-green/15 text-accent-green",
   Note: "bg-slate-100 text-slate-500",
   WeChat: "bg-accent-amber/15 text-amber-600",
+};
+
+const TYPE_ACCENT: Record<FollowUpType, string> = {
+  Phone: "#3B82F6",
+  Email: "#8B5CF6",
+  Meeting: "#10B981",
+  Note: "#94A3B8",
+  WeChat: "#F59E0B",
 };
 
 interface FollowUpTimelineProps {
@@ -201,41 +211,41 @@ export function FollowUpTimeline({
           compact
         />
       ) : (
-        <ul className="space-y-4 relative">
-          {/* Vertical line */}
-          <span className="absolute left-3.5 top-2 bottom-2 w-px bg-slate-200" />
-
+        <ul className="overflow-hidden rounded-xl border border-slate-100 bg-white">
           {followUps.map((f) => {
             const Icon = TYPE_ICON[f.type];
             return (
-              <li key={f.id} className="relative flex gap-4">
-                <div
-                  className={`h-7 w-7 rounded-full flex items-center justify-center shrink-0 ring-4 ring-white z-10 ${
-                    TYPE_COLOR[f.type]
-                  }`}
-                >
-                  <Icon className="h-3.5 w-3.5" strokeWidth={2} />
-                </div>
-                <div className="flex-1 min-w-0 pb-1">
-                  <div className="flex items-baseline justify-between gap-3 mb-1">
-                    <p className="text-sm font-semibold text-triton-text">
-                      {f.summary}
-                    </p>
-                    <span className="inline-flex items-center gap-1 text-[11px] text-triton-muted shrink-0">
-                      <CalendarIcon className="h-3 w-3" />
-                      {formatDate(f.date)}
+              <li key={f.id} className="border-b border-slate-100 last:border-b-0">
+                <UniversalDataCard
+                  accentColor={TYPE_ACCENT[f.type]}
+                  title={
+                    <span className="inline-flex items-center gap-2">
+                      <span
+                        className={cn(
+                          "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg",
+                          TYPE_COLOR[f.type]
+                        )}
+                      >
+                        <Icon className="h-3.5 w-3.5" strokeWidth={2} />
+                      </span>
+                      <span>{f.summary}</span>
                     </span>
-                  </div>
-                  <p className="text-[11px] text-triton-muted mb-1">
-                    {f.type}
-                    {f.createdByName ? ` · by ${f.createdByName}` : null}
-                  </p>
-                  {f.details ? (
-                    <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">
-                      {f.details}
-                    </p>
-                  ) : null}
-                </div>
+                  }
+                  subtitle={`${f.type}${f.createdByName ? ` · by ${f.createdByName}` : ""}`}
+                  badges={
+                    <StatusBadge
+                      kind="custom"
+                      label={formatDate(f.date)}
+                      className="bg-slate-50 text-slate-500 ring-slate-100"
+                    />
+                  }
+                  metrics={
+                    f.details
+                      ? [{ label: "Details", value: <span className="whitespace-pre-wrap leading-relaxed text-slate-600">{f.details}</span> }]
+                      : undefined
+                  }
+                  metricsClassName="sm:grid-cols-1"
+                />
               </li>
             );
           })}

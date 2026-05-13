@@ -6,11 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { WidgetCard } from "@/components/ui-shared/WidgetCard";
 import { ClientAvatar } from "@/components/ui-shared/ClientAvatar";
 import { ClientNameDisplay } from "@/components/ui-shared/ClientNameDisplay";
+import { PolicyDataCard } from "@/components/ui-shared/PolicyDataCard";
 import { CARRIER_COLORS } from "@/lib/carrier-colors";
 import { calculateClientTags } from "@/lib/client-tags";
 import { buildFamilySummary } from "@/lib/family";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/format";
-import { getPolicyPortfolioAmount } from "@/lib/portfolio-metrics";
 import { cn } from "@/lib/utils";
 import type { Client, ClientRelationship, Policy } from "@/lib/types";
 
@@ -20,11 +20,6 @@ interface FamilyOverviewCardProps {
   policies: Policy[];
   relationships: ClientRelationship[];
 }
-
-const CATEGORY_TONE: Record<string, string> = {
-  Insurance: "bg-blue-50 text-blue-700 ring-blue-100",
-  Investment: "bg-emerald-50 text-emerald-700 ring-emerald-100",
-};
 
 const MEMBER_TONES = [
   {
@@ -181,72 +176,13 @@ export function FamilyOverviewCard({
               <div className="overflow-hidden rounded-xl border border-slate-100 bg-white">
                 <ul className="divide-y divide-slate-100">
                   {summary.policies.slice(0, 8).map((policy) => (
-                    <li key={policy.id} className="relative bg-white">
-                      <Link
+                    <li key={policy.id} className="relative">
+                      <PolicyDataCard
+                        policy={policy}
                         href={`/policies/${policy.id}`}
-                        className="flex items-center gap-3 px-3 py-3 transition-colors hover:bg-slate-50"
-                      >
-                        <span
-                          className="h-12 w-1.5 shrink-0 rounded-full"
-                          style={{
-                            backgroundColor:
-                              toneByClientId.get(policy.owner.id)?.dot ??
-                              CARRIER_COLORS[policy.carrier] ??
-                              "#94A3B8",
-                          }}
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="mb-1 flex flex-wrap items-center gap-1.5">
-                            <span
-                              className={cn(
-                                "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1",
-                                toneByClientId.get(policy.owner.id)?.bg ??
-                                  "bg-slate-50",
-                                toneByClientId.get(policy.owner.id)?.text ??
-                                  "text-slate-700",
-                                toneByClientId.get(policy.owner.id)?.ring ??
-                                  "ring-slate-100"
-                              )}
-                            >
-                              <ClientNameDisplay
-                                firstName={policy.owner.firstName}
-                                lastName={policy.owner.lastName}
-                                isVip={calculateClientTags(policy.owner, policies).includes("VIP")}
-                                size="xs"
-                                className="font-semibold"
-                              />
-                            </span>
-                            <span className="text-[10px] text-slate-400">
-                              {policy.carrier}
-                            </span>
-                          </div>
-                          <p className="truncate text-sm font-semibold text-slate-900">
-                            {policy.productName || policy.productType}
-                          </p>
-                          <p className="truncate text-xs text-slate-500">
-                            {policy.productType} · {policy.policyNumber}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <Badge
-                            className={cn(
-                              "mb-1 border-0 text-[10px] ring-1",
-                              CATEGORY_TONE[policy.category] ??
-                                "bg-slate-50 text-slate-600 ring-slate-100"
-                            )}
-                          >
-                            {policy.category}
-                          </Badge>
-                          <p className="text-xs font-semibold tabular-nums text-slate-900">
-                            {formatCurrency(getPolicyPortfolioAmount(policy))}
-                          </p>
-                          <p className="text-[10px] text-slate-400">
-                            {policy.category === "Investment"
-                              ? "Investment AUM"
-                              : "Face Amount"}
-                          </p>
-                        </div>
-                      </Link>
+                        owner={policy.owner}
+                        ownerIsVip={calculateClientTags(policy.owner, policies).includes("VIP")}
+                      />
                     </li>
                   ))}
                 </ul>

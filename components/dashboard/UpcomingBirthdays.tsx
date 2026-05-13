@@ -11,6 +11,8 @@ import { WidgetCard } from "@/components/ui-shared/WidgetCard";
 import { EmptyState } from "@/components/ui-shared/EmptyState";
 import { ClientAvatar } from "@/components/ui-shared/ClientAvatar";
 import { ClientNameDisplay } from "@/components/ui-shared/ClientNameDisplay";
+import { UniversalDataCard } from "@/components/ui-shared/UniversalDataCard";
+import { StatusBadge } from "@/components/ui-shared/StatusBadge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import {
@@ -202,36 +204,45 @@ export function UpcomingBirthdays() {
                     <li
                       key={client.id}
                       className={cn(
-                        "flex items-center gap-3 px-5 md:px-6 transition-colors",
+                        "flex items-stretch gap-3 px-5 py-3 md:px-6 transition-colors",
                         isChecked ? "bg-accent-blue/5" : "hover:bg-slate-50/80"
                       )}
                     >
                       <Checkbox aria-label={`Select ${clientName}`} checked={isChecked} onCheckedChange={(c) => toggleOne(client.id, c === true)} disabled={!canEmail} />
-                      <Link href={`/clients/${client.id}`} className="flex min-w-0 flex-1 items-center gap-3 py-3.5">
-                        <ClientAvatar firstName={client.firstName} lastName={client.lastName} size="sm" />
-                        <div className="flex-1 min-w-0">
-                          <ClientNameDisplay
-                            firstName={client.firstName}
-                            lastName={client.lastName}
-                            isVip={calculateClientTags(client, policies).includes("VIP")}
-                            size="sm"
-                          />
-                          <p className="text-xs text-slate-500">Turning {turning}</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className={cn("text-sm font-semibold tabular-nums", daysAway <= 7 ? "text-accent-amber" : "text-triton-text")}>
-                            {daysAway === 0 ? "Today" : daysAway === 1 ? "Tomorrow" : `${daysAway}d`}
-                          </p>
-                        </div>
-                      </Link>
-                      {canEmail ? (
-                        <button type="button" aria-label={`Email ${clientName}`} onClick={() => openSingle(client.id)}
-                          className="shrink-0 h-8 w-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-accent-blue hover:bg-accent-blue/10 transition-colors">
-                          <Mail className="h-4 w-4" />
-                        </button>
-                      ) : (
-                        <span className="shrink-0 h-8 w-8 rounded-lg flex items-center justify-center text-slate-200"><Mail className="h-4 w-4" /></span>
-                      )}
+                      <UniversalDataCard
+                        accentColor={daysAway <= 7 ? "#F59E0B" : "#CBD5E1"}
+                        className="flex-1 rounded-xl border border-slate-100 bg-white/70 p-4 shadow-none"
+                        title={
+                          <Link href={`/clients/${client.id}`} className="inline-flex items-center gap-2">
+                            <ClientAvatar firstName={client.firstName} lastName={client.lastName} size="sm" />
+                            <ClientNameDisplay
+                              firstName={client.firstName}
+                              lastName={client.lastName}
+                              isVip={calculateClientTags(client, policies).includes("VIP")}
+                              size="sm"
+                            />
+                          </Link>
+                        }
+                        subtitle={`Turning ${turning}`}
+                        badges={<StatusBadge kind="custom" label="BIRTHDAY" className="bg-amber-50 text-amber-700 ring-amber-100" />}
+                        metrics={[
+                          {
+                            label: "When",
+                            value: daysAway === 0 ? "Today" : daysAway === 1 ? "Tomorrow" : `${daysAway}d`,
+                          },
+                        ]}
+                        metricsClassName="sm:grid-cols-1"
+                        actions={
+                          canEmail ? (
+                            <button type="button" aria-label={`Email ${clientName}`} onClick={() => openSingle(client.id)}
+                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-accent-blue/10 hover:text-accent-blue">
+                              <Mail className="h-4 w-4" />
+                            </button>
+                          ) : (
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-200"><Mail className="h-4 w-4" /></span>
+                          )
+                        }
+                      />
                     </li>
                   );
                 })}
@@ -254,26 +265,30 @@ export function UpcomingBirthdays() {
                   const client = clients.find((c) => c.id === row.clientId);
                   const clientName = client ? `${client.firstName} ${client.lastName}` : "—";
                   return (
-                    <li key={`${row.clientId}-${row.date}`} className="flex items-center gap-3 px-5 py-3.5 md:px-6">
-                      <Link href={`/clients/${row.clientId}`} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg transition-colors hover:bg-slate-50/80">
-                        <ClientAvatar firstName={client?.firstName ?? "?"} lastName={client?.lastName ?? "?"} size="sm" />
-                        <div className="flex-1 min-w-0">
-                          {client ? (
-                            <ClientNameDisplay
-                              firstName={client.firstName}
-                              lastName={client.lastName}
-                              isVip={calculateClientTags(client, policies).includes("VIP")}
-                              size="sm"
-                            />
-                          ) : (
-                            <p className="text-sm font-medium text-triton-text truncate">{clientName}</p>
-                          )}
-                          <p className="text-xs text-triton-muted truncate">{row.subject}</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-xs text-triton-muted">{formatRelative(row.date)}</p>
-                        </div>
-                      </Link>
+                    <li key={`${row.clientId}-${row.date}`} className="px-5 py-3 md:px-6">
+                      <UniversalDataCard
+                        accentColor="#CBD5E1"
+                        className="rounded-xl border border-slate-100 bg-white/70 p-4 shadow-none"
+                        title={
+                          <Link href={`/clients/${row.clientId}`} className="inline-flex items-center gap-2">
+                            <ClientAvatar firstName={client?.firstName ?? "?"} lastName={client?.lastName ?? "?"} size="sm" />
+                            {client ? (
+                              <ClientNameDisplay
+                                firstName={client.firstName}
+                                lastName={client.lastName}
+                                isVip={calculateClientTags(client, policies).includes("VIP")}
+                                size="sm"
+                              />
+                            ) : (
+                              <span>{clientName}</span>
+                            )}
+                          </Link>
+                        }
+                        subtitle={row.subject}
+                        badges={<StatusBadge kind="custom" label="SENT" className="bg-slate-50 text-slate-500 ring-slate-100" />}
+                        metrics={[{ label: "Sent", value: formatRelative(row.date) }]}
+                        metricsClassName="sm:grid-cols-1"
+                      />
                     </li>
                   );
                 })}
