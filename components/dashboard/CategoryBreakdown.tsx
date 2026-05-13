@@ -12,7 +12,7 @@ import {
 import { useData } from "@/components/providers/DataProvider";
 import { WidgetCard } from "@/components/ui-shared/WidgetCard";
 import { EmptyState } from "@/components/ui-shared/EmptyState";
-import { formatCurrencyCompact } from "@/lib/format";
+import { formatCurrency } from "@/lib/format";
 import { getPolicyPortfolioAmount } from "@/lib/portfolio-metrics";
 
 const CATEGORY_COLORS = {
@@ -80,7 +80,7 @@ export function CategoryBreakdown() {
                     padding: "6px 10px",
                   }}
                   formatter={(value) => [
-                    formatCurrencyCompact(value as number),
+                    formatCurrency(value as number),
                     "Amount",
                   ]}
                 />
@@ -92,7 +92,7 @@ export function CategoryBreakdown() {
                 Total
               </span>
               <span className="text-base font-bold text-triton-text tabular-nums">
-                {formatCurrencyCompact(grandTotal)}
+                {formatCurrency(grandTotal)}
               </span>
             </div>
           </div>
@@ -111,7 +111,7 @@ export function CategoryBreakdown() {
                   </span>
                   <div className="text-right">
                     <p className="text-sm font-semibold text-triton-text tabular-nums">
-                      {formatCurrencyCompact(d.value)}
+                      {formatCurrency(d.value)}
                     </p>
                     <p className="text-xs text-triton-muted tabular-nums">
                       {pct.toFixed(1)}%

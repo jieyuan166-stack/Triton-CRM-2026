@@ -2,13 +2,6 @@
 // Single source of truth for monetary formatting across the CRM.
 // Built on Intl.NumberFormat — locale + currency switch happens here only.
 
-const FORMATTER_FULL = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0,
-});
-
 const FORMATTER_FULL_CENTS = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
@@ -16,15 +9,13 @@ const FORMATTER_FULL_CENTS = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2,
 });
 
-const FORMATTER_COMPACT = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  notation: "compact",
-  maximumFractionDigits: 1,
-});
+function truncateToCents(amount: number): number {
+  return Math.trunc(amount * 100) / 100;
+}
 
 /**
- * Full currency, e.g. `1500200 → "$1,500,200"`.
+ * Full currency, e.g. `1500200 → "$1,500,200.00"`.
+ * Amounts are truncated to cents, never rounded.
  * Use everywhere we have the room for full precision (table cells, detail
  * cards, form previews, email bodies).
  */
@@ -33,19 +24,26 @@ export function formatCurrency(
   opts: { showCents?: boolean } = {}
 ): string {
   if (amount == null || Number.isNaN(amount)) return "—";
-  return (opts.showCents ? FORMATTER_FULL_CENTS : FORMATTER_FULL).format(amount);
+  const normalized = truncateToCents(amount);
+  if (opts.showCents === false) {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(Math.trunc(normalized));
+  }
+  return FORMATTER_FULL_CENTS.format(normalized);
 }
 
 /**
- * Compact currency, e.g. `1500200 → "$1.5M"`.
- * Use only in tight dashboard cards / sidebars where horizontal space is
- * scarce.
+ * Kept for existing call sites, but no longer uses compact notation: money in
+ * Triton CRM should display full values instead of rounded approximations.
  */
 export function formatCurrencyCompact(
   amount: number | null | undefined
 ): string {
-  if (amount == null || Number.isNaN(amount)) return "—";
-  return FORMATTER_COMPACT.format(amount);
+  return formatCurrency(amount);
 }
 
 /**
@@ -55,6 +53,7 @@ export function formatCurrencyCompact(
 export function formatNumber(amount: number | null | undefined): string {
   if (amount == null || Number.isNaN(amount)) return "";
   return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 0,
     maximumFractionDigits: 2,
-  }).format(amount);
+  }).format(truncateToCents(amount));
 }

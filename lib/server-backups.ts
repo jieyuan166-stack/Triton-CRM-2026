@@ -14,6 +14,7 @@ const gunzipAsync = promisify(gunzip);
 const SNAPSHOT_RE = /^backup_\d{8}T\d{6}\.json\.gz$/;
 const MANUAL_DATABASE_RE = /^backup_\d{8}T\d{6}\.db\.gz$/;
 const DATABASE_RE = /^triton-\d{8}-\d{6}\.db\.gz$/;
+const BACKUP_TIME_ZONE = "America/Vancouver";
 
 export function getBackupDir() {
   return process.env.BACKUP_DIR || path.join(process.cwd(), "backups");
@@ -24,8 +25,23 @@ export function isSafeBackupFilename(filename: string) {
 }
 
 export function timestampLabel(date = new Date()) {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}T${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: BACKUP_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  })
+    .formatToParts(date)
+    .reduce<Record<string, string>>((acc, part) => {
+      if (part.type !== "literal") acc[part.type] = part.value;
+      return acc;
+    }, {});
+
+  return `${parts.year}${parts.month}${parts.day}T${parts.hour}${parts.minute}${parts.second}`;
 }
 
 export function backupPath(filename: string) {
@@ -45,17 +61,40 @@ function kindFor(filename: string): BackupRecord["kind"] {
 }
 
 function createdAtFromFilename(filename: string, fallback: Date) {
+  const toVancouverIso = (
+    y: string,
+    m: string,
+    d: string,
+    h: string,
+    min: string,
+    s: string
+  ) => {
+    const utcGuess = Date.UTC(Number(y), Number(m) - 1, Number(d), Number(h), Number(min), Number(s));
+    const offsetName = new Intl.DateTimeFormat("en-US", {
+      timeZone: BACKUP_TIME_ZONE,
+      timeZoneName: "shortOffset",
+    })
+      .formatToParts(new Date(utcGuess))
+      .find((part) => part.type === "timeZoneName")?.value;
+    const offsetMatch = offsetName?.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/);
+    const offsetMinutes = offsetMatch
+      ? (offsetMatch[1] === "-" ? -1 : 1) *
+        (Number(offsetMatch[2]) * 60 + Number(offsetMatch[3] ?? "0"))
+      : 0;
+    return new Date(utcGuess - offsetMinutes * 60 * 1000).toISOString();
+  };
+
   const snapshot = filename.match(/^backup_(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})\.json\.gz$/);
   if (snapshot) {
-    return new Date(`${snapshot[1]}-${snapshot[2]}-${snapshot[3]}T${snapshot[4]}:${snapshot[5]}:${snapshot[6]}`).toISOString();
+    return toVancouverIso(snapshot[1], snapshot[2], snapshot[3], snapshot[4], snapshot[5], snapshot[6]);
   }
   const database = filename.match(/^triton-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})\.db\.gz$/);
   if (database) {
-    return new Date(`${database[1]}-${database[2]}-${database[3]}T${database[4]}:${database[5]}:${database[6]}`).toISOString();
+    return toVancouverIso(database[1], database[2], database[3], database[4], database[5], database[6]);
   }
   const manualDatabase = filename.match(/^backup_(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})\.db\.gz$/);
   if (manualDatabase) {
-    return new Date(`${manualDatabase[1]}-${manualDatabase[2]}-${manualDatabase[3]}T${manualDatabase[4]}:${manualDatabase[5]}:${manualDatabase[6]}`).toISOString();
+    return toVancouverIso(manualDatabase[1], manualDatabase[2], manualDatabase[3], manualDatabase[4], manualDatabase[5], manualDatabase[6]);
   }
   return fallback.toISOString();
 }

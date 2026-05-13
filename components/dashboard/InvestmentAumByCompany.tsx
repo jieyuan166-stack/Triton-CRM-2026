@@ -15,7 +15,7 @@ import { useData } from "@/components/providers/DataProvider";
 import { EmptyState } from "@/components/ui-shared/EmptyState";
 import { WidgetCard } from "@/components/ui-shared/WidgetCard";
 import { CARRIER_COLORS } from "@/lib/carrier-colors";
-import { formatCurrency, formatCurrencyCompact } from "@/lib/format";
+import { formatCurrency } from "@/lib/format";
 import { CARRIERS, type Carrier } from "@/lib/types";
 
 function carrierShortLabel(carrier: Carrier) {
@@ -79,7 +79,7 @@ export function InvestmentAumByCompany() {
                 Total Investment AUM
               </p>
               <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">
-                {formatCurrencyCompact(total)}
+                {formatCurrency(total)}
               </p>
             </div>
             <p className="text-xs text-slate-500">
@@ -155,7 +155,7 @@ export function InvestmentAumByCompany() {
                     {item.carrier}
                   </span>
                   <span className="text-sm font-semibold tabular-nums text-slate-900">
-                    {formatCurrencyCompact(item.aum)}
+                    {formatCurrency(item.aum)}
                   </span>
                   <span className="w-12 text-right text-xs tabular-nums text-slate-400">
                     {pct.toFixed(0)}%

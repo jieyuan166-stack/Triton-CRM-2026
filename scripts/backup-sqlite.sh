@@ -5,9 +5,10 @@ CONTAINER_NAME="${CONTAINER_NAME:-triton-crm}"
 BACKUP_DIR="${BACKUP_DIR:-/volume1/docker/triton-crm/backups}"
 DB_PATH="${DB_PATH:-/app/prisma/data/triton.db}"
 RETENTION_DAYS="${RETENTION_DAYS:-30}"
+TIME_ZONE="${TIME_ZONE:-America/Vancouver}"
 
-DATE="$(date +%Y%m%d)"
-TIME="$(date +%H%M%S)"
+DATE="$(TZ="$TIME_ZONE" date +%Y%m%d)"
+TIME="$(TZ="$TIME_ZONE" date +%H%M%S)"
 HASH_FILE="$BACKUP_DIR/.last-db.sha256"
 TODAY_GLOB="$BACKUP_DIR/triton-$DATE-"'*.db.gz'
 TARGET="$BACKUP_DIR/triton-$DATE-$TIME.db.gz"

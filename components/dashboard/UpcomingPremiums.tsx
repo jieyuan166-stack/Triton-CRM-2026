@@ -167,11 +167,11 @@ export function UpcomingPremiums() {
           }}
           className="w-full"
         >
-          <div className="px-5 pb-2 md:px-6">
-            <TabsList className="h-9 w-auto justify-start rounded-xl border border-slate-100 bg-slate-50/80 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
+          <div className="px-5 pb-1.5 md:px-6">
+            <TabsList className="h-8 w-auto justify-start rounded-xl border border-slate-100 bg-slate-50/80 p-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
               <TabsTrigger
                 value="upcoming"
-                className="h-7 rounded-lg px-3.5 text-xs font-semibold text-slate-400 transition-colors data-active:bg-white data-active:text-slate-900 data-active:shadow-sm hover:text-slate-600"
+                className="h-7 rounded-lg px-3 text-xs font-semibold text-slate-400 transition-colors data-active:bg-white data-active:text-slate-900 data-active:shadow-sm hover:text-slate-600"
               >
                 Upcoming{" "}
                 <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
@@ -180,7 +180,7 @@ export function UpcomingPremiums() {
               </TabsTrigger>
               <TabsTrigger
                 value="sent"
-                className="h-7 rounded-lg px-3.5 text-xs font-semibold text-slate-400 transition-colors data-active:bg-white data-active:text-slate-900 data-active:shadow-sm hover:text-slate-600"
+                className="h-7 rounded-lg px-3 text-xs font-semibold text-slate-400 transition-colors data-active:bg-white data-active:text-slate-900 data-active:shadow-sm hover:text-slate-600"
               >
                 Sent{" "}
                 <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
@@ -203,8 +203,6 @@ export function UpcomingPremiums() {
               <ul className="divide-y divide-slate-100">
                 {upcomingRows.map((p) => {
                   const client = clients.find((c) => c.id === p.clientId);
-                  const days = daysUntil(p.premiumDate!);
-                  const urgent = days <= 7;
                   const clientName = client ? `${client.firstName} ${client.lastName}` : "—";
                   const canEmail = !!client?.email;
                   const isChecked = selected.has(p.id);
@@ -212,14 +210,14 @@ export function UpcomingPremiums() {
                     <li
                       key={p.id}
                       className={cn(
-                        "flex items-stretch gap-3 px-5 py-3 md:px-6 transition-colors",
+                        "flex items-center gap-3 px-5 py-2 md:px-6 transition-colors",
                         isChecked ? "bg-accent-blue/5" : "hover:bg-slate-50/80"
                       )}
                     >
                       <Checkbox aria-label={`Select ${clientName}`} checked={isChecked} onCheckedChange={(c) => toggleOne(p.id, c === true)} disabled={!canEmail} />
                       <UniversalDataCard
                         accentColor={CARRIER_COLORS[p.carrier]}
-                        className="flex-1 rounded-xl border border-slate-100 bg-white/70 p-4 shadow-none"
+                        className="flex-1 rounded-lg border border-slate-100 bg-white/70 p-3 shadow-none"
                         contentClassName="min-w-0"
                         title={
                           client ? (
@@ -235,7 +233,7 @@ export function UpcomingPremiums() {
                             <span>{clientName}</span>
                           )
                         }
-                        subtitle={`${p.carrier} · ${p.productName || p.productType}`}
+                        subtitle={`${p.carrier} · ${p.productName || p.productType} · ${formatCurrency(p.premium)} · ${formatRelative(p.premiumDate!)}`}
                         badges={
                           p.category === "Investment" && p.isInvestmentLoan ? (
                             <StatusBadge kind="loan" lender={p.lender} />
@@ -243,23 +241,14 @@ export function UpcomingPremiums() {
                             <StatusBadge kind={p.category === "Investment" ? "investment" : "insurance"} />
                           )
                         }
-                        metrics={[
-                          { label: "Premium", value: formatCurrency(p.premium) },
-                          {
-                            label: "Due",
-                            value: formatRelative(p.premiumDate!),
-                            helper: urgent ? "Needs attention" : undefined,
-                          },
-                        ]}
-                        metricsClassName="grid-cols-2 sm:grid-cols-2"
                         actions={
                           canEmail ? (
                             <button type="button" aria-label={`Email ${clientName}`} onClick={() => openSingle(p.id)}
-                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-accent-blue/10 hover:text-accent-blue">
+                              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-accent-blue/10 hover:text-accent-blue">
                               <Mail className="h-4 w-4" />
                             </button>
                           ) : (
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-200"><Mail className="h-4 w-4" /></span>
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-200"><Mail className="h-4 w-4" /></span>
                           )
                         }
                       />
@@ -285,10 +274,10 @@ export function UpcomingPremiums() {
                   const client = clients.find((c) => c.id === row.clientId);
                   const clientName = client ? `${client.firstName} ${client.lastName}` : "—";
                   return (
-                    <li key={`${row.clientId}-${row.date}`} className="px-5 py-3 md:px-6">
+                    <li key={`${row.clientId}-${row.date}`} className="px-5 py-2 md:px-6">
                       <UniversalDataCard
                         accentColor="#CBD5E1"
-                        className="rounded-xl border border-slate-100 bg-white/70 p-4 shadow-none"
+                        className="rounded-lg border border-slate-100 bg-white/70 p-3 shadow-none"
                         title={
                           client ? (
                             <Link href={`/clients/${row.clientId}`}>
@@ -303,10 +292,8 @@ export function UpcomingPremiums() {
                             <span>{clientName}</span>
                           )
                         }
-                        subtitle={row.subject}
+                        subtitle={`${row.subject} · ${formatRelative(row.date)}`}
                         badges={<StatusBadge kind="custom" label="SENT" className="bg-slate-50 text-slate-500 ring-slate-100" />}
-                        metrics={[{ label: "Sent", value: formatRelative(row.date) }]}
-                        metricsClassName="sm:grid-cols-1"
                       />
                     </li>
                   );

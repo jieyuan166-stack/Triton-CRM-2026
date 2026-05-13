@@ -1,5 +1,6 @@
 import type { Client, Policy } from "@/lib/types";
 import { formatDate as formatCalendarDate } from "@/lib/date-utils";
+import { formatCurrency as formatMoney } from "@/lib/format";
 
 export type ClientReportPayload = {
   client: Client;
@@ -7,12 +8,6 @@ export type ClientReportPayload = {
   logoDataUri?: string;
   generatedDate?: Date;
 };
-
-const currencyFormatter = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  maximumFractionDigits: 0,
-});
 
 function escapeHtml(value: unknown) {
   return String(value ?? "")
@@ -29,7 +24,7 @@ function formatDate(value?: string) {
 }
 
 function formatCurrency(value?: number) {
-  return currencyFormatter.format(Number.isFinite(value) ? value ?? 0 : 0);
+  return formatMoney(Number.isFinite(value) ? value ?? 0 : 0);
 }
 
 function clientName(client: Client) {

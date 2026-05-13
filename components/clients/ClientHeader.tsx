@@ -31,7 +31,7 @@ import {
   EmailPreviewDialog,
   type EmailPreviewPayload,
 } from "@/components/dashboard/EmailPreviewDialog";
-import { formatCurrencyCompact } from "@/lib/format";
+import { formatCurrency } from "@/lib/format";
 import { calculateAutoClientTags } from "@/lib/client-tags";
 import { TAG_VALUES, type TagValue } from "@/lib/constants";
 import { calculatePortfolioMetrics } from "@/lib/portfolio-metrics";
@@ -196,7 +196,7 @@ export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHead
                 Insurance Face Amount
               </p>
               <p className="mt-1 text-xl md:text-2xl font-semibold text-slate-900 tabular-nums leading-none tracking-tight">
-                {formatCurrencyCompact(clientMetrics.insuranceFaceAmount)}
+                {formatCurrency(clientMetrics.insuranceFaceAmount)}
               </p>
               <p className="mt-1 text-xs text-slate-500">
                 {clientMetrics.activeInsuranceCount} active
@@ -207,7 +207,7 @@ export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHead
                 Investment AUM
               </p>
               <p className="mt-1 text-xl md:text-2xl font-semibold text-slate-900 tabular-nums leading-none tracking-tight">
-                {formatCurrencyCompact(clientMetrics.investmentAum)}
+                {formatCurrency(clientMetrics.investmentAum)}
               </p>
               <p className="mt-1 text-xs text-slate-500">
                 {clientMetrics.activeInvestmentCount} active

@@ -11,6 +11,7 @@ import {
 
 import type { Client, Policy } from "@/lib/types";
 import { formatDate as formatCalendarDate } from "@/lib/date-utils";
+import { formatCurrency as formatMoney } from "@/lib/format";
 
 const styles = StyleSheet.create({
   page: {
@@ -217,11 +218,7 @@ function clientName(client: Client) {
 }
 
 function formatCurrency(value?: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(value ?? 0);
+  return formatMoney(value ?? 0);
 }
 
 function formatDate(value?: string) {

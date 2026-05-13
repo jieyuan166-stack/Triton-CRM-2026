@@ -54,7 +54,7 @@ export default function PolicyDetailPage() {
     category: policy.category,
     carrier: policy.carrier,
     productType: policy.productType,
-    productName: policy.productName,
+    productName: policy.productName ?? "",
     policyNumber: policy.policyNumber,
     sumAssured:
       policy.category === "Investment" && policy.sumAssured <= 0
@@ -63,13 +63,13 @@ export default function PolicyDetailPage() {
     premium: policy.premium,
     paymentFrequency: policy.paymentFrequency,
     effectiveDate: policy.effectiveDate,
-    premiumDate: policy.premiumDate,
+    premiumDate: policy.premiumDate ?? "",
     status: policy.status,
     isInvestmentLoan: !!policy.isInvestmentLoan,
-    lender: policy.lender,
+    lender: (policy.lender ?? "") as never,
     loanAmount: policy.loanAmount,
     isCorporateInsurance: !!policy.isCorporateInsurance,
-    businessName: policy.businessName,
+    businessName: policy.businessName ?? "",
   };
 
   function handleSubmit(values: PolicyFormValues) {

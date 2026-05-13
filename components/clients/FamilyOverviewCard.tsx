@@ -9,7 +9,7 @@ import { StatusBadge } from "@/components/ui-shared/StatusBadge";
 import { UniversalDataCard } from "@/components/ui-shared/UniversalDataCard";
 import { calculateClientTags } from "@/lib/client-tags";
 import { buildFamilySummary } from "@/lib/family";
-import { formatCurrency, formatCurrencyCompact } from "@/lib/format";
+import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Client, ClientRelationship, Policy } from "@/lib/types";
 
@@ -108,7 +108,7 @@ export function FamilyOverviewCard({
               <p className="text-xs text-slate-500">
                 Family Portfolio{" "}
                 <span className="font-semibold text-slate-900">
-                  {formatCurrencyCompact(
+                  {formatCurrency(
                     summary.insuranceFaceAmount + summary.investmentAum
                   )}
                 </span>
@@ -262,7 +262,7 @@ function DistributionList({
                 <div className="flex items-center justify-between gap-2 text-xs">
                   <span className="font-medium text-slate-700">{row.label}</span>
                   <span className="tabular-nums text-slate-500">
-                    {formatCurrencyCompact(row.value)}
+                    {formatCurrency(row.value)}
                   </span>
                 </div>
                 <div className="h-1.5 overflow-hidden rounded-full bg-white">
@@ -287,7 +287,7 @@ function MetricRow({ label, value }: { label: string; value: number }) {
         {label}
       </p>
       <p className="mt-1 text-lg font-bold tabular-nums text-slate-950">
-        {formatCurrencyCompact(value)}
+        {formatCurrency(value)}
       </p>
       <p className="mt-0.5 text-[10px] text-slate-400">{formatCurrency(value)}</p>
     </div>

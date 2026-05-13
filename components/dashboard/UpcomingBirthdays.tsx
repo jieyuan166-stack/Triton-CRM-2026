@@ -161,11 +161,11 @@ export function UpcomingBirthdays() {
           }}
           className="w-full"
         >
-          <div className="px-5 pb-2 md:px-6">
-            <TabsList className="h-9 w-auto justify-start rounded-xl border border-slate-100 bg-slate-50/80 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
+          <div className="px-5 pb-1.5 md:px-6">
+            <TabsList className="h-8 w-auto justify-start rounded-xl border border-slate-100 bg-slate-50/80 p-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
               <TabsTrigger
                 value="upcoming"
-                className="h-7 rounded-lg px-3.5 text-xs font-semibold text-slate-400 transition-colors data-active:bg-white data-active:text-slate-900 data-active:shadow-sm hover:text-slate-600"
+                className="h-7 rounded-lg px-3 text-xs font-semibold text-slate-400 transition-colors data-active:bg-white data-active:text-slate-900 data-active:shadow-sm hover:text-slate-600"
               >
                 Upcoming{" "}
                 <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
@@ -174,7 +174,7 @@ export function UpcomingBirthdays() {
               </TabsTrigger>
               <TabsTrigger
                 value="sent"
-                className="h-7 rounded-lg px-3.5 text-xs font-semibold text-slate-400 transition-colors data-active:bg-white data-active:text-slate-900 data-active:shadow-sm hover:text-slate-600"
+                className="h-7 rounded-lg px-3 text-xs font-semibold text-slate-400 transition-colors data-active:bg-white data-active:text-slate-900 data-active:shadow-sm hover:text-slate-600"
               >
                 Sent{" "}
                 <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
@@ -204,14 +204,14 @@ export function UpcomingBirthdays() {
                     <li
                       key={client.id}
                       className={cn(
-                        "flex items-stretch gap-3 px-5 py-3 md:px-6 transition-colors",
+                        "flex items-center gap-3 px-5 py-2 md:px-6 transition-colors",
                         isChecked ? "bg-accent-blue/5" : "hover:bg-slate-50/80"
                       )}
                     >
                       <Checkbox aria-label={`Select ${clientName}`} checked={isChecked} onCheckedChange={(c) => toggleOne(client.id, c === true)} disabled={!canEmail} />
                       <UniversalDataCard
                         accentColor={daysAway <= 7 ? "#F59E0B" : "#CBD5E1"}
-                        className="flex-1 rounded-xl border border-slate-100 bg-white/70 p-4 shadow-none"
+                        className="flex-1 rounded-lg border border-slate-100 bg-white/70 p-3 shadow-none"
                         title={
                           <Link href={`/clients/${client.id}`} className="inline-flex items-center gap-2">
                             <ClientAvatar firstName={client.firstName} lastName={client.lastName} size="sm" />
@@ -223,23 +223,16 @@ export function UpcomingBirthdays() {
                             />
                           </Link>
                         }
-                        subtitle={`Turning ${turning}`}
+                        subtitle={`Turning ${turning} · ${daysAway === 0 ? "Today" : daysAway === 1 ? "Tomorrow" : `${daysAway}d away`}`}
                         badges={<StatusBadge kind="custom" label="BIRTHDAY" className="bg-amber-50 text-amber-700 ring-amber-100" />}
-                        metrics={[
-                          {
-                            label: "When",
-                            value: daysAway === 0 ? "Today" : daysAway === 1 ? "Tomorrow" : `${daysAway}d`,
-                          },
-                        ]}
-                        metricsClassName="sm:grid-cols-1"
                         actions={
                           canEmail ? (
                             <button type="button" aria-label={`Email ${clientName}`} onClick={() => openSingle(client.id)}
-                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-accent-blue/10 hover:text-accent-blue">
+                              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-accent-blue/10 hover:text-accent-blue">
                               <Mail className="h-4 w-4" />
                             </button>
                           ) : (
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-200"><Mail className="h-4 w-4" /></span>
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-200"><Mail className="h-4 w-4" /></span>
                           )
                         }
                       />
@@ -265,10 +258,10 @@ export function UpcomingBirthdays() {
                   const client = clients.find((c) => c.id === row.clientId);
                   const clientName = client ? `${client.firstName} ${client.lastName}` : "—";
                   return (
-                    <li key={`${row.clientId}-${row.date}`} className="px-5 py-3 md:px-6">
+                    <li key={`${row.clientId}-${row.date}`} className="px-5 py-2 md:px-6">
                       <UniversalDataCard
                         accentColor="#CBD5E1"
-                        className="rounded-xl border border-slate-100 bg-white/70 p-4 shadow-none"
+                        className="rounded-lg border border-slate-100 bg-white/70 p-3 shadow-none"
                         title={
                           <Link href={`/clients/${row.clientId}`} className="inline-flex items-center gap-2">
                             <ClientAvatar firstName={client?.firstName ?? "?"} lastName={client?.lastName ?? "?"} size="sm" />
@@ -284,10 +277,8 @@ export function UpcomingBirthdays() {
                             )}
                           </Link>
                         }
-                        subtitle={row.subject}
+                        subtitle={`${row.subject} · ${formatRelative(row.date)}`}
                         badges={<StatusBadge kind="custom" label="SENT" className="bg-slate-50 text-slate-500 ring-slate-100" />}
-                        metrics={[{ label: "Sent", value: formatRelative(row.date) }]}
-                        metricsClassName="sm:grid-cols-1"
                       />
                     </li>
                   );
