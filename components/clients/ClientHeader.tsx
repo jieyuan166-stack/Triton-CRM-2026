@@ -190,8 +190,8 @@ export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHead
 
         {/* Portfolio metrics + report */}
         <div className="flex flex-col gap-3 md:items-end md:self-center">
-          <div className="grid shrink-0 grid-cols-2 gap-3 md:min-w-[18rem] md:text-right">
-            <div>
+          <div className="flex shrink-0 flex-col gap-5 sm:flex-row sm:items-start sm:gap-0 md:text-right">
+            <div className="sm:border-r sm:border-slate-200 sm:pr-8 md:pr-10">
               <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
                 Insurance Face Amount
               </p>
@@ -202,7 +202,7 @@ export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHead
                 {clientMetrics.activeInsuranceCount} active
               </p>
             </div>
-            <div>
+            <div className="sm:pl-8 md:pl-10">
               <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
                 Investment AUM
               </p>
