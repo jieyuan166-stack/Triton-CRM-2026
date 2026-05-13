@@ -68,7 +68,7 @@ const MEMBER_TONES = [
 function ownerBadgeClass(ownerId: string, currentClientId: string) {
   return ownerId === currentClientId
     ? "bg-blue-50 text-[#002147] ring-blue-100 [&_span]:text-[#002147]"
-    : "bg-emerald-50 text-emerald-700 ring-emerald-100 [&_span]:text-emerald-700";
+    : "bg-emerald-50 text-emerald-600 ring-emerald-100 [&_span]:text-emerald-600";
 }
 
 export function FamilyOverviewCard({
@@ -215,7 +215,7 @@ export function FamilyOverviewCard({
             rows={summary.categoryTotals.map((row) => ({
               label: row.category,
               value: row.total,
-              color: "#4F46E5",
+              barClassName: "bg-indigo-600",
             }))}
             total={summary.totalAum}
           />
@@ -225,7 +225,7 @@ export function FamilyOverviewCard({
             rows={summary.carrierTotals.map((row) => ({
               label: row.carrier,
               value: row.total,
-              color: "#10B981",
+              barClassName: "bg-emerald-500",
             }))}
             total={summary.totalAum}
           />
@@ -241,7 +241,7 @@ function DistributionList({
   total,
 }: {
   title: string;
-  rows: Array<{ label: string; value: number; color: string }>;
+  rows: Array<{ label: string; value: number; barClassName: string }>;
   total: number;
 }) {
   return (
@@ -267,8 +267,8 @@ function DistributionList({
                 </div>
                 <div className="h-1.5 overflow-hidden rounded-full bg-white">
                   <div
-                    className="h-full rounded-full"
-                    style={{ width: `${percent}%`, backgroundColor: row.color }}
+                    className={cn("h-full rounded-full", row.barClassName)}
+                    style={{ width: `${percent}%` }}
                   />
                 </div>
               </div>
