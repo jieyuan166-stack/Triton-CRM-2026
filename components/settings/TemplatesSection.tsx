@@ -377,6 +377,7 @@ const SAMPLE_VARS: Record<string, string> = {
   "Client Name": "Mei Wang",
   Carrier: "Canada Life",
   "Policy Name": "My Par Gold",
+  "Policy Number": "3721879",
   "Face Amount": "$2,500,000",
   "Premium Amount": "$12,000",
   Date: "May 07",

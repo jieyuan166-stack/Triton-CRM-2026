@@ -64,6 +64,7 @@ export interface EmailPreviewPayload {
   /** Required when template === "renewal" — identifies the policy whose
    *  renewal-suppression timestamp should be stamped. */
   policyId?: string;
+  emphasizedTerms?: string[];
   attachments?: EmailTemplateAttachment[];
 }
 
@@ -76,6 +77,7 @@ export interface EmailPreviewBatchItem {
   clientId?: string;
   template?: "renewal" | "birthday" | "custom";
   policyId?: string;
+  emphasizedTerms?: string[];
 }
 
 /** Result handed to onSent so callers can perform additional bookkeeping
@@ -215,6 +217,7 @@ export function EmailPreviewDialog({
       clientId?: string;
       template?: "renewal" | "birthday" | "custom";
       policyId?: string;
+      emphasizedTerms?: string[];
       bcc?: string[];
     }) {
       const bodyWithSignature = renderEmailBody(
@@ -300,6 +303,7 @@ export function EmailPreviewDialog({
             clientId: item.clientId,
             template: item.template,
             policyId: item.policyId,
+            emphasizedTerms: item.emphasizedTerms,
           });
           sent += 1;
         }
@@ -326,6 +330,7 @@ export function EmailPreviewDialog({
         clientId: payload?.clientId,
         template: payload?.template,
         policyId: payload?.policyId,
+        emphasizedTerms: payload?.emphasizedTerms,
       });
 
       // === Post-success bookkeeping (runs in one render cycle) ===

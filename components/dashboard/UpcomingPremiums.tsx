@@ -102,16 +102,20 @@ export function UpcomingPremiums() {
     const client = clients.find((c) => c.id === p.clientId);
     if (!client?.email) return;
     const clientName = `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim() || "client";
+    const premiumAmount = formatCurrency(p.premium ?? 0);
+    const dueDate = p.premiumDate ? formatDate(p.premiumDate) : "";
     const vars = {
       "Client Name": clientName, Carrier: p.carrier ?? "", "Policy Name": p.productName ?? "",
-      "Face Amount": formatCurrency(p.sumAssured ?? 0), "Premium Amount": formatCurrency(p.premium ?? 0),
-      Date: p.premiumDate ? formatDate(p.premiumDate) : "",
+      "Policy Number": p.policyNumber ?? "",
+      "Face Amount": formatCurrency(p.sumAssured ?? 0), "Premium Amount": premiumAmount,
+      Date: dueDate,
     };
     setPayload({
       contextLabel: clientName, to: client.email,
       subject: applyTemplate(renewalTpl.subject, vars),
       body: applyTemplate(renewalTpl.body, vars),
       attachments: renewalTpl.attachments ?? [],
+      emphasizedTerms: [p.policyNumber ?? "", premiumAmount, dueDate],
       clientId: client.id, template: "renewal", policyId: p.id,
     });
     setDialogOpen(true);
@@ -127,13 +131,16 @@ export function UpcomingPremiums() {
         const clientName =
           `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim() ||
           "client";
+        const premiumAmount = formatCurrency(p.premium ?? 0);
+        const dueDate = p.premiumDate ? formatDate(p.premiumDate) : "";
         const vars = {
           "Client Name": clientName,
           Carrier: p.carrier ?? "",
           "Policy Name": p.productName ?? "",
+          "Policy Number": p.policyNumber ?? "",
           "Face Amount": formatCurrency(p.sumAssured ?? 0),
-          "Premium Amount": formatCurrency(p.premium ?? 0),
-          Date: p.premiumDate ? formatDate(p.premiumDate) : "",
+          "Premium Amount": premiumAmount,
+          Date: dueDate,
         };
         return {
           contextLabel: clientName,
@@ -143,6 +150,7 @@ export function UpcomingPremiums() {
           clientId: client.id,
           template: "renewal" as const,
           policyId: p.id,
+          emphasizedTerms: [p.policyNumber ?? "", premiumAmount, dueDate],
         };
       })
       .filter((item): item is NonNullable<typeof item> => !!item);

@@ -43,14 +43,15 @@ export const DEFAULT_TEMPLATES: EmailTemplate[] = [
   {
     id: "renewal",
     label: "Renewal",
-    subject: "Premium Payment Reminder · [Carrier] [Policy Name]",
+    subject: "Premium Payment Reminder · [Carrier] [Policy Name] · #[Policy Number]",
     body:
-      "Dear [Client Name],\n\nI hope you are doing well.\n\nThis is a friendly reminder that the premium payment of [Premium Amount] for your [Carrier] [Policy Name] policy, with a face amount of [Face Amount], is due on [Date].\n\nTo ensure your coverage remains active and uninterrupted, please arrange the payment before the due date. Should you have any questions regarding your policy or if you would like to schedule a review of your coverage, please feel free to contact me at any time.\n\nThank you for your continued trust and support.\n\nBest regards,\n\n尊敬的 [Client Name]，\n\n您好！\n\n温馨提醒您，您在 [Carrier] 的 [Policy Name] 保单（保额：[Face Amount]）保费 [Premium Amount] 将于 [Date] 到期。\n\n为确保您的保障持续有效并避免保障中断，请您在到期日前完成缴费。如您对保单内容有任何疑问，或希望重新检视您的保障规划，欢迎随时与我联系。\n\n感谢您一直以来的信任与支持！",
+      "Dear [Client Name],\n\nI hope you are doing well.\n\nThis is a friendly reminder that the premium payment of [Premium Amount] for your [Carrier] [Policy Name] policy, policy number [Policy Number], with a face amount of [Face Amount], is due on [Date].\n\nTo ensure your coverage remains active and uninterrupted, please arrange the payment before the due date. Should you have any questions regarding your policy or if you would like to schedule a review of your coverage, please feel free to contact me at any time.\n\nThank you for your continued trust and support.\n\nBest regards,\n\n尊敬的 [Client Name]，\n\n您好！\n\n温馨提醒您，您在 [Carrier] 的 [Policy Name] 保单（保单号码：[Policy Number]，保额：[Face Amount]）保费 [Premium Amount] 将于 [Date] 到期。\n\n为确保您的保障持续有效并避免保障中断，请您在到期日前完成缴费。如您对保单内容有任何疑问，或希望重新检视您的保障规划，欢迎随时与我联系。\n\n感谢您一直以来的信任与支持！",
     attachments: [],
     variables: [
       "[Client Name]",
       "[Carrier]",
       "[Policy Name]",
+      "[Policy Number]",
       "[Face Amount]",
       "[Premium Amount]",
       "[Date]",
@@ -124,6 +125,24 @@ export function plainTextToEmailHtml(text: string): string {
     .replace(/\n/g, "<br />");
 }
 
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function emphasizeHtmlTerms(html: string, terms: string[] | undefined): string {
+  if (!terms?.length) return html;
+  return terms
+    .map((term) => term.trim())
+    .filter(Boolean)
+    .reduce((nextHtml, term) => {
+      const escaped = escapeHtml(term);
+      return nextHtml.replace(
+        new RegExp(escapeRegExp(escaped), "g"),
+        `<strong><em>${escaped}</em></strong>`
+      );
+    }, html);
+}
+
 /**
  * HTML email body for SMTP sends. Template copy stays plain-text/editable;
  * the signature can be true HTML from Settings. This keeps the compose
@@ -132,10 +151,14 @@ export function plainTextToEmailHtml(text: string): string {
 export function renderEmailHtml(
   body: string,
   vars: Record<string, string | undefined>,
-  signature?: EmailSignature
+  signature?: EmailSignature,
+  options?: { emphasizedTerms?: string[] }
 ): string {
   const filled = applyTemplate(body, vars);
-  const bodyHtml = plainTextToEmailHtml(filled);
+  const bodyHtml = emphasizeHtmlTerms(
+    plainTextToEmailHtml(filled),
+    options?.emphasizedTerms
+  );
   const signatureHtml =
     signature?.enabled && signature.html?.trim()
       ? signature.html
