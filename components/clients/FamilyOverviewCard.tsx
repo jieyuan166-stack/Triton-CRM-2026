@@ -176,6 +176,7 @@ export function FamilyOverviewCard({
                       <PolicyDataCard
                         policy={policy}
                         href={`/policies/${policy.id}`}
+                        currentViewClientId={client.id}
                         owner={policy.owner}
                         ownerIsVip={calculateClientTags(policy.owner, policies).includes("VIP")}
                         ownerBadgeClassName={ownerBadgeClass(policy.owner.id, client.id)}

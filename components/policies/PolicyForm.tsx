@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useData } from "@/components/providers/DataProvider";
+import { ClientCombobox } from "@/components/ui-shared/ClientCombobox";
 import { CurrencyInput } from "@/components/ui-shared/CurrencyInput";
 import { MonthDayPicker } from "@/components/ui-shared/MonthDayPicker";
 import { formatMonthDay } from "@/lib/date-utils";
@@ -504,26 +505,22 @@ export function PolicyForm({
               <Label htmlFor="jointWithClientId">
                 Joint With <span className="text-accent-red">*</span>
               </Label>
-              <Select
+              <ClientCombobox
+                clients={jointPartnerOptions}
                 value={watch("jointWithClientId") ?? ""}
-                onValueChange={(v) =>
+                onChange={(v) =>
                   setValue("jointWithClientId", v ?? "", {
                     shouldValidate: true,
                   })
                 }
-              >
-                <SelectTrigger id="jointWithClientId" className="w-full">
-                  <SelectValue placeholder="Select joint partner" />
-                </SelectTrigger>
-                <SelectContent>
-                  {jointPartnerOptions.map((client) => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.firstName} {client.lastName}
-                      {client.email ? ` · ${client.email}` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="Search joint partner"
+                emptyText="No matching clients"
+              />
+              {jointPartnerOptions.length === 0 ? (
+                <p className="text-xs text-triton-muted">
+                  Add another client before creating a joint policy.
+                </p>
+              ) : null}
               <FieldError message={errors.jointWithClientId?.message} />
             </div>
           ) : null}

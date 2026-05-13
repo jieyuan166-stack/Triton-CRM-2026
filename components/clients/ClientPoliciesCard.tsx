@@ -76,6 +76,7 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
                       <PolicyDataCard
                         policy={p}
                         href={`/policies/${p.id}`}
+                        currentViewClientId={clientId}
                         className={style.row}
                       />
                     </li>

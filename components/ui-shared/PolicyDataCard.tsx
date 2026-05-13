@@ -20,6 +20,7 @@ export interface PolicyDataCardProps {
   actions?: ReactNode;
   className?: string;
   ownerBadgeClassName?: string;
+  currentViewClientId?: string;
 }
 
 function buildPolicyBadges(policy: Policy, extraBadges?: ReactNode) {
@@ -95,11 +96,17 @@ export function PolicyDataCard({
   actions,
   className,
   ownerBadgeClassName,
+  currentViewClientId,
 }: PolicyDataCardProps) {
   const { getClient } = useData();
+  const policyOwner = getClient(policy.clientId);
   const jointPartner = policy.jointWithClientId
     ? getClient(policy.jointWithClientId)
     : undefined;
+  const jointDisplayClient =
+    policy.isJoint && currentViewClientId && currentViewClientId === policy.jointWithClientId
+      ? policyOwner
+      : jointPartner;
   const ownerBadge = owner ? (
     <span
       className={cn(
@@ -124,9 +131,9 @@ export function PolicyDataCard({
       subtitle={
         <>
           <span>{`${policy.carrier} · ${policy.productType} · #${policy.policyNumber}`}</span>
-          {jointPartner ? (
+          {jointDisplayClient ? (
             <span className="mt-1 block text-purple-600">
-              Joint with {jointPartner.firstName} {jointPartner.lastName}
+              Joint with {jointDisplayClient.firstName} {jointDisplayClient.lastName}
             </span>
           ) : null}
         </>
