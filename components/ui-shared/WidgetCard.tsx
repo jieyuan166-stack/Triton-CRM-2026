@@ -33,11 +33,11 @@ export function WidgetCard({
       )}
     >
       {/* Header */}
-      <div className="flex items-start justify-between gap-3 px-5 md:px-6 pt-5 pb-4">
+      <div className="flex items-start justify-between gap-3 px-5 md:px-6 pt-5 pb-5">
         <div className="flex items-center gap-2.5 min-w-0">
           {icon ? <span className="shrink-0">{icon}</span> : null}
           <div className="min-w-0">
-            <h3 className="label-caps">
+            <h3 className="text-sm font-bold uppercase tracking-widest text-slate-700">
               {title}
             </h3>
             {description ? (

@@ -46,7 +46,7 @@ export function ClientNotesCard({ client }: ClientNotesCardProps) {
     <UniversalDataCard
       accentColor="#E9D5FF"
       title={
-        <span className="label-caps">
+        <span className="text-sm font-bold uppercase tracking-widest text-slate-700">
           CLIENT NOTES
         </span>
       }
