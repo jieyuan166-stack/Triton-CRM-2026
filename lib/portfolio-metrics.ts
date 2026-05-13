@@ -17,8 +17,22 @@ export function getPolicyPortfolioAmount(policy: Policy): number {
   return policy.sumAssured || 0;
 }
 
+export function policyDedupeKey(policy: Policy): string {
+  return (policy.policyNumber || policy.id).trim().toLowerCase();
+}
+
+export function dedupePolicies<T extends Policy>(policies: T[]): T[] {
+  const seen = new Set<string>();
+  return policies.filter((policy) => {
+    const key = policyDedupeKey(policy);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export function calculatePortfolioMetrics(policies: Policy[]): PortfolioMetrics {
-  const active = policies.filter((policy) => policy.status === "active");
+  const active = dedupePolicies(policies).filter((policy) => policy.status === "active");
   const activeInsurance = active.filter((policy) => policy.category === "Insurance");
   const activeInvestment = active.filter((policy) => policy.category === "Investment");
 

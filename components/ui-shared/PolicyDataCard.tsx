@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useData } from "@/components/providers/DataProvider";
 import { ClientNameDisplay } from "@/components/ui-shared/ClientNameDisplay";
 import { StatusBadge } from "@/components/ui-shared/StatusBadge";
 import { UniversalDataCard, type UniversalDataMetric } from "@/components/ui-shared/UniversalDataCard";
@@ -35,6 +36,7 @@ function buildPolicyBadges(policy: Policy, extraBadges?: ReactNode) {
       {policy.isCorporateInsurance && policy.businessName ? (
         <StatusBadge kind="corporate" label="CORPORATE" />
       ) : null}
+      {policy.isJoint ? <StatusBadge kind="joint" /> : null}
       {extraBadges}
     </>
   );
@@ -94,6 +96,10 @@ export function PolicyDataCard({
   className,
   ownerBadgeClassName,
 }: PolicyDataCardProps) {
+  const { getClient } = useData();
+  const jointPartner = policy.jointWithClientId
+    ? getClient(policy.jointWithClientId)
+    : undefined;
   const ownerBadge = owner ? (
     <span
       className={cn(
@@ -115,7 +121,16 @@ export function PolicyDataCard({
       href={href}
       accentColor={CARRIER_COLORS[policy.carrier]}
       title={policy.productName || policy.productType}
-      subtitle={`${policy.carrier} · ${policy.productType} · #${policy.policyNumber}`}
+      subtitle={
+        <>
+          <span>{`${policy.carrier} · ${policy.productType} · #${policy.policyNumber}`}</span>
+          {jointPartner ? (
+            <span className="mt-1 block text-purple-600">
+              Joint with {jointPartner.firstName} {jointPartner.lastName}
+            </span>
+          ) : null}
+        </>
+      }
       badges={buildPolicyBadges(policy, (
         <>
           {ownerBadge}

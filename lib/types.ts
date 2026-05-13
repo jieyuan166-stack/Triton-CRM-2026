@@ -269,6 +269,10 @@ export interface Policy {
   /** @deprecated Loan Rate dropped from the form; field kept for legacy data. */
   loanRate?: number;
 
+  // Joint-account fields. Meaningful for both Insurance and Investment.
+  isJoint?: boolean;
+  jointWithClientId?: string;
+
   /** ISO timestamp of the last renewal-reminder email sent for this
    *  policy. Drives the suppression filter on the Upcoming Premiums
    *  dashboard widget so the row disappears in real time after Send. */

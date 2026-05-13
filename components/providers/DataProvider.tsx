@@ -15,6 +15,7 @@ import {
 } from "react";
 import { calculateClientTags } from "@/lib/client-tags";
 import { removeCommunicationNoteBlocks } from "@/lib/communication-notes";
+import { dedupePolicies } from "@/lib/portfolio-metrics";
 import { seedClients, seedFollowUps, seedPolicies } from "@/lib/mock-data";
 import { type BackupSnapshot } from "@/lib/settings-types";
 import type {
@@ -120,9 +121,17 @@ function uid(prefix: string): string {
 }
 
 function calcAUM(policies: Policy[]): number {
-  return policies
+  return dedupePolicies(policies)
     .filter((p) => p.status === "active")
     .reduce((sum, p) => sum + p.sumAssured, 0);
+}
+
+function visiblePoliciesForClient(policies: Policy[], clientId: string): Policy[] {
+  return dedupePolicies(
+    policies.filter(
+      (p) => p.clientId === clientId || (p.isJoint && p.jointWithClientId === clientId)
+    )
+  );
 }
 
 // === Provider ===
@@ -137,6 +146,23 @@ function pruneOrphans<T extends { clientId: string }>(
   if (list.length === 0) return list;
   const live = new Set(clients.map((c) => c.id));
   return list.filter((x) => live.has(x.clientId));
+}
+
+function prunePolicyJointReferences(
+  list: Policy[],
+  clients: Pick<Client, "id">[]
+): Policy[] {
+  const live = new Set(clients.map((c) => c.id));
+  return list.map((policy) => {
+    const hasValidJoint =
+      !!policy.isJoint &&
+      !!policy.jointWithClientId &&
+      live.has(policy.jointWithClientId) &&
+      policy.jointWithClientId !== policy.clientId;
+    return hasValidJoint
+      ? policy
+      : { ...policy, isJoint: false, jointWithClientId: undefined };
+  });
 }
 
 function pruneRelationships(
@@ -209,7 +235,7 @@ function sanitizeSnapshot(snapshot: {
 
   return {
     clients,
-    policies: pruneOrphans(policies, clients),
+    policies: prunePolicyJointReferences(pruneOrphans(policies, clients), clients),
     followUps: pruneOrphans(followUps, clients),
     relationships: pruneRelationships(relationships, clients),
   };
@@ -223,7 +249,7 @@ function readInitialData(): {
 } {
   return {
     clients: seedClients,
-    policies: pruneOrphans(seedPolicies, seedClients),
+    policies: prunePolicyJointReferences(pruneOrphans(seedPolicies, seedClients), seedClients),
     followUps: pruneOrphans(seedFollowUps, seedClients),
     relationships: [],
   };
@@ -296,7 +322,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   const getPoliciesByClient = useCallback(
-    (clientId: string) => policies.filter((p) => p.clientId === clientId),
+    (clientId: string) => visiblePoliciesForClient(policies, clientId),
     [policies]
   );
 
@@ -304,7 +330,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     (id: string): ClientWithStats | undefined => {
       const c = clients.find((x) => x.id === id);
       if (!c) return undefined;
-      const cps = policies.filter((p) => p.clientId === id);
+      const cps = visiblePoliciesForClient(policies, id);
       return {
         ...c,
         aum: calcAUM(cps),
@@ -318,7 +344,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const listClientsWithStats = useCallback((): ClientWithStats[] => {
     return clients.map((c) => {
-      const cps = policies.filter((p) => p.clientId === c.id);
+      const cps = visiblePoliciesForClient(policies, c.id);
       return {
         ...c,
         aum: calcAUM(cps),
@@ -396,7 +422,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     (id) => {
       const existed = clients.some((c) => c.id === id);
       setClients((prev) => prev.filter((c) => c.id !== id));
-      setPolicies((prev) => prev.filter((p) => p.clientId !== id));
+      setPolicies((prev) =>
+        prev
+          .filter((p) => p.clientId !== id)
+          .map((p) =>
+            p.jointWithClientId === id
+              ? { ...p, isJoint: false, jointWithClientId: undefined }
+              : p
+          )
+      );
       setFollowUps((prev) => prev.filter((f) => f.clientId !== id));
       setRelationships((prev) =>
         prev.filter(
@@ -651,7 +685,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const nextClients = (snapshot.clients as Client[]).filter(
         (c) => !!c && typeof c === "object" && typeof c.id === "string"
       );
-      const nextPolicies = pruneOrphans(
+      const nextPolicies = prunePolicyJointReferences(pruneOrphans(
         (snapshot.policies as Policy[]).filter(
           (p) =>
             !!p &&
@@ -660,7 +694,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             typeof p.clientId === "string"
         ),
         nextClients
-      );
+      ), nextClients);
       const nextFollowUps = pruneOrphans(
         (snapshot.followUps as FollowUp[]).filter(
           (f) =>

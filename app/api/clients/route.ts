@@ -86,6 +86,8 @@ export async function GET(request: Request) {
     lender: p.lender ?? undefined,
     loanAmount: p.loanAmount ?? undefined,
     loanRate: p.loanRate ?? undefined,
+    isJoint: p.isJoint,
+    jointWithClientId: p.jointWithClientId ?? undefined,
     lastRenewalEmailAt: p.lastRenewalEmailAt?.toISOString(),
     beneficiaries: p.beneficiaries.map((b) => ({
       id: b.id,

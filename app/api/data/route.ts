@@ -145,6 +145,8 @@ function serializePolicy(
     lender: p.lender as Policy["lender"],
     loanAmount: p.loanAmount ?? undefined,
     loanRate: p.loanRate ?? undefined,
+    isJoint: p.isJoint,
+    jointWithClientId: p.jointWithClientId ?? undefined,
     lastRenewalEmailAt: iso(p.lastRenewalEmailAt),
     beneficiaries: (p.beneficiaries ?? []).map((b) => ({
       id: b.id,
@@ -276,6 +278,15 @@ function policyData(input: Partial<Policy>, partial = false) {
     lender: input.lender === undefined ? (partial ? undefined : null) : input.lender || null,
     loanAmount: input.loanAmount === undefined ? (partial ? undefined : null) : input.loanAmount,
     loanRate: input.loanRate === undefined ? (partial ? undefined : null) : input.loanRate,
+    isJoint: input.isJoint === undefined ? (partial ? undefined : false) : !!input.isJoint,
+    jointWithClientId:
+      input.isJoint === false
+        ? null
+        : input.jointWithClientId === undefined
+          ? partial
+            ? undefined
+            : null
+          : input.jointWithClientId || null,
     lastRenewalEmailAt: input.lastRenewalEmailAt ? toNullDate(input.lastRenewalEmailAt) : undefined,
   });
 }
@@ -370,7 +381,16 @@ async function replaceAll(snapshot: {
     }
 
     for (const p of policies.filter((p) => clientIds.has(p.clientId))) {
-      const data = policyData(p);
+      const hasValidJoint =
+        !!p.isJoint &&
+        !!p.jointWithClientId &&
+        clientIds.has(p.jointWithClientId) &&
+        p.jointWithClientId !== p.clientId;
+      const data = policyData({
+        ...p,
+        isJoint: hasValidJoint,
+        jointWithClientId: hasValidJoint ? p.jointWithClientId : undefined,
+      });
       await tx.policy.create({
         data: {
           ...data,

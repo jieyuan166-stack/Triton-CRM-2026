@@ -70,12 +70,15 @@ export default function PolicyDetailPage() {
     loanAmount: policy.loanAmount,
     isCorporateInsurance: !!policy.isCorporateInsurance,
     businessName: policy.businessName ?? "",
+    isJoint: !!policy.isJoint,
+    jointWithClientId: policy.jointWithClientId ?? "",
   };
 
   function handleSubmit(values: PolicyFormValues) {
     const isInv = values.category === "Investment";
     const isInvestmentLoan = isInv && !!values.isInvestmentLoan;
     const isCorporateInsurance = !isInv && !!values.isCorporateInsurance;
+    const isJoint = !!values.isJoint && !!values.jointWithClientId;
     const sumAssured = isInv
       ? values.sumAssured ?? values.loanAmount ?? 0
       : values.sumAssured ?? 0;
@@ -104,6 +107,8 @@ export default function PolicyDetailPage() {
       isInvestmentLoan,
       lender: isInvestmentLoan ? (values.lender as never) : undefined,
       loanAmount: isInvestmentLoan ? values.loanAmount : undefined,
+      isJoint,
+      jointWithClientId: isJoint ? values.jointWithClientId : undefined,
     });
     if (client) router.push(`/clients/${client.id}`);
     else router.push("/policies");

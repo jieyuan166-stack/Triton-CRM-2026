@@ -6,6 +6,7 @@ import type {
 import type { RelationshipType } from "@/lib/constants";
 import {
   calculatePortfolioMetrics,
+  dedupePolicies,
   getPolicyPortfolioAmount,
 } from "@/lib/portfolio-metrics";
 
@@ -99,8 +100,15 @@ export function buildFamilySummary(
   ]);
   const clientById = new Map(clients.map((client) => [client.id, client]));
 
-  const familyPolicies = policies
-    .filter((policy) => memberIds.has(policy.clientId))
+  const familyPolicies = dedupePolicies(
+    policies.filter(
+      (policy) =>
+        memberIds.has(policy.clientId) ||
+        (!!policy.isJoint &&
+          !!policy.jointWithClientId &&
+          memberIds.has(policy.jointWithClientId))
+    )
+  )
     .flatMap((policy) => {
       const owner = clientById.get(policy.clientId);
       return owner ? [{ ...policy, owner }] : [];

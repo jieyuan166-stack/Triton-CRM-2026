@@ -1,7 +1,7 @@
 // components/clients/ClientInfoCard.tsx
 "use client";
 
-import { Cake, FileText, Mail, MapPin, Pencil } from "lucide-react";
+import { Cake, Mail, MapPin, Pencil } from "lucide-react";
 import { WidgetCard } from "@/components/ui-shared/WidgetCard";
 import { calcAge, formatDate } from "@/lib/date-utils";
 import type { Client } from "@/lib/types";
@@ -97,21 +97,6 @@ export function ClientInfoCard({ client, onEdit }: ClientInfoCardProps) {
           }
         />
       </ul>
-
-      {/* Notes */}
-      {client.notes ? (
-        <div className="mt-6 pt-5 border-t border-slate-100">
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <FileText className="h-3.5 w-3.5 text-slate-400" />
-            <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
-              Notes
-            </span>
-          </div>
-          <p className="text-sm text-triton-text whitespace-pre-wrap leading-relaxed">
-            {client.notes}
-          </p>
-        </div>
-      ) : null}
     </WidgetCard>
     </div>
   );

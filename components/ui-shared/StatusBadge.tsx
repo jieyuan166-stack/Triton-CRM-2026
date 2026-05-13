@@ -3,7 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-export type StatusBadgeKind = "insurance" | "investment" | "corporate" | "loan" | "custom";
+export type StatusBadgeKind = "insurance" | "investment" | "corporate" | "loan" | "joint" | "custom";
 
 export interface StatusBadgeProps {
   kind: StatusBadgeKind;
@@ -39,6 +39,7 @@ function badgeTone(kind: StatusBadgeKind, lender?: string | null) {
   if (kind === "investment") return "bg-emerald-50 text-emerald-700 ring-emerald-100";
   if (kind === "insurance") return "bg-blue-50 text-blue-700 ring-blue-100";
   if (kind === "corporate") return "bg-slate-100 text-slate-600 ring-slate-200";
+  if (kind === "joint") return "bg-purple-50 text-purple-600 ring-purple-100";
   return "bg-slate-50 text-slate-600 ring-slate-100";
 }
 

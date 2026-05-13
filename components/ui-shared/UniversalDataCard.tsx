@@ -18,6 +18,7 @@ export interface UniversalDataCardProps {
   badges?: ReactNode;
   metrics?: UniversalDataMetric[];
   actions?: ReactNode;
+  children?: ReactNode;
   className?: string;
   contentClassName?: string;
   metricsClassName?: string;
@@ -31,6 +32,7 @@ export function UniversalDataCard({
   badges,
   metrics,
   actions,
+  children,
   className,
   contentClassName,
   metricsClassName,
@@ -88,6 +90,7 @@ export function UniversalDataCard({
             ))}
           </div>
         ) : null}
+        {children ? <div className="mt-4">{children}</div> : null}
       </div>
     </div>
   );

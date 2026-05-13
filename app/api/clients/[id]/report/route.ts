@@ -146,6 +146,8 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     lender: policy.lender ?? undefined,
     loanAmount: policy.loanAmount ?? undefined,
     loanRate: policy.loanRate ?? undefined,
+    isJoint: policy.isJoint,
+    jointWithClientId: policy.jointWithClientId ?? undefined,
     lastRenewalEmailAt: policy.lastRenewalEmailAt?.toISOString(),
     beneficiaries: policy.beneficiaries.map((b) => ({
       id: b.id,

@@ -41,6 +41,7 @@ function NewPolicyContent() {
     const isInv = values.category === "Investment";
     const isInvestmentLoan = isInv && !!values.isInvestmentLoan;
     const isCorporateInsurance = !isInv && !!values.isCorporateInsurance;
+    const isJoint = !!values.isJoint && !!values.jointWithClientId;
     const sumAssured = isInv
       ? values.sumAssured ?? values.loanAmount ?? 0
       : values.sumAssured ?? 0;
@@ -72,6 +73,8 @@ function NewPolicyContent() {
         isInvestmentLoan,
         lender: isInvestmentLoan ? (values.lender as never) : undefined,
         loanAmount: isInvestmentLoan ? values.loanAmount : undefined,
+        isJoint,
+        jointWithClientId: isJoint ? values.jointWithClientId : undefined,
         beneficiaries: [],
       });
       toast.success("Policy created");

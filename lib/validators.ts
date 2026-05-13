@@ -90,6 +90,14 @@ export const policyFormSchema = z
       .or(z.literal("").transform(() => undefined))
       .optional(),
     loanAmount: z.number().min(0).optional(),
+
+    // Joint account fields. Applies to both Insurance and Investment.
+    isJoint: z.boolean().optional(),
+    jointWithClientId: z
+      .string()
+      .trim()
+      .optional()
+      .or(z.literal("").transform(() => undefined)),
   })
   .refine(
     (d) => {
@@ -163,6 +171,13 @@ export const policyFormSchema = z
       return true;
     },
     { message: "Premium date is required", path: ["premiumDate"] }
+  )
+  .refine(
+    (d) => {
+      if (!d.isJoint) return true;
+      return !!d.jointWithClientId && d.jointWithClientId !== d.clientId;
+    },
+    { message: "Select the joint account partner", path: ["jointWithClientId"] }
   );
 
 export type PolicyFormValues = z.infer<typeof policyFormSchema>;

@@ -7,6 +7,7 @@ import { UserX } from "lucide-react";
 import { useData } from "@/components/providers/DataProvider";
 import { ClientHeader } from "@/components/clients/ClientHeader";
 import { ClientInfoCard } from "@/components/clients/ClientInfoCard";
+import { ClientNotesCard } from "@/components/clients/ClientNotesCard";
 import { ClientPoliciesCard } from "@/components/clients/ClientPoliciesCard";
 import { CommunicationLog } from "@/components/clients/CommunicationLog";
 import { FamilyOverviewCard } from "@/components/clients/FamilyOverviewCard";
@@ -73,7 +74,10 @@ export default function ClientDetailPage() {
           - lg: 3 cols all in one row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         <div className="md:col-span-1 lg:col-span-1">
-          <ClientInfoCard client={client} onEdit={() => setEditOpen(true)} />
+          <div className="space-y-4 md:space-y-6">
+            <ClientInfoCard client={client} onEdit={() => setEditOpen(true)} />
+            <ClientNotesCard client={client} />
+          </div>
         </div>
         <div className="md:col-span-1 lg:col-span-1">
           <ClientPoliciesCard clientId={client.id} policies={policies} />

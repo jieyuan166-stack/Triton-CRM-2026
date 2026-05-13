@@ -45,7 +45,7 @@ interface ClientHeaderProps {
 }
 
 export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHeaderProps) {
-  const { policies, updateClient } = useData();
+  const { policies, getPoliciesByClient, updateClient } = useData();
   const [composeOpen, setComposeOpen] = useState(false);
   const [composePayload, setComposePayload] =
     useState<EmailPreviewPayload | null>(null);
@@ -59,9 +59,9 @@ export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHead
   const clientMetrics = useMemo(
     () =>
       calculatePortfolioMetrics(
-        policies.filter((policy) => policy.clientId === client.id)
+        getPoliciesByClient(client.id)
       ),
-    [client.id, policies]
+    [client.id, getPoliciesByClient]
   );
   const isVipClient = client.tags.includes("VIP");
 

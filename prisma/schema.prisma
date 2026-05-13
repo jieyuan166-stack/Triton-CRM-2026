@@ -46,6 +46,7 @@ model Client {
   relationshipsFrom    ClientRelationship[] @relation("ClientRelationshipFrom")
   relationshipsTo      ClientRelationship[] @relation("ClientRelationshipTo")
   policies             Policy[]
+  jointPolicies        Policy[]       @relation("JointPolicyClient")
   followUps            FollowUp[]
   emailHistory         EmailHistory[]
   backups              BackupRecord[]
@@ -91,12 +92,16 @@ model Policy {
   lender               String?
   loanAmount           Float?
   loanRate             Float?
+  isJoint              Boolean       @default(false)
+  jointWithClientId    String?
+  jointWithClient      Client?       @relation("JointPolicyClient", fields: [jointWithClientId], references: [id], onDelete: SetNull)
   lastRenewalEmailAt   DateTime?
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
   beneficiaries        Beneficiary[]
 
   @@index([clientId])
+  @@index([jointWithClientId])
   @@index([status])
 }
 

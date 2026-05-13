@@ -94,6 +94,8 @@ function makeDefaults(defaultClientId?: string): Partial<PolicyFormValues> {
     loanAmount: undefined,
     isCorporateInsurance: false,
     businessName: "",
+    isJoint: false,
+    jointWithClientId: "",
   };
 }
 
@@ -137,12 +139,15 @@ export function PolicyForm({
   const premiumDate = watch("premiumDate");
   const isInvestmentLoan = watch("isInvestmentLoan") ?? false;
   const isCorporateInsurance = watch("isCorporateInsurance") ?? false;
+  const isJoint = watch("isJoint") ?? false;
   const loanAmount = watch("loanAmount");
 
   const isInvestment = category === "Investment";
   const isInsurance = category === "Insurance";
   const showPremiumDate = isInsurance && paymentFrequency === "Annual";
   const showClientPicker = !defaultClientId && !initialValues?.clientId;
+  const ownerClientId = watch("clientId") ?? "";
+  const jointPartnerOptions = clients.filter((client) => client.id !== ownerClientId);
 
   // Product Type options derived from current Category. Recomputed each
   // render — cheap, and avoids stale lists when category flips.
@@ -241,6 +246,20 @@ export function PolicyForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isInvestmentLoan, loanAmount]);
 
+  useEffect(() => {
+    if (!isJoint) {
+      setValue("jointWithClientId", "", { shouldValidate: false });
+      clearErrors("jointWithClientId");
+      return;
+    }
+
+    const current = watch("jointWithClientId");
+    if (current && current === ownerClientId) {
+      setValue("jointWithClientId", "", { shouldValidate: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isJoint, ownerClientId]);
+
   // Surface validation failures in the console — without this, a Submit click
   // with one bad field can look like "nothing happened" if the bad field is
   // currently hidden by a conditional (e.g. lender on Investment-loan).
@@ -280,6 +299,7 @@ export function PolicyForm({
     lender: "Lender",
     loanAmount: "Loan Amount",
     businessName: "Business Name",
+    jointWithClientId: "Joint With",
   };
   const errorList = Object.entries(errors)
     .filter(([, e]) => !!e?.message)
@@ -457,6 +477,56 @@ export function PolicyForm({
               </Select>
             </div>
           )}
+
+          <div className="space-y-1.5">
+            <Label htmlFor="isJoint">Joint Account</Label>
+            <label
+              htmlFor="isJoint"
+              className="flex items-center gap-2.5 h-9 px-3 rounded-md border border-slate-200 bg-white cursor-pointer hover:bg-slate-50 transition-colors"
+            >
+              <Checkbox
+                id="isJoint"
+                checked={isJoint}
+                onCheckedChange={(c) =>
+                  setValue("isJoint", c === true, {
+                    shouldValidate: true,
+                  })
+                }
+              />
+              <span className="text-sm text-slate-700">
+                Shared with another client
+              </span>
+            </label>
+          </div>
+
+          {isJoint ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="jointWithClientId">
+                Joint With <span className="text-accent-red">*</span>
+              </Label>
+              <Select
+                value={watch("jointWithClientId") ?? ""}
+                onValueChange={(v) =>
+                  setValue("jointWithClientId", v ?? "", {
+                    shouldValidate: true,
+                  })
+                }
+              >
+                <SelectTrigger id="jointWithClientId" className="w-full">
+                  <SelectValue placeholder="Select joint partner" />
+                </SelectTrigger>
+                <SelectContent>
+                  {jointPartnerOptions.map((client) => (
+                    <SelectItem key={client.id} value={client.id}>
+                      {client.firstName} {client.lastName}
+                      {client.email ? ` · ${client.email}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FieldError message={errors.jointWithClientId?.message} />
+            </div>
+          ) : null}
 
           {isInvestment ? (
             <div className="space-y-1.5">
