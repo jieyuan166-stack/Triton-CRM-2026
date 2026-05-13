@@ -262,7 +262,7 @@ function DistributionList({
               <div key={row.label} className="space-y-1">
                 <div className="flex items-center justify-between gap-2 text-xs">
                   <span className="font-medium text-slate-700">{row.label}</span>
-                  <span className="tabular-nums text-slate-500">
+                  <span className="font-number text-slate-500">
                     {formatCurrency(row.value)}
                   </span>
                 </div>
@@ -287,7 +287,7 @@ function MetricRow({ label, value }: { label: string; value: number }) {
       <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
         {label}
       </p>
-      <p className="mt-1 text-lg font-bold tabular-nums text-slate-950">
+      <p className="mt-1 text-lg font-bold font-number text-slate-950">
         {formatCurrency(value)}
       </p>
       <p className="mt-0.5 text-[10px] text-slate-400">{formatCurrency(value)}</p>

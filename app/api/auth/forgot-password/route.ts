@@ -70,10 +70,10 @@ export async function POST(request: Request) {
     (email === recoveryEmail || userEmail.endsWith("@triton.ca") || userEmail.endsWith("@tritonwealth.ca"));
   const resetRecipient = shouldUseRecoveryEmail ? recoveryEmail : user.email;
   const html = [
-    "<div style=\"font-family:Arial,sans-serif;font-size:14px;color:#0f172a;line-height:1.6;\">",
+    "<div style=\"font-family:Geist,-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,sans-serif;font-size:14px;color:#0f172a;line-height:1.6;\">",
     "<p>A password reset was requested for your Triton CRM account.</p>",
     "<p>Your temporary password is:</p>",
-    `<p style=\"font-size:20px;font-weight:700;letter-spacing:0.04em;color:#002147;\">${tempPassword}</p>`,
+    `<p style=\"font-family:Geist Mono,SFMono-Regular,Menlo,Consolas,monospace;font-size:20px;font-weight:700;letter-spacing:0.04em;color:#002147;\">${tempPassword}</p>`,
     "<p>Sign in with this temporary password, then change it immediately from <strong>Settings &gt; Account Security</strong>.</p>",
     "<p>If you did not request this reset, sign in and change your password right away.</p>",
     "</div>",

@@ -81,7 +81,7 @@ function buildProtectionByProduct(
 function centerValueClass(value: number) {
   const label = formatCurrencyShort(value);
   return cn(
-    "font-mono font-semibold text-slate-900 tabular-nums leading-none",
+    "font-number font-semibold text-slate-900 leading-none",
     label.length > 8 ? "text-base" : "text-lg"
   );
 }
@@ -124,7 +124,7 @@ function MiniRing({
           </p>
           <p className="mt-1 text-xs text-slate-500">{subtitle}</p>
         </div>
-        <p className="shrink-0 font-mono text-xs font-semibold tabular-nums text-slate-700">
+        <p className="shrink-0 font-number text-xs font-semibold text-slate-700">
           {data.length} {data.length === 1 ? "group" : "groups"}
         </p>
       </div>
@@ -182,10 +182,10 @@ function MiniRing({
               <span className="min-w-0 flex-1 truncate text-xs font-medium text-slate-700">
                 {item.name}
               </span>
-              <span className="font-mono text-xs font-semibold tabular-nums text-slate-900">
+              <span className="font-number text-xs font-semibold text-slate-900">
                 {formatCurrencyShort(item.value)}
               </span>
-              <span className="w-9 text-right font-mono text-[10px] tabular-nums text-slate-400">
+              <span className="w-9 text-right font-number text-[10px] text-slate-400">
                 {Math.trunc(pct)}%
               </span>
             </li>

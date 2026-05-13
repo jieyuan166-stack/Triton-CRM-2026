@@ -78,7 +78,7 @@ export function InvestmentAumByCompany() {
               <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
                 Total Investment AUM
               </p>
-              <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">
+              <p className="mt-1 text-2xl font-semibold font-number text-slate-900">
                 {formatCurrency(total)}
               </p>
             </div>
@@ -154,10 +154,10 @@ export function InvestmentAumByCompany() {
                   <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-700">
                     {item.carrier}
                   </span>
-                  <span className="text-sm font-semibold tabular-nums text-slate-900">
+                  <span className="text-sm font-semibold font-number text-slate-900">
                     {formatCurrency(item.aum)}
                   </span>
-                  <span className="w-12 text-right text-xs tabular-nums text-slate-400">
+                  <span className="w-12 text-right text-xs font-number text-slate-400">
                     {pct.toFixed(0)}%
                   </span>
                 </li>
@@ -168,10 +168,10 @@ export function InvestmentAumByCompany() {
               <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900">
                 Total Investment AUM
               </span>
-              <span className="text-sm font-bold tabular-nums text-slate-900">
+              <span className="text-sm font-bold font-number text-slate-900">
                 {formatCurrency(total)}
               </span>
-              <span className="w-12 text-right text-xs font-medium tabular-nums text-slate-500">
+              <span className="w-12 text-right text-xs font-medium font-number text-slate-500">
                 100%
               </span>
             </li>

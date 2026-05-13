@@ -168,7 +168,7 @@ export function renderEmailHtml(
   const separator = filled.trim() && signatureHtml ? "<br /><br />" : "";
 
   return [
-    '<div style="font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #0F172A;">',
+    '<div style="font-family: Geist, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, sans-serif; font-size: 14px; line-height: 1.6; color: #0F172A;">',
     bodyHtml,
     separator,
     signatureHtml

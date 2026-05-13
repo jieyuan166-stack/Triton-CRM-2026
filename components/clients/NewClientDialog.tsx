@@ -442,7 +442,7 @@ export function NewClientDialog({
                   <SelectContent>
                     {PROVINCE_CODES.map((code) => (
                       <SelectItem key={code} value={code}>
-                        <span className="font-mono text-[11px] text-slate-400 mr-2">
+                        <span className="font-number text-[11px] text-slate-400 mr-2">
                           {code}
                         </span>
                         {provinceLabel(code)}

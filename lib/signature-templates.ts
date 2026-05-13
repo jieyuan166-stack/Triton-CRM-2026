@@ -28,7 +28,7 @@ const BROKER_BADGE_URL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAjoAAACo
 
 // Minimalist: Broker Disclaimer with Jeffrey Yuan
 const minimalist = `
-<div style="font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: ${NAVY};">
+<div style="font-family: Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif; color: ${NAVY};">
   <div style="font-size: 14px; line-height: 1.5;">
     <div style="font-weight: 700; font-size: 15px; color: ${NAVY};">Jeffrey Yuan</div>
     <div style="font-weight: 400; font-size: 12px; color: ${MUTED}; margin-top: 1px;">Independent Broker</div>
@@ -58,7 +58,7 @@ const minimalist = `
 
 // Corporate: Two-column layout with Triton logo + full contact info
 const corporate = `
-<table cellpadding="0" cellspacing="0" border="0" style="font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; line-height: 1.55; color: ${NAVY};">
+<table cellpadding="0" cellspacing="0" border="0" style="font-family: Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif; font-size: 13px; line-height: 1.55; color: ${NAVY};">
   <tr>
     <td style="vertical-align: top; padding-right: 16px; border-right: 2px solid ${ACCENT};">
       <img src="${TRITON_LOGO_URL}" width="80" alt="Triton Wealth Management" style="display: block; border-radius: 8px; border: 0;" />

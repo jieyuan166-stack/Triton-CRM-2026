@@ -69,7 +69,7 @@ function escapeHtml(text: string): string {
 }
 
 function plainTextToHtml(text: string): string {
-  return `<div style="font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #0F172A;">${escapeHtml(
+  return `<div style="font-family: Geist, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, sans-serif; font-size: 14px; line-height: 1.6; color: #0F172A;">${escapeHtml(
     text
   )
     .replace(/\r\n/g, "\n")

@@ -101,7 +101,7 @@ export function ClientsToolbar(props: ClientsToolbarProps) {
           onClear={selectedProvinces.length > 0 ? onClearProvinces : undefined}
           renderOption={(code) => (
             <>
-              <span className="font-mono text-[11px] text-slate-400 mr-2 w-5 inline-block">
+              <span className="font-number text-[11px] text-slate-400 mr-2 w-5 inline-block">
                 {code}
               </span>
               {provinceLabel(code)}
@@ -362,7 +362,7 @@ function TagsFilter({
 
         {active ? (
           <>
-            <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-accent-blue text-white text-[10px] font-bold tabular-nums">
+            <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-accent-blue text-white text-[10px] font-bold font-number">
               {selected.length}
             </span>
             {showInlinePills ? (
@@ -397,7 +397,7 @@ function TagsFilter({
             <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
               Filter by tag
             </p>
-            <span className="text-[10px] tabular-nums text-slate-400">
+            <span className="text-[10px] font-number text-slate-400">
               {selected.length}/{options.length}
             </span>
           </div>

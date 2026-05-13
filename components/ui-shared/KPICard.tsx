@@ -64,7 +64,7 @@ export function KPICard({
       </div>
 
       <div className="flex flex-col gap-1">
-        <span className="font-mono text-2xl sm:text-3xl font-semibold text-triton-text tabular-nums leading-none tracking-tight">
+        <span className="font-number text-2xl sm:text-3xl font-semibold text-triton-text leading-none tracking-tight">
           {value}
         </span>
         {subValue ? (
@@ -78,7 +78,7 @@ export function KPICard({
         <div className="flex items-center gap-1.5 text-xs">
           <span
             className={cn(
-              "inline-flex items-center gap-0.5 font-semibold tabular-nums",
+              "inline-flex items-center gap-0.5 font-semibold font-number",
               positive ? "text-accent-green" : "text-accent-red"
             )}
           >

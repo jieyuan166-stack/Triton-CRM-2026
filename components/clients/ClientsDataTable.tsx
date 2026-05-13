@@ -557,7 +557,7 @@ export function ClientsDataTable() {
                         </td>
                         <td className="py-2.5 pr-3">
                           {r.lastContactAt ? (
-                            <span className="text-sm text-slate-700 tabular-nums">
+                            <span className="text-sm text-slate-700 font-number">
                               {formatRelative(r.lastContactAt)}
                             </span>
                           ) : (

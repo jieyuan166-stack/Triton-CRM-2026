@@ -188,7 +188,7 @@ export function ProfileSection() {
             </div>
             <p className="text-[11px] text-triton-muted">
               Currently:{" "}
-              <span className="font-mono text-slate-700">{loginEmail}</span>
+              <span className="font-number text-slate-700">{loginEmail}</span>
             </p>
           </div>
         </div>

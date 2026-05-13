@@ -110,10 +110,10 @@ export function EmailConfigSection() {
             </p>
             <p className="text-xs text-triton-muted mt-0.5 leading-relaxed">
               The password is read from{" "}
-              <code className="px-1 py-0.5 rounded bg-slate-100 text-[11px] font-mono">
+              <code className="px-1 py-0.5 rounded bg-slate-100 text-[11px] font-number">
                 SMTP_PASSWORD
               </code>{" "}
-              in <code className="px-1 py-0.5 rounded bg-slate-100 text-[11px] font-mono">.env.local</code>{" "}
+              in <code className="px-1 py-0.5 rounded bg-slate-100 text-[11px] font-number">.env.local</code>{" "}
               and never stored in the database. Generate a Google App Password at{" "}
               <a
                 href="https://myaccount.google.com/apppasswords"
@@ -212,11 +212,11 @@ export function EmailConfigSection() {
           </p>
           <p className="text-triton-text">
             <ShieldCheck className="inline h-3.5 w-3.5 text-emerald-600 mr-1" />
-            <span className="font-mono">
+            <span className="font-number">
               {fromName ? `${fromName} ` : ""}&lt;{fromEmail || "—"}&gt;
             </span>{" "}
             via{" "}
-            <span className="font-mono">
+            <span className="font-number">
               {host}:{port} ({secure ? "SSL" : "STARTTLS"})
             </span>
           </p>

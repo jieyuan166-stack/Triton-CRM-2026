@@ -179,7 +179,7 @@ export function CommunicationLog({ clientId, history }: CommunicationLogProps) {
                     <Mail className="h-3.5 w-3.5" />
                   </span>
 
-                  <span className="w-[10.5rem] shrink-0 font-mono text-xs tabular-nums text-triton-muted">
+                  <span className="w-[10.5rem] shrink-0 font-number text-xs text-triton-muted">
                     {fmtTimestamp(entry.date)}
                   </span>
 

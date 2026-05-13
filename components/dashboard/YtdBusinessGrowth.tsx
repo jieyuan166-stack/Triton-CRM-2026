@@ -38,7 +38,7 @@ export function YtdBusinessGrowth() {
             YTD Business Growth
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-3">
-            <p className="font-mono text-3xl font-bold leading-none tracking-tight text-[#002147]">
+            <p className="font-number text-3xl font-bold leading-none tracking-tight text-[#002147]">
               {formatCurrencyShort(metrics.currentYtd)}
             </p>
             <span
@@ -66,7 +66,7 @@ export function YtdBusinessGrowth() {
           <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
             Last YTD
           </p>
-          <p className="mt-1 font-mono text-sm font-semibold text-slate-700">
+          <p className="mt-1 font-number text-sm font-semibold text-slate-700">
             {formatCurrencyShort(metrics.previousYtd)}
           </p>
         </div>
@@ -148,7 +148,7 @@ export function YtdBusinessGrowth() {
               <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                 This Year
               </p>
-              <p className="mt-1 font-mono text-sm font-semibold text-[#002147]">
+              <p className="mt-1 font-number text-sm font-semibold text-[#002147]">
                 {formatCurrencyShort(metrics.currentYtd)}
               </p>
             </div>
@@ -156,7 +156,7 @@ export function YtdBusinessGrowth() {
               <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                 Last Year
               </p>
-              <p className="mt-1 font-mono text-sm font-semibold text-slate-600">
+              <p className="mt-1 font-number text-sm font-semibold text-slate-600">
                 {formatCurrencyShort(metrics.previousYtd)}
               </p>
             </div>

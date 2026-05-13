@@ -99,7 +99,7 @@ export function buildClientReportHtml({
       body {
         margin: 0;
         color: #111827;
-        font-family: Arial, Helvetica, sans-serif;
+        font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, sans-serif;
         font-size: 11px;
         line-height: 1.42;
         background: #ffffff;
@@ -165,7 +165,7 @@ export function buildClientReportHtml({
       h1 {
         margin: 7px 0 6px;
         color: #002147;
-        font-family: Georgia, "Times New Roman", serif;
+        font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, sans-serif;
         font-size: 31px;
         font-weight: 500;
         line-height: 1.08;

@@ -65,7 +65,7 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
                   <h4 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{style.label}</h4>
                   <p className="text-[11px] text-slate-400">{style.description}</p>
                 </div>
-                <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold tabular-nums ring-1", style.badge)}>
+                <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold font-number ring-1", style.badge)}>
                   {sectionPolicies.length}
                 </span>
               </div>

@@ -114,7 +114,7 @@ export function TemplatesSection() {
           <p className="text-xs text-triton-muted mt-0.5">
             Reusable Subject + Body for the email shortcuts on your dashboard.
             Use square-bracket placeholders like{" "}
-            <code className="font-mono text-[11px] px-1 rounded bg-slate-100">
+            <code className="font-number text-[11px] px-1 rounded bg-slate-100">
               [Client Name]
             </code>{" "}
             for runtime substitution.
@@ -245,7 +245,7 @@ function TemplateEditor({
         <Textarea
           id={`tpl-${template.id}-body`}
           rows={8}
-          className="resize-none font-mono text-xs leading-relaxed"
+          className="resize-none font-number text-xs leading-relaxed"
           value={body}
           onChange={(e) => setBody(e.target.value)}
         />
@@ -329,7 +329,7 @@ function TemplateEditor({
               key={v}
               type="button"
               onClick={() => setBody((prev) => `${prev}${v}`)}
-              className="text-[11px] font-mono bg-white border border-slate-200 rounded px-1.5 py-0.5 text-slate-700 hover:bg-slate-100 transition-colors"
+              className="text-[11px] font-number bg-white border border-slate-200 rounded px-1.5 py-0.5 text-slate-700 hover:bg-slate-100 transition-colors"
               title={`Insert ${v} at end of body`}
             >
               {v}

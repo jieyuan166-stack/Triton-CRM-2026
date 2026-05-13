@@ -89,7 +89,7 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
               {typeof badge === "number" && badge > 0 ? (
                 <span
                   className={cn(
-                    "text-[11px] font-semibold tabular-nums px-2 py-0.5 rounded-md transition-colors",
+                    "text-[11px] font-semibold font-number px-2 py-0.5 rounded-md transition-colors",
                     active
                       ? "bg-white/15 text-white"
                       : "bg-slate-100 text-slate-500 group-hover:bg-slate-200"

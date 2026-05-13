@@ -60,7 +60,7 @@ export function Pagination({
     >
       {/* Range + per-page */}
       <div className="flex items-center gap-3 text-xs text-slate-500">
-        <span className="tabular-nums">
+        <span className="font-number">
           Showing{" "}
           <span className="font-medium text-slate-700">{start}</span>–
           <span className="font-medium text-slate-700">{end}</span> of{" "}
@@ -111,7 +111,7 @@ export function Pagination({
               onClick={() => onPageChange(p)}
               aria-current={p === page ? "page" : undefined}
               className={cn(
-                "h-7 min-w-7 px-2 rounded-md text-xs font-medium tabular-nums transition-colors",
+                "h-7 min-w-7 px-2 rounded-md text-xs font-medium font-number transition-colors",
                 p === page
                   ? "bg-navy text-white"
                   : "text-slate-600 hover:bg-slate-100"

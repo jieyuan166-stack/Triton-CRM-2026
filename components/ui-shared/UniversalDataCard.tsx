@@ -78,7 +78,7 @@ export function UniversalDataCard({
                 <p className="text-[10px] font-semibold uppercase leading-none tracking-wider text-slate-400">
                   {metric.label}
                 </p>
-                <p className="text-xs font-medium leading-tight tabular-nums text-triton-text">
+                <p className="text-xs font-medium leading-tight font-number text-triton-text">
                   {metric.value}
                 </p>
                 {metric.helper ? (

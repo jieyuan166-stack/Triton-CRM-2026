@@ -159,7 +159,7 @@ export function GlobalSearch() {
             <X className="h-3 w-3" />
           </button>
         ) : (
-          <kbd className="hidden lg:inline-flex items-center text-[10px] font-mono text-white/40 bg-white/5 border border-white/10 rounded px-1.5 py-0.5">
+          <kbd className="hidden lg:inline-flex items-center text-[10px] font-number text-white/40 bg-white/5 border border-white/10 rounded px-1.5 py-0.5">
             ⌘K
           </kbd>
         )}
@@ -180,7 +180,7 @@ export function GlobalSearch() {
               </p>
               <p className="text-xs text-slate-500 mt-1">
                 Nothing matches{" "}
-                <span className="font-mono text-slate-700">
+                <span className="font-number text-slate-700">
                   &quot;{query.trim()}&quot;
                 </span>
               </p>
@@ -255,18 +255,18 @@ export function GlobalSearch() {
 
               {/* Footer */}
               <div className="flex items-center justify-between px-3 py-2 border-t border-slate-100 bg-slate-50/60 text-[10px] text-slate-500">
-                <span className="tabular-nums">
+                <span className="font-number">
                   {results.total} {results.total === 1 ? "result" : "results"}
                 </span>
                 <span className="inline-flex items-center gap-2">
                   <span className="inline-flex items-center gap-1">
-                    <kbd className="font-mono bg-white border border-slate-200 rounded px-1 py-0.5">
+                    <kbd className="font-number bg-white border border-slate-200 rounded px-1 py-0.5">
                       ↑↓
                     </kbd>
                     navigate
                   </span>
                   <span className="inline-flex items-center gap-1">
-                    <kbd className="font-mono bg-white border border-slate-200 rounded px-1 py-0.5">
+                    <kbd className="font-number bg-white border border-slate-200 rounded px-1 py-0.5">
                       <CornerDownLeft className="h-2.5 w-2.5" />
                     </kbd>
                     open
@@ -303,7 +303,7 @@ function SearchGroup({
         <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
           {label}
         </span>
-        <span className="text-[10px] tabular-nums text-slate-300">
+        <span className="text-[10px] font-number text-slate-300">
           {count}
         </span>
       </div>

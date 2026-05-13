@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     marginTop: 7,
     marginBottom: 6,
-    fontFamily: "Times-Roman",
+    fontFamily: "Helvetica",
   },
   subtitle: {
     color: "#64748B",

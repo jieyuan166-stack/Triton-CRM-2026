@@ -132,8 +132,8 @@ export async function POST(request: Request) {
     const fullHtml = data.html
       ? data.html
       : data.signatureHtml
-      ? `<div style="font-family:Arial,sans-serif;font-size:14px;color:#333;line-height:1.6;">${data.body.replace(/\n/g, "<br/>")}</div><div style="margin-top:24px;border-top:1px solid #e2e8f0;padding-top:16px;">${data.signatureHtml}</div>`
-      : `<div style="font-family:Arial,sans-serif;font-size:14px;color:#333;line-height:1.6;">${data.body.replace(/\n/g, "<br/>")}</div>`;
+      ? `<div style="font-family:Geist,-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,sans-serif;font-size:14px;color:#0F172A;line-height:1.6;">${data.body.replace(/\n/g, "<br/>")}</div><div style="margin-top:24px;border-top:1px solid #e2e8f0;padding-top:16px;">${data.signatureHtml}</div>`
+      : `<div style="font-family:Geist,-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,sans-serif;font-size:14px;color:#0F172A;line-height:1.6;">${data.body.replace(/\n/g, "<br/>")}</div>`;
     const { html: htmlWithCids, attachments } = attachInlineImages(sanitizeEmailHtml(fullHtml));
     const userAttachments = (data.attachments ?? []).map((attachment) => {
       const content = Buffer.from(attachment.content, "base64");

@@ -134,7 +134,7 @@ export function BackupsSection() {
             </h3>
             <p className="text-xs text-triton-muted mt-0.5">
               Manual snapshots and daily database backups are real files stored on the NAS at{" "}
-              <code className="font-mono text-[11px] px-1 py-0.5 rounded bg-slate-100">
+              <code className="font-number text-[11px] px-1 py-0.5 rounded bg-slate-100">
                 /volume1/docker/triton-crm/backups/
               </code>
               .
@@ -177,7 +177,7 @@ export function BackupsSection() {
                     <Archive className="h-4 w-4" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-mono font-medium text-triton-text truncate">
+                    <p className="text-sm font-number font-medium text-triton-text truncate">
                       {b.filename}
                     </p>
                     <div className="flex items-center gap-3 text-xs text-triton-muted mt-0.5">
@@ -188,7 +188,7 @@ export function BackupsSection() {
                       <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${tone.badge}`}>
                         {tone.label}
                       </span>
-                      <span className="tabular-nums">{fmtSize(b.size)}</span>
+                      <span className="font-number">{fmtSize(b.size)}</span>
                       <span className="hidden md:inline truncate">
                         {b.contents.join(" · ")}
                       </span>
@@ -250,7 +250,7 @@ export function BackupsSection() {
             <DialogDescription>
               {confirmTarget ? (
                 <>
-                  <span className="font-mono">{confirmTarget.filename}</span>{" "}
+                  <span className="font-number">{confirmTarget.filename}</span>{" "}
                   will overwrite all current data. This is destructive and
                   cannot be undone — current state should be backed up first.
                 </>
@@ -283,7 +283,7 @@ export function BackupsSection() {
           deleteTarget ? (
             <>
               Are you sure you want to delete{" "}
-              <span className="font-mono">{deleteTarget.filename}</span>? This
+              <span className="font-number">{deleteTarget.filename}</span>? This
               action cannot be undone.
             </>
           ) : (
