@@ -1,13 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { ArrowUpRight, Network, UsersRound } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { WidgetCard } from "@/components/ui-shared/WidgetCard";
 import { ClientAvatar } from "@/components/ui-shared/ClientAvatar";
 import { ClientNameDisplay } from "@/components/ui-shared/ClientNameDisplay";
 import { PolicyDataCard } from "@/components/ui-shared/PolicyDataCard";
-import { CARRIER_COLORS } from "@/lib/carrier-colors";
+import { StatusBadge } from "@/components/ui-shared/StatusBadge";
+import { UniversalDataCard } from "@/components/ui-shared/UniversalDataCard";
 import { calculateClientTags } from "@/lib/client-tags";
 import { buildFamilySummary } from "@/lib/family";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/format";
@@ -23,48 +22,54 @@ interface FamilyOverviewCardProps {
 
 const MEMBER_TONES = [
   {
-    dot: "#334155",
-    bg: "bg-slate-50",
-    border: "border-slate-200",
-    text: "text-slate-700",
-    ring: "ring-slate-200",
+    dot: "#BFDBFE",
+    bg: "bg-blue-50/60",
+    border: "border-blue-100",
+    text: "text-[#002147]",
+    ring: "ring-blue-100",
   },
   {
-    dot: "#9F1239",
-    bg: "bg-rose-50",
-    border: "border-rose-100",
-    text: "text-rose-800",
-    ring: "ring-rose-100",
+    dot: "#A7F3D0",
+    bg: "bg-emerald-50/70",
+    border: "border-emerald-100",
+    text: "text-emerald-700",
+    ring: "ring-emerald-100",
   },
   {
-    dot: "#92400E",
+    dot: "#FDE68A",
     bg: "bg-stone-50",
     border: "border-stone-200",
     text: "text-stone-700",
     ring: "ring-stone-200",
   },
   {
-    dot: "#5B21B6",
+    dot: "#DDD6FE",
     bg: "bg-zinc-50",
     border: "border-zinc-200",
     text: "text-zinc-700",
     ring: "ring-zinc-200",
   },
   {
-    dot: "#0F766E",
+    dot: "#CCFBF1",
     bg: "bg-neutral-50",
     border: "border-neutral-200",
     text: "text-neutral-700",
     ring: "ring-neutral-200",
   },
   {
-    dot: "#7F1D1D",
+    dot: "#FECACA",
     bg: "bg-gray-50",
     border: "border-gray-200",
     text: "text-gray-700",
     ring: "ring-gray-200",
   },
 ] as const;
+
+function ownerBadgeClass(ownerId: string, currentClientId: string) {
+  return ownerId === currentClientId
+    ? "bg-blue-50 text-[#002147] ring-blue-100 [&_span]:text-[#002147]"
+    : "bg-emerald-50 text-emerald-700 ring-emerald-100 [&_span]:text-emerald-700";
+}
 
 export function FamilyOverviewCard({
   client,
@@ -111,47 +116,38 @@ export function FamilyOverviewCard({
             </div>
             <div className="grid gap-2 md:grid-cols-2">
               {summary.linkedClients.map((link) => (
-                <Link
+                <UniversalDataCard
                   key={link.relationshipId}
                   href={`/clients/${link.client.id}`}
+                  accentColor={toneByClientId.get(link.client.id)?.dot ?? "#CBD5E1"}
                   className={cn(
-                    "group flex items-center gap-3 rounded-xl border px-3 py-3 transition-colors hover:bg-white",
+                    "rounded-xl border p-5 shadow-none",
                     toneByClientId.get(link.client.id)?.bg ?? "bg-slate-50/70",
-                    toneByClientId.get(link.client.id)?.border ??
-                      "border-slate-100"
+                    toneByClientId.get(link.client.id)?.border ?? "border-slate-100"
                   )}
-                >
-                  <span
-                    className="h-9 w-1 rounded-full"
-                    style={{
-                      backgroundColor:
-                        toneByClientId.get(link.client.id)?.dot ?? "#94A3B8",
-                    }}
-                  />
-                  <ClientAvatar
-                    firstName={link.client.firstName}
-                    lastName={link.client.lastName}
-                    size="sm"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
+                  title={
+                    <span className="inline-flex items-center gap-3">
+                      <ClientAvatar
+                        firstName={link.client.firstName}
+                        lastName={link.client.lastName}
+                        size="sm"
+                      />
                       <ClientNameDisplay
                         firstName={link.client.firstName}
                         lastName={link.client.lastName}
                         isVip={calculateClientTags(link.client, policies).includes("VIP")}
                         size="sm"
                       />
-                      <Badge className="shrink-0 border-0 bg-slate-100 text-[10px] font-medium text-slate-600">
-                        {link.relationship}
-                      </Badge>
-                    </div>
-                    <p className="truncate text-xs text-slate-500">
-                      {link.client.email}
-                      {link.client.phone ? ` · ${link.client.phone}` : ""}
-                    </p>
-                  </div>
-                  <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-slate-300 transition-colors group-hover:text-slate-500" />
-                </Link>
+                    </span>
+                  }
+                  subtitle={`${link.client.email}${link.client.phone ? ` · ${link.client.phone}` : ""}`}
+                  badges={
+                    <>
+                      <StatusBadge kind="custom" label={link.relationship} className="bg-white/80 text-slate-600 ring-slate-100" />
+                      <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-slate-300" />
+                    </>
+                  }
+                />
               ))}
             </div>
           </section>
@@ -182,6 +178,7 @@ export function FamilyOverviewCard({
                         href={`/policies/${policy.id}`}
                         owner={policy.owner}
                         ownerIsVip={calculateClientTags(policy.owner, policies).includes("VIP")}
+                        ownerBadgeClassName={ownerBadgeClass(policy.owner.id, client.id)}
                       />
                     </li>
                   ))}
@@ -218,7 +215,7 @@ export function FamilyOverviewCard({
             rows={summary.categoryTotals.map((row) => ({
               label: row.category,
               value: row.total,
-              color: row.category === "Investment" ? "#10B981" : "#3B82F6",
+              color: "#4F46E5",
             }))}
             total={summary.totalAum}
           />
@@ -228,7 +225,7 @@ export function FamilyOverviewCard({
             rows={summary.carrierTotals.map((row) => ({
               label: row.carrier,
               value: row.total,
-              color: CARRIER_COLORS[row.carrier] ?? "#94A3B8",
+              color: "#10B981",
             }))}
             total={summary.totalAum}
           />

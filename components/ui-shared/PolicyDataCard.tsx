@@ -8,6 +8,7 @@ import { CARRIER_COLORS } from "@/lib/carrier-colors";
 import { formatDate, formatMonthDay, formatRelative } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/format";
 import { PAYMENT_FREQUENCY_LABELS, type Client, type Policy } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 export interface PolicyDataCardProps {
   policy: Policy;
@@ -17,6 +18,7 @@ export interface PolicyDataCardProps {
   extraBadges?: ReactNode;
   actions?: ReactNode;
   className?: string;
+  ownerBadgeClassName?: string;
 }
 
 function buildPolicyBadges(policy: Policy, extraBadges?: ReactNode) {
@@ -90,9 +92,15 @@ export function PolicyDataCard({
   extraBadges,
   actions,
   className,
+  ownerBadgeClassName,
 }: PolicyDataCardProps) {
   const ownerBadge = owner ? (
-    <span className="inline-flex min-h-5 items-center rounded-md bg-slate-50 px-2 py-0.5 text-[10px] font-semibold leading-none tracking-wider text-slate-600 ring-1 ring-slate-100">
+    <span
+      className={cn(
+        "inline-flex min-h-5 items-center rounded-md bg-slate-50 px-2 py-0.5 text-[10px] font-semibold leading-none tracking-wider text-slate-600 ring-1 ring-slate-100",
+        ownerBadgeClassName
+      )}
+    >
       <ClientNameDisplay
         firstName={owner.firstName}
         lastName={owner.lastName}
