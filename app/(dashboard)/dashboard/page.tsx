@@ -10,7 +10,7 @@ import { UpcomingBirthdays } from "@/components/dashboard/UpcomingBirthdays";
 import { InvestmentAumByCompany } from "@/components/dashboard/InvestmentAumByCompany";
 import { CategoryBreakdown } from "@/components/dashboard/CategoryBreakdown";
 import { calculateClientTags } from "@/lib/client-tags";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatCurrencyShort } from "@/lib/format";
 import { calculatePortfolioMetrics } from "@/lib/portfolio-metrics";
 
 export default function DashboardPage() {
@@ -41,7 +41,7 @@ export default function DashboardPage() {
         />
         <KPICard
           label="Insurance Face Amount"
-          value={formatCurrency(metrics.insuranceFaceAmount)}
+          value={formatCurrencyShort(metrics.insuranceFaceAmount)}
           subValue={`${metrics.activeInsuranceCount} active insurance ${
             metrics.activeInsuranceCount === 1 ? "policy" : "policies"
           }`}
@@ -50,7 +50,7 @@ export default function DashboardPage() {
         />
         <KPICard
           label="Investment AUM"
-          value={formatCurrency(metrics.investmentAum)}
+          value={formatCurrencyShort(metrics.investmentAum)}
           subValue={`${metrics.activeInvestmentCount} active investment ${
             metrics.activeInvestmentCount === 1 ? "policy" : "policies"
           }`}

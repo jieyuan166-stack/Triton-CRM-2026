@@ -13,6 +13,11 @@ function truncateToCents(amount: number): number {
   return Math.trunc(amount * 100) / 100;
 }
 
+function truncateToDecimals(amount: number, decimals: number): number {
+  const factor = 10 ** decimals;
+  return Math.trunc(amount * factor) / factor;
+}
+
 /**
  * Full currency, e.g. `1500200 → "$1,500,200.00"`.
  * Amounts are truncated to cents, never rounded.
@@ -44,6 +49,38 @@ export function formatCurrencyCompact(
   amount: number | null | undefined
 ): string {
   return formatCurrency(amount);
+}
+
+/**
+ * Compact currency for constrained dashboard surfaces, e.g.
+ * `42110643.65 → "$42.11M"`. Values are truncated, never rounded.
+ */
+export function formatCurrencyShort(amount: number | null | undefined): string {
+  if (amount == null || Number.isNaN(amount)) return "—";
+
+  const abs = Math.abs(amount);
+  const sign = amount < 0 ? "-" : "";
+  const units = [
+    { threshold: 1_000_000_000, suffix: "B" },
+    { threshold: 1_000_000, suffix: "M" },
+    { threshold: 1_000, suffix: "K" },
+  ] as const;
+
+  const unit = units.find((item) => abs >= item.threshold);
+  if (!unit) {
+    return `${sign}$${new Intl.NumberFormat("en-US", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(Math.trunc(abs))}`;
+  }
+
+  const shortened = truncateToDecimals(abs / unit.threshold, 2);
+  const formatted = new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: shortened < 10 ? 2 : 0,
+    maximumFractionDigits: 2,
+  }).format(shortened);
+
+  return `${sign}$${formatted}${unit.suffix}`;
 }
 
 /**
