@@ -121,7 +121,7 @@ export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHead
         Back to clients
       </Link>
 
-      <div className="flex flex-col gap-5 md:flex-row md:items-center">
+      <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
         {/* Avatar */}
         <ClientAvatar
           firstName={client.firstName}
@@ -130,7 +130,7 @@ export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHead
         />
 
         {/* Identity + contact */}
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2 mb-2">
             <h1 className="min-w-0">
               <ClientNameDisplay
@@ -179,7 +179,7 @@ export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHead
             {client.phone ? (
               <a
                 href={`tel:${client.phone}`}
-                className="inline-flex items-center gap-1.5 text-slate-700 hover:text-accent-blue transition-colors"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap text-slate-700 transition-colors hover:text-accent-blue"
               >
                 <PhoneIcon className="h-3.5 w-3.5 text-slate-400" />
                 {client.phone}
@@ -189,9 +189,9 @@ export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHead
         </div>
 
         {/* Portfolio metrics + report */}
-        <div className="flex flex-col gap-3 md:items-end md:self-center">
-          <div className="flex shrink-0 flex-col gap-5 sm:flex-row sm:items-start sm:gap-0 md:text-right">
-            <div className="sm:border-r sm:border-slate-200 sm:pr-8 md:pr-10">
+        <div className="flex w-full flex-col gap-3 xl:w-auto xl:items-end xl:self-center">
+          <div className="flex w-full flex-col gap-5 sm:flex-row sm:items-start sm:gap-0 xl:w-auto xl:shrink-0 xl:text-right">
+            <div className="sm:border-r sm:border-slate-200 sm:pr-8 xl:pr-10">
               <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
                 Insurance Face Amount
               </p>
@@ -202,7 +202,7 @@ export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHead
                 {clientMetrics.activeInsuranceCount} active
               </p>
             </div>
-            <div className="sm:pl-8 md:pl-10">
+            <div className="sm:pl-8 xl:pl-10">
               <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
                 Investment AUM
               </p>
@@ -218,7 +218,7 @@ export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHead
           <ClientReportButton
             client={client}
             policies={reportPolicies}
-            className="self-start md:self-end"
+            className="self-start xl:self-end"
           />
         </div>
       </div>

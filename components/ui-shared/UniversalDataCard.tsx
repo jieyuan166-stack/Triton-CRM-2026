@@ -59,7 +59,7 @@ export function UniversalDataCard({
             ) : null}
           </div>
           {badges || actions ? (
-            <div className="flex shrink-0 flex-wrap items-center justify-start gap-2 sm:max-w-[46%] sm:justify-end">
+            <div className="flex min-w-0 flex-wrap items-center justify-start gap-2 sm:justify-end md:max-w-[52%] xl:max-w-[46%]">
               {badges}
               {actions}
             </div>

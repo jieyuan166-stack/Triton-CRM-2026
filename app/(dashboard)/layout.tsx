@@ -48,7 +48,7 @@ export default function DashboardLayout({
       {/* Below nav: sidebar + main */}
       <div className="flex flex-1 pt-16">
         {/* Desktop sidebar */}
-        <Sidebar className="hidden md:flex fixed top-16 bottom-0 left-0 z-40" />
+        <Sidebar className="fixed top-16 bottom-0 left-0 z-40 hidden lg:flex" />
 
         {/* Mobile sidebar via Sheet */}
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -60,8 +60,8 @@ export default function DashboardLayout({
         </Sheet>
 
         {/* Main content area */}
-        <main className="flex-1 md:ml-60 min-h-0 overflow-auto bg-surface">
-          <div className="p-6 md:p-8">{children}</div>
+        <main className="min-h-0 flex-1 overflow-auto bg-surface lg:ml-60">
+          <div className="p-4 sm:p-6 lg:p-8">{children}</div>
       </main>
       </div>
       <Toaster position="top-right" richColors closeButton />

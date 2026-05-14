@@ -87,20 +87,19 @@ export default function ClientDetailPage() {
       />
 
       {/* Responsive layout:
-          - mobile: stacked
-          - md: 2 cols (info | policies) → timeline below full width
-          - lg: 3 cols all in one row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-        <div className="md:col-span-1 lg:col-span-1">
+          - < xl: stacked for tablet/narrow readability
+          - xl: info | policies | follow-ups */}
+      <div className="grid grid-cols-1 gap-4 md:gap-6 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)_minmax(280px,0.8fr)]">
+        <div className="min-w-0">
           <div className="space-y-4 md:space-y-6">
             <ClientInfoCard client={client} onEdit={() => setEditOpen(true)} />
             <ClientNotesCard client={client} />
           </div>
         </div>
-        <div className="md:col-span-1 lg:col-span-1">
+        <div className="min-w-0">
           <ClientPoliciesCard clientId={client.id} policies={policies} />
         </div>
-        <div className="md:col-span-2 lg:col-span-1">
+        <div className="min-w-0">
           <FollowUpTimeline clientId={client.id} followUps={followUps} />
         </div>
       </div>

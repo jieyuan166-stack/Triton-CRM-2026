@@ -17,7 +17,7 @@ export function TopNav({ onMenuClick }: TopNavProps) {
       <Button
         variant="ghost"
         size="icon"
-        className="md:hidden text-white/80 hover:text-white hover:bg-white/10"
+        className="text-white/80 hover:bg-white/10 hover:text-white lg:hidden"
         onClick={onMenuClick}
         aria-label="Open menu"
       >
