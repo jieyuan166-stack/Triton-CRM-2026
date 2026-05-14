@@ -2,11 +2,10 @@
 
 import { useMemo, useRef, useState } from "react";
 import Papa from "@/lib/papaparse";
-import { Download, FileSpreadsheet, Plus, RefreshCw, Upload } from "lucide-react";
+import { Download, FileSpreadsheet, Plus, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 import { ClientsDataTable } from "@/components/clients/ClientsDataTable";
-import { EquitableSyncDialog } from "@/components/clients/EquitableSyncDialog";
 import { NewClientDialog } from "@/components/clients/NewClientDialog";
 import { useData } from "@/components/providers/DataProvider";
 import { Button } from "@/components/ui/button";
@@ -81,7 +80,6 @@ export default function ClientsPage() {
   const [mappingSummary, setMappingSummary] = useState<Record<string, string>>({});
   const [isImporting, setIsImporting] = useState(false);
   const [addClientOpen, setAddClientOpen] = useState(false);
-  const [equitableSyncOpen, setEquitableSyncOpen] = useState(false);
 
   const validRows = useMemo(() => previewRows.filter((row) => row.valid), [previewRows]);
 
@@ -233,15 +231,6 @@ export default function ClientsPage() {
           </Button>
 
           <Button
-            variant="outline"
-            className="rounded-xl border-blue-100 bg-blue-50/70 text-[#002147] hover:bg-white"
-            onClick={() => setEquitableSyncOpen(true)}
-          >
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Equitable Sync
-          </Button>
-
-          <Button
             className="rounded-xl bg-slate-900 text-white hover:bg-slate-800"
             onClick={() => setAddClientOpen(true)}
           >
@@ -254,7 +243,6 @@ export default function ClientsPage() {
       <ClientsDataTable />
 
       <NewClientDialog open={addClientOpen} onOpenChange={setAddClientOpen} />
-      <EquitableSyncDialog open={equitableSyncOpen} onOpenChange={setEquitableSyncOpen} />
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="flex h-[92vh] w-[calc(100vw-2rem)] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border-slate-200 p-0 xl:w-[calc(100vw-4rem)] xl:max-w-[calc(100vw-4rem)]">
