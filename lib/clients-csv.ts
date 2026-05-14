@@ -45,6 +45,7 @@ const SUPPORTED_PRODUCT_TYPES = [
   "Segregated Fund",
   "TFSA",
   "RRSP",
+  "RRIF",
   "Non-Registered",
   "Whole Life",
   "Term Insurance",

@@ -28,6 +28,7 @@ export type ProductType =
   | "RRSP"
   | "RESP"
   | "FHSA"
+  | "RRIF"
   | "Non-Registered"
   // Legacy values kept so historical Policy records still typecheck —
   // the "New Policy" form no longer offers these.
@@ -48,6 +49,7 @@ export const INVESTMENT_PRODUCTS: ProductType[] = [
   "RRSP",
   "RESP",
   "FHSA",
+  "RRIF",
   "Non-Registered",
 ];
 

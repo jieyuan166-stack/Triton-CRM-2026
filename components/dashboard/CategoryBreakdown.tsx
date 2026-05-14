@@ -12,6 +12,7 @@ import {
 import { useData } from "@/components/providers/DataProvider";
 import { EmptyState } from "@/components/ui-shared/EmptyState";
 import { WidgetCard } from "@/components/ui-shared/WidgetCard";
+import { CARRIER_COLORS } from "@/lib/carrier-colors";
 import { CARRIERS, INSURANCE_PRODUCTS, type ProductType } from "@/lib/types";
 import { formatCurrency, formatCurrencyShort } from "@/lib/format";
 import { dedupePolicies, getPolicyPortfolioAmount } from "@/lib/portfolio-metrics";
@@ -23,18 +24,17 @@ type RingDatum = {
   color: string;
 };
 
-const ASSET_COLORS = ["#7C3AED", "#8B5CF6", "#A78BFA", "#C4B5FD", "#DDD6FE"];
 const PROTECTION_COLORS: Record<string, string> = {
   "Term Insurance": "#2563EB",
-  "Whole Life": "#60A5FA",
-  "Critical Illness": "#93C5FD",
-  "Other Protection": "#BFDBFE",
+  "Whole Life": "#7C3AED",
+  "Critical Illness": "#DC2626",
+  "Other Protection": "#64748B",
 };
 
 function buildAssetsByCompany(
   policies: ReturnType<typeof useData>["policies"]
 ): RingDatum[] {
-  return CARRIERS.map((carrier, index) => {
+  return CARRIERS.map((carrier) => {
     const value = policies
       .filter(
         (policy) =>
@@ -47,7 +47,7 @@ function buildAssetsByCompany(
     return {
       name: carrier,
       value,
-      color: ASSET_COLORS[index % ASSET_COLORS.length],
+      color: CARRIER_COLORS[carrier],
     };
   }).filter((item) => item.value > 0);
 }
