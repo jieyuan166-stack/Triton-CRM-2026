@@ -202,6 +202,12 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: 700,
   },
+  partyLine: {
+    color: "#64748B",
+    fontSize: 7,
+    marginTop: 2,
+    lineHeight: 1.25,
+  },
   disclosure: {
     color: "#334155",
     fontSize: 10,
@@ -245,6 +251,17 @@ function buildAddress(client: Client) {
     .join(", ");
 }
 
+function policyPartySummary(policy: Policy) {
+  const parts = [];
+  if (policy.policyOwnerName) parts.push(`Owner: ${policy.policyOwnerName}`);
+  const insured = (policy.insuredPersons ?? [])
+    .map((person) => person.name)
+    .filter(Boolean)
+    .join(" / ");
+  if (insured) parts.push(`Insured: ${insured}`);
+  return parts.join(" · ");
+}
+
 function ReportDocument({
   client,
   policies,
@@ -267,11 +284,11 @@ function ReportDocument({
   const columns = [
     { key: "carrier", width: "14%" },
     { key: "category", width: "12%" },
-    { key: "product", width: "18%" },
+    { key: "product", width: "22%" },
     { key: "policy", width: "15%" },
     { key: "face", width: "14%" },
     { key: "premium", width: "12%" },
-    { key: "status", width: "15%" },
+    { key: "status", width: "11%" },
   ];
 
   return (
@@ -349,7 +366,12 @@ function ReportDocument({
                 <View key={policy.id} style={styles.tableRow}>
                   <Text style={[styles.td, { width: columns[0].width }]}>{policy.carrier}</Text>
                   <Text style={[styles.td, { width: columns[1].width }]}>{policy.category}</Text>
-                  <Text style={[styles.td, { width: columns[2].width }]}>{policy.productType}</Text>
+                  <View style={{ width: columns[2].width }}>
+                    <Text style={styles.td}>{policy.productType}</Text>
+                    {policyPartySummary(policy) ? (
+                      <Text style={styles.partyLine}>{policyPartySummary(policy)}</Text>
+                    ) : null}
+                  </View>
                   <Text style={[styles.td, { width: columns[3].width }]}>{policy.policyNumber || "N/A"}</Text>
                   <Text style={[styles.td, { width: columns[4].width }]}>{formatCurrency(policy.sumAssured)}</Text>
                   <Text style={[styles.td, { width: columns[5].width }]}>{formatCurrency(policy.premium)}</Text>

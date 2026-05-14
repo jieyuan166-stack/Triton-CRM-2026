@@ -31,6 +31,17 @@ function clientName(client: Client) {
   return [client.firstName, client.lastName].filter(Boolean).join(" ").trim() || "Client";
 }
 
+function policyPartySummary(policy: Policy) {
+  const parts = [];
+  if (policy.policyOwnerName) parts.push(`Owner: ${policy.policyOwnerName}`);
+  const insured = (policy.insuredPersons ?? [])
+    .map((person) => person.name)
+    .filter(Boolean)
+    .join(" / ");
+  if (insured) parts.push(`Insured: ${insured}`);
+  return parts.join(" · ");
+}
+
 export function buildClientReportFilename(client: Client, generatedDate = new Date()) {
   const safeName = clientName(client).replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "");
   const date = generatedDate.toISOString().slice(0, 10);
@@ -64,7 +75,14 @@ function buildPolicyRows(policies: Policy[]) {
         <tr>
           <td>${escapeHtml(policy.carrier)}</td>
           <td>${escapeHtml(policy.category)}</td>
-          <td>${escapeHtml(policy.productType)}</td>
+          <td>
+            ${escapeHtml(policy.productType)}
+            ${
+              policyPartySummary(policy)
+                ? `<div class="party-line">${escapeHtml(policyPartySummary(policy))}</div>`
+                : ""
+            }
+          </td>
           <td>${escapeHtml(policy.policyNumber || "N/A")}</td>
           <td class="money">${formatCurrency(policy.sumAssured)}</td>
           <td class="money">${formatCurrency(policy.premium)}</td>
@@ -264,6 +282,12 @@ export function buildClientReportHtml({
       }
       .money {
         font-family: Arial, Helvetica, sans-serif;
+      }
+      .party-line {
+        margin-top: 3px;
+        color: #64748b;
+        font-size: 8.8px;
+        line-height: 1.35;
       }
       .products-table tr:last-child td { border-bottom: 0; }
       .status {

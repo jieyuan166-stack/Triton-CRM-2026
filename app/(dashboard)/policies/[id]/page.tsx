@@ -77,6 +77,9 @@ export default function PolicyDetailPage() {
     businessName: policy.businessName ?? "",
     isJoint: !!policy.isJoint,
     jointWithClientId: policy.jointWithClientId ?? "",
+    policyOwnerName: policy.policyOwnerName ?? "",
+    policyOwnerClientId: policy.policyOwnerClientId ?? "",
+    insuredPersons: policy.insuredPersons ?? [],
   };
 
   function handleSubmit(values: PolicyFormValues) {
@@ -114,6 +117,9 @@ export default function PolicyDetailPage() {
       loanAmount: isInvestmentLoan ? values.loanAmount : undefined,
       isJoint,
       jointWithClientId: isJoint ? values.jointWithClientId : undefined,
+      policyOwnerName: values.policyOwnerName?.trim() || undefined,
+      policyOwnerClientId: values.policyOwnerClientId || undefined,
+      insuredPersons: values.insuredPersons,
     });
     if (client) router.push(clientPath(client));
     else router.push("/policies");

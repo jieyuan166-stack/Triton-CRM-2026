@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { buildClientReportFilename } from "@/lib/client-report";
 import { isTagValue, type TagValue } from "@/lib/constants";
 import { renderClientReportPdf } from "@/lib/client-report-pdf";
+import { parseInsuredPersonsJson } from "@/lib/policy-parties";
 import type { Client, Policy } from "@/lib/types";
 import { auditLog, requireSession, unauthorized } from "@/lib/api-security";
 import { db } from "@/lib/db";
@@ -148,6 +149,9 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     loanRate: policy.loanRate ?? undefined,
     isJoint: policy.isJoint,
     jointWithClientId: policy.jointWithClientId ?? undefined,
+    policyOwnerName: policy.policyOwnerName ?? undefined,
+    policyOwnerClientId: policy.policyOwnerClientId ?? undefined,
+    insuredPersons: parseInsuredPersonsJson(policy.insuredPersons),
     lastRenewalEmailAt: policy.lastRenewalEmailAt?.toISOString(),
     beneficiaries: policy.beneficiaries.map((b) => ({
       id: b.id,

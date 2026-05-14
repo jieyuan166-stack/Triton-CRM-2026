@@ -5,6 +5,10 @@ import { buildClientSlug, ensureUniqueClientSlugs } from "@/lib/client-slug";
 import { isTagValue, type TagValue } from "@/lib/constants";
 import { removeCommunicationNoteBlocks } from "@/lib/communication-notes";
 import { db } from "@/lib/db";
+import {
+  parseInsuredPersonsJson,
+  serializeInsuredPersonsJson,
+} from "@/lib/policy-parties";
 import type {
   Beneficiary,
   Client,
@@ -149,6 +153,9 @@ function serializePolicy(
     loanRate: p.loanRate ?? undefined,
     isJoint: p.isJoint,
     jointWithClientId: p.jointWithClientId ?? undefined,
+    policyOwnerName: p.policyOwnerName ?? undefined,
+    policyOwnerClientId: p.policyOwnerClientId ?? undefined,
+    insuredPersons: parseInsuredPersonsJson(p.insuredPersons),
     lastRenewalEmailAt: iso(p.lastRenewalEmailAt),
     beneficiaries: (p.beneficiaries ?? []).map((b) => ({
       id: b.id,
@@ -299,6 +306,9 @@ function policyData(input: Partial<Policy>, partial = false) {
             ? undefined
             : null
           : input.jointWithClientId || null,
+    policyOwnerName: nullableString(input.policyOwnerName, partial),
+    policyOwnerClientId: nullableString(input.policyOwnerClientId, partial),
+    insuredPersons: serializeInsuredPersonsJson(input.insuredPersons, partial),
     lastRenewalEmailAt: input.lastRenewalEmailAt ? toNullDate(input.lastRenewalEmailAt) : undefined,
   });
 }

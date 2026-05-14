@@ -4,6 +4,7 @@ import { auditLog, requireSession, unauthorized } from "@/lib/api-security";
 import { parseClientQueryParams, queryClients } from "@/lib/clients-query";
 import { isTagValue, type TagValue } from "@/lib/constants";
 import { db } from "@/lib/db";
+import { parseInsuredPersonsJson } from "@/lib/policy-parties";
 import { clientFormSchema } from "@/lib/validators";
 import type { Client, FollowUp, Policy } from "@/lib/types";
 
@@ -88,6 +89,9 @@ export async function GET(request: Request) {
     loanRate: p.loanRate ?? undefined,
     isJoint: p.isJoint,
     jointWithClientId: p.jointWithClientId ?? undefined,
+    policyOwnerName: p.policyOwnerName ?? undefined,
+    policyOwnerClientId: p.policyOwnerClientId ?? undefined,
+    insuredPersons: parseInsuredPersonsJson(p.insuredPersons),
     lastRenewalEmailAt: p.lastRenewalEmailAt?.toISOString(),
     beneficiaries: p.beneficiaries.map((b) => ({
       id: b.id,

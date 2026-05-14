@@ -79,6 +79,9 @@ function NewPolicyContent() {
         loanAmount: isInvestmentLoan ? values.loanAmount : undefined,
         isJoint,
         jointWithClientId: isJoint ? values.jointWithClientId : undefined,
+        policyOwnerName: values.policyOwnerName?.trim() || undefined,
+        policyOwnerClientId: values.policyOwnerClientId || undefined,
+        insuredPersons: values.insuredPersons,
         beneficiaries: [],
       });
       toast.success("Policy created");

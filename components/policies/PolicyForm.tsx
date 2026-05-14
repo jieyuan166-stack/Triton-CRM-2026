@@ -4,7 +4,7 @@
 // Category-aware workflow for Insurance and Investment policies.
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useForm, type FieldErrors, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,9 @@ import { useData } from "@/components/providers/DataProvider";
 import { ClientCombobox } from "@/components/ui-shared/ClientCombobox";
 import { CurrencyInput } from "@/components/ui-shared/CurrencyInput";
 import { MonthDayPicker } from "@/components/ui-shared/MonthDayPicker";
+import { PolicyPartyInput } from "@/components/ui-shared/PolicyPartyInput";
 import { formatMonthDay } from "@/lib/date-utils";
+import { clientFullName, sanitizeInsuredPersons } from "@/lib/policy-parties";
 import {
   CARRIERS,
   INSURANCE_PRODUCTS,
@@ -70,6 +72,7 @@ function FieldError({ message }: { message?: string }) {
 /** Default Loan Amount the spec wants populated when the toggle is first
  *  enabled. Users can edit it freely after that. */
 const DEFAULT_LOAN_AMOUNT = 100_000;
+const EMPTY_INSURED_PERSONS: NonNullable<PolicyFormValues["insuredPersons"]> = [];
 
 function makeDefaults(defaultClientId?: string): Partial<PolicyFormValues> {
   // Every field gets an explicit, non-undefined default. Selects must start
@@ -97,6 +100,9 @@ function makeDefaults(defaultClientId?: string): Partial<PolicyFormValues> {
     businessName: "",
     isJoint: false,
     jointWithClientId: "",
+    policyOwnerName: "",
+    policyOwnerClientId: "",
+    insuredPersons: [],
   };
 }
 
@@ -142,6 +148,10 @@ export function PolicyForm({
   const isCorporateInsurance = watch("isCorporateInsurance") ?? false;
   const isJoint = watch("isJoint") ?? false;
   const loanAmount = watch("loanAmount");
+  const businessName = watch("businessName") ?? "";
+  const policyOwnerName = watch("policyOwnerName") ?? "";
+  const policyOwnerClientId = watch("policyOwnerClientId") ?? "";
+  const insuredPersons = watch("insuredPersons") ?? EMPTY_INSURED_PERSONS;
 
   const isInvestment = category === "Investment";
   const isInsurance = category === "Insurance";
@@ -149,6 +159,12 @@ export function PolicyForm({
   const showClientPicker = !defaultClientId && !initialValues?.clientId;
   const ownerClientId = watch("clientId") ?? "";
   const jointPartnerOptions = clients.filter((client) => client.id !== ownerClientId);
+  const ownerClient = clients.find((client) => client.id === ownerClientId);
+  const ownerClientName = clientFullName(ownerClient);
+  const jointPartner = clients.find(
+    (client) => client.id === watch("jointWithClientId")
+  );
+  const partyDefaultsInitialized = useRef(false);
 
   // Product Type options derived from current Category. Recomputed each
   // render — cheap, and avoids stale lists when category flips.
@@ -158,7 +174,38 @@ export function PolicyForm({
 
   useEffect(() => {
     if (initialValues) reset(initialValues);
+    partyDefaultsInitialized.current = false;
   }, [initialValues, reset]);
+
+  useEffect(() => {
+    if (partyDefaultsInitialized.current) return;
+    if (!ownerClient) return;
+
+    if (!policyOwnerName && !policyOwnerClientId) {
+      setValue("policyOwnerName", ownerClientName, { shouldValidate: false });
+      setValue("policyOwnerClientId", ownerClient.id, { shouldValidate: false });
+    }
+
+    if (!insuredPersons[0]?.name) {
+      setValue(
+        "insuredPersons",
+        [
+          { name: ownerClientName, clientId: ownerClient.id },
+          ...(insuredPersons[1]?.name ? [insuredPersons[1]] : []),
+        ],
+        { shouldValidate: false },
+      );
+    }
+
+    partyDefaultsInitialized.current = true;
+  }, [
+    insuredPersons,
+    ownerClient,
+    ownerClientName,
+    policyOwnerClientId,
+    policyOwnerName,
+    setValue,
+  ]);
 
   // When the user is on Insurance + Annually, auto-sync Premium Date to the
   // month/day of the current Effective Date whenever either driver changes.
@@ -261,6 +308,43 @@ export function PolicyForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isJoint, ownerClientId]);
 
+  useEffect(() => {
+    const trimmedBusinessName = businessName.trim();
+    if (!isCorporateInsurance || !trimmedBusinessName) return;
+    if (!policyOwnerName || policyOwnerName === ownerClientName) {
+      setValue("policyOwnerName", trimmedBusinessName, { shouldValidate: false });
+      setValue("policyOwnerClientId", "", { shouldValidate: false });
+    }
+  }, [businessName, isCorporateInsurance, ownerClientName, policyOwnerName, setValue]);
+
+  useEffect(() => {
+    if (!isJoint || !jointPartner) return;
+    const current = watch("insuredPersons") ?? [];
+    if (current[1]?.name) return;
+    setValue(
+      "insuredPersons",
+      [
+        current[0] ?? { name: ownerClientName, clientId: ownerClientId },
+        { name: clientFullName(jointPartner), clientId: jointPartner.id },
+      ],
+      { shouldValidate: false },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isJoint, jointPartner?.id]);
+
+  const setInsuredPerson = (
+    index: 0 | 1,
+    patch: { name?: string; clientId?: string },
+  ) => {
+    const next = [...(watch("insuredPersons") ?? [])];
+    next[index] = {
+      name: next[index]?.name ?? "",
+      clientId: next[index]?.clientId,
+      ...patch,
+    };
+    setValue("insuredPersons", next.slice(0, 2), { shouldValidate: true });
+  };
+
   // Surface validation failures in the console — without this, a Submit click
   // with one bad field can look like "nothing happened" if the bad field is
   // currently hidden by a conditional (e.g. lender on Investment-loan).
@@ -279,6 +363,9 @@ export function PolicyForm({
       sumAssured: toCurrencyNumber(values.sumAssured) as never,
       premium: toCurrencyNumber(values.premium) as never,
       loanAmount: toCurrencyNumber(values.loanAmount) as never,
+      policyOwnerName: values.policyOwnerName?.trim() || undefined,
+      policyOwnerClientId: values.policyOwnerClientId || undefined,
+      insuredPersons: sanitizeInsuredPersons(values.insuredPersons),
     } as PolicyFormValues;
     onSubmit(cleaned);
   };
@@ -301,6 +388,9 @@ export function PolicyForm({
     loanAmount: "Loan Amount",
     businessName: "Business Name",
     jointWithClientId: "Joint With",
+    policyOwnerName: "Policy Owner",
+    policyOwnerClientId: "Policy Owner",
+    insuredPersons: "Insured Person",
   };
   const errorList = Object.entries(errors)
     .filter(([, e]) => !!e?.message)
@@ -524,6 +614,69 @@ export function PolicyForm({
               <FieldError message={errors.jointWithClientId?.message} />
             </div>
           ) : null}
+
+          <div className="space-y-1.5 md:col-span-2">
+            <Label htmlFor="policyOwnerName">Policy Owner</Label>
+            <PolicyPartyInput
+              id="policyOwnerName"
+              clients={clients}
+              nameValue={policyOwnerName}
+              clientIdValue={policyOwnerClientId}
+              disabledClientId=""
+              onNameChange={(name) => {
+                setValue("policyOwnerName", name, { shouldValidate: true });
+              }}
+              onClientSelect={(clientId, displayName) => {
+                setValue("policyOwnerName", displayName, { shouldValidate: true });
+                setValue("policyOwnerClientId", clientId, { shouldValidate: true });
+              }}
+              onClearClient={() =>
+                setValue("policyOwnerClientId", "", { shouldValidate: true })
+              }
+              placeholder="Type policy owner or select an existing client"
+            />
+            <p className="text-[11px] text-triton-muted">
+              Defaults to the current client; corporate policies can use the business name.
+            </p>
+            <FieldError message={errors.policyOwnerName?.message as string} />
+          </div>
+
+          <div className="space-y-1.5 md:col-span-2">
+            <Label htmlFor="insuredPerson1">Insured Person 1</Label>
+            <PolicyPartyInput
+              id="insuredPerson1"
+              clients={clients}
+              nameValue={insuredPersons[0]?.name ?? ""}
+              clientIdValue={insuredPersons[0]?.clientId ?? ""}
+              disabledClientId=""
+              onNameChange={(name) => setInsuredPerson(0, { name, clientId: "" })}
+              onClientSelect={(clientId, displayName) =>
+                setInsuredPerson(0, { name: displayName, clientId })
+              }
+              onClearClient={() => setInsuredPerson(0, { clientId: "" })}
+              placeholder="Type insured name or select a client"
+            />
+          </div>
+
+          <div className="space-y-1.5 md:col-span-2">
+            <Label htmlFor="insuredPerson2">Insured Person 2</Label>
+            <PolicyPartyInput
+              id="insuredPerson2"
+              clients={clients}
+              nameValue={insuredPersons[1]?.name ?? ""}
+              clientIdValue={insuredPersons[1]?.clientId ?? ""}
+              disabledClientId={insuredPersons[0]?.clientId}
+              onNameChange={(name) => setInsuredPerson(1, { name, clientId: "" })}
+              onClientSelect={(clientId, displayName) =>
+                setInsuredPerson(1, { name: displayName, clientId })
+              }
+              onClearClient={() => setInsuredPerson(1, { clientId: "" })}
+              placeholder="Optional second insured"
+            />
+            <p className="text-[11px] text-triton-muted">
+              Supports up to two insured persons.
+            </p>
+          </div>
 
           {isInvestment ? (
             <div className="space-y-1.5">

@@ -37,6 +37,17 @@ export const toCurrencyNumber = (v: unknown): number | undefined => {
   return Number.isNaN(n) ? undefined : n;
 };
 
+const optionalPolicyString = z
+  .string()
+  .trim()
+  .optional()
+  .or(z.literal("").transform(() => undefined));
+
+const insuredPersonFormSchema = z.object({
+  name: z.string().trim(),
+  clientId: z.string().trim().optional(),
+});
+
 export const policyFormSchema = z
   .object({
     clientId: z.string().min(1, "Client is required"),
@@ -98,6 +109,12 @@ export const policyFormSchema = z
       .trim()
       .optional()
       .or(z.literal("").transform(() => undefined)),
+
+    // Legal/business-party fields. Optional because old policies and
+    // carrier-imported records may not have this metadata yet.
+    policyOwnerName: optionalPolicyString,
+    policyOwnerClientId: optionalPolicyString,
+    insuredPersons: z.array(insuredPersonFormSchema).max(2).optional(),
   })
   .refine(
     (d) => {

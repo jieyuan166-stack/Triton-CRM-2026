@@ -244,6 +244,11 @@ export interface Beneficiary {
   sharePercent: number;  // 1–100, sum across a policy must equal 100
 }
 
+export interface PolicyInsuredPerson {
+  name: string;
+  clientId?: string;
+}
+
 export interface Policy {
   id: string;
   clientId: string;
@@ -275,6 +280,12 @@ export interface Policy {
   // Joint-account fields. Meaningful for both Insurance and Investment.
   isJoint?: boolean;
   jointWithClientId?: string;
+
+  // Business-party fields. `clientId` above remains the CRM attachment
+  // owner; these describe the legal owner / insured lives on the policy.
+  policyOwnerName?: string;
+  policyOwnerClientId?: string;
+  insuredPersons?: PolicyInsuredPerson[];
 
   /** ISO timestamp of the last renewal-reminder email sent for this
    *  policy. Drives the suppression filter on the Upcoming Premiums

@@ -8,6 +8,7 @@ import { UniversalDataCard, type UniversalDataMetric } from "@/components/ui-sha
 import { CARRIER_COLORS } from "@/lib/carrier-colors";
 import { formatDate, formatMonthDay, formatRelative } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/format";
+import { partyDisplayName } from "@/lib/policy-parties";
 import { PAYMENT_FREQUENCY_LABELS, type Client, type Policy } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -107,6 +108,14 @@ export function PolicyDataCard({
     policy.isJoint && currentViewClientId && currentViewClientId === policy.jointWithClientId
       ? policyOwner
       : jointPartner;
+  const displayPolicyOwner =
+    policy.policyOwnerClientId && getClient(policy.policyOwnerClientId)
+      ? `${getClient(policy.policyOwnerClientId)?.firstName} ${getClient(policy.policyOwnerClientId)?.lastName}`.trim()
+      : policy.policyOwnerName;
+  const insuredDisplay = (policy.insuredPersons ?? [])
+    .map((person) => partyDisplayName(person, getClient))
+    .filter(Boolean)
+    .join(" / ");
   const ownerBadge = owner ? (
     <span
       className={cn(
@@ -134,6 +143,13 @@ export function PolicyDataCard({
           {jointDisplayClient ? (
             <span className="mt-1 block text-purple-600">
               Joint with {jointDisplayClient.firstName} {jointDisplayClient.lastName}
+            </span>
+          ) : null}
+          {displayPolicyOwner || insuredDisplay ? (
+            <span className="mt-1 block text-[11px] text-slate-500">
+              {displayPolicyOwner ? `Owner: ${displayPolicyOwner}` : ""}
+              {displayPolicyOwner && insuredDisplay ? " · " : ""}
+              {insuredDisplay ? `Insured: ${insuredDisplay}` : ""}
             </span>
           ) : null}
         </>
