@@ -9,7 +9,10 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { useData } from "@/components/providers/DataProvider";
 import { PolicyForm } from "@/components/policies/PolicyForm";
 import { Button } from "@/components/ui/button";
+import { ClientAvatar } from "@/components/ui-shared/ClientAvatar";
+import { ClientNameDisplay } from "@/components/ui-shared/ClientNameDisplay";
 import { EmptyState } from "@/components/ui-shared/EmptyState";
+import { calculateClientTags } from "@/lib/client-tags";
 import { clientPath } from "@/lib/client-slug";
 import {
   Dialog,
@@ -26,9 +29,10 @@ export default function PolicyDetailPage() {
   const router = useRouter();
   const id = params.id;
 
-  const { getPolicy, getClient, updatePolicy, deletePolicy } = useData();
+  const { getPolicy, getClient, updatePolicy, deletePolicy, policies } = useData();
   const policy = getPolicy(id);
   const client = policy ? getClient(policy.clientId) : null;
+  const clientIsVip = client ? calculateClientTags(client, policies).includes("VIP") : false;
 
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -148,7 +152,7 @@ export default function PolicyDetailPage() {
 
       <PageHeader
         title={policy.productName}
-        description={`${policy.carrier} · ${policy.policyNumber}`}
+        description={`${policy.carrier} · ${policy.policyNumber}${client ? ` · ${client.firstName} ${client.lastName}` : ""}`}
         action={
           <Button
             variant="outline"
@@ -160,6 +164,38 @@ export default function PolicyDetailPage() {
           </Button>
         }
       />
+
+      {client ? (
+        <Link
+          href={clientPath(client)}
+          className="mb-6 flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-blue-100 hover:bg-blue-50/30 hover:shadow-md"
+        >
+          <ClientAvatar
+            firstName={client.firstName}
+            lastName={client.lastName}
+            size="md"
+          />
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+              Current Client
+            </p>
+            <div className="mt-1">
+              <ClientNameDisplay
+                firstName={client.firstName}
+                lastName={client.lastName}
+                isVip={clientIsVip}
+                size="md"
+              />
+            </div>
+            {client.email ? (
+              <p className="mt-1 truncate text-sm text-slate-500">{client.email}</p>
+            ) : null}
+          </div>
+          <span className="hidden rounded-full bg-slate-50 px-3 py-1 text-xs font-medium text-slate-500 ring-1 ring-slate-100 sm:inline-flex">
+            View Client
+          </span>
+        </Link>
+      ) : null}
 
       <PolicyForm
         initialValues={initialValues}
