@@ -111,7 +111,6 @@ export function EmailPreviewDialog({
     appendEmailHistory,
     markRenewalEmailSent,
     markBirthdayEmailSent,
-    prependClientNote,
   } = useData();
   const { settings } = useSettings();
 
@@ -228,7 +227,8 @@ export function EmailPreviewDialog({
       const htmlWithSignature = renderEmailHtml(
         message.body,
         {},
-        settings.signature
+        settings.signature,
+        { emphasizedTerms: message.emphasizedTerms }
       );
       const res = await fetch("/api/send-email", {
         method: "POST",
@@ -272,14 +272,6 @@ export function EmailPreviewDialog({
           templateLabel,
         });
 
-        const stamp = new Date().toLocaleString("en-CA", {
-          dateStyle: "short",
-          timeStyle: "short",
-        });
-        prependClientNote(
-          clientId,
-          `Action Log: ${templateLabel} Sent\n${stamp} — ${message.subject}`
-        );
       }
 
       if (template === "renewal" && message.policyId) {

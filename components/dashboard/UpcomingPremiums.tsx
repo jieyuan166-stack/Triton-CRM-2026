@@ -104,11 +104,12 @@ export function UpcomingPremiums() {
     if (!client?.email) return;
     const clientName = `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim() || "client";
     const premiumAmount = formatCurrency(p.premium ?? 0);
+    const faceAmount = formatCurrency(p.sumAssured ?? 0);
     const dueDate = p.premiumDate ? formatDate(p.premiumDate) : "";
     const vars = {
       "Client Name": clientName, Carrier: p.carrier ?? "", "Policy Name": p.productName ?? "",
       "Policy Number": p.policyNumber ?? "",
-      "Face Amount": formatCurrency(p.sumAssured ?? 0), "Premium Amount": premiumAmount,
+      "Face Amount": faceAmount, "Premium Amount": premiumAmount,
       Date: dueDate,
     };
     setPayload({
@@ -116,7 +117,7 @@ export function UpcomingPremiums() {
       subject: applyTemplate(renewalTpl.subject, vars),
       body: applyTemplate(renewalTpl.body, vars),
       attachments: renewalTpl.attachments ?? [],
-      emphasizedTerms: [p.policyNumber ?? "", premiumAmount, dueDate],
+      emphasizedTerms: [p.policyNumber ?? "", premiumAmount, faceAmount, dueDate],
       clientId: client.id, template: "renewal", policyId: p.id,
     });
     setDialogOpen(true);
@@ -133,13 +134,14 @@ export function UpcomingPremiums() {
           `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim() ||
           "client";
         const premiumAmount = formatCurrency(p.premium ?? 0);
+        const faceAmount = formatCurrency(p.sumAssured ?? 0);
         const dueDate = p.premiumDate ? formatDate(p.premiumDate) : "";
         const vars = {
           "Client Name": clientName,
           Carrier: p.carrier ?? "",
           "Policy Name": p.productName ?? "",
           "Policy Number": p.policyNumber ?? "",
-          "Face Amount": formatCurrency(p.sumAssured ?? 0),
+          "Face Amount": faceAmount,
           "Premium Amount": premiumAmount,
           Date: dueDate,
         };
@@ -151,7 +153,7 @@ export function UpcomingPremiums() {
           clientId: client.id,
           template: "renewal" as const,
           policyId: p.id,
-          emphasizedTerms: [p.policyNumber ?? "", premiumAmount, dueDate],
+          emphasizedTerms: [p.policyNumber ?? "", premiumAmount, faceAmount, dueDate],
         };
       })
       .filter((item): item is NonNullable<typeof item> => !!item);

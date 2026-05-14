@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { UniversalDataCard } from "@/components/ui-shared/UniversalDataCard";
 import { useData } from "@/components/providers/DataProvider";
+import { removeAllCommunicationNoteBlocks } from "@/lib/communication-notes";
 import type { Client } from "@/lib/types";
 
 interface ClientNotesCardProps {
@@ -13,14 +14,15 @@ interface ClientNotesCardProps {
 
 export function ClientNotesCard({ client }: ClientNotesCardProps) {
   const { updateClient } = useData();
-  const [draft, setDraft] = useState(client.notes ?? "");
+  const initialNotes = removeAllCommunicationNoteBlocks(client.notes) ?? "";
+  const [draft, setDraft] = useState(initialNotes);
   const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
   const lastSaved = useRef(client.notes ?? "");
 
   useEffect(() => {
-    const next = client.notes ?? "";
+    const next = removeAllCommunicationNoteBlocks(client.notes) ?? "";
     setDraft(next);
-    lastSaved.current = next;
+    lastSaved.current = client.notes ?? "";
     setStatus("idle");
   }, [client.id, client.notes]);
 

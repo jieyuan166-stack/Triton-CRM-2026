@@ -35,3 +35,17 @@ export function removeCommunicationNoteBlocks(
 
   return kept.length > 0 ? kept.join("\n———\n") : undefined;
 }
+
+export function removeAllCommunicationNoteBlocks(
+  notes: string | undefined
+): string | undefined {
+  if (!notes?.trim()) return notes;
+
+  const blocks = notes
+    .split(/\n(?:———|---)\n/g)
+    .map((block) => block.trim())
+    .filter(Boolean);
+
+  const kept = blocks.filter((block) => !block.includes("Action Log:"));
+  return kept.length > 0 ? kept.join("\n———\n") : undefined;
+}
