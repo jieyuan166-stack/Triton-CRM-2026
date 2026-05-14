@@ -1,0 +1,161 @@
+"use client";
+
+import { Building2 } from "lucide-react";
+import { useData } from "@/components/providers/DataProvider";
+import { EmptyState } from "@/components/ui-shared/EmptyState";
+import { UniversalCard } from "@/components/ui-shared/UniversalCard";
+import { CARRIER_COLORS } from "@/lib/carrier-colors";
+import { formatCurrencyShort } from "@/lib/format";
+import {
+  dedupePolicies,
+  getPolicyPortfolioAmount,
+} from "@/lib/portfolio-metrics";
+import { CARRIERS, type Carrier } from "@/lib/types";
+import { cn } from "@/lib/utils";
+
+interface CarrierLedgerRow {
+  carrier: Carrier;
+  totalFaceAmount: number;
+  totalAum: number;
+  count: number;
+}
+
+function carrierInitial(carrier: Carrier) {
+  if (carrier === "iA") return "iA";
+  return carrier.charAt(0);
+}
+
+function buildCarrierRows(policies: ReturnType<typeof useData>["policies"]) {
+  const active = dedupePolicies(policies).filter(
+    (policy) => policy.status === "active"
+  );
+
+  const rowsByCarrier = new Map<Carrier, CarrierLedgerRow>(
+    CARRIERS.map((carrier) => [
+      carrier,
+      {
+        carrier,
+        totalFaceAmount: 0,
+        totalAum: 0,
+        count: 0,
+      },
+    ])
+  );
+
+  for (const policy of active) {
+    const row = rowsByCarrier.get(policy.carrier);
+    if (!row) continue;
+
+    row.count += 1;
+    if (policy.category === "Investment") {
+      row.totalAum += getPolicyPortfolioAmount(policy);
+    } else {
+      row.totalFaceAmount += getPolicyPortfolioAmount(policy);
+    }
+  }
+
+  return Array.from(rowsByCarrier.values())
+    .filter((row) => row.count > 0)
+    .sort(
+      (a, b) =>
+        b.totalFaceAmount +
+        b.totalAum -
+        (a.totalFaceAmount + a.totalAum)
+    );
+}
+
+export function CarrierDistribution() {
+  const { policies } = useData();
+  const rows = buildCarrierRows(policies);
+
+  return (
+    <UniversalCard className="flex min-h-[420px] flex-col">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            Carrier Distribution
+          </p>
+          <h3 className="mt-2 text-lg font-bold tracking-tight text-[#002147]">
+            Business by company
+          </h3>
+        </div>
+        <div className="rounded-2xl bg-slate-50 p-2 text-slate-400 ring-1 ring-slate-100">
+          <Building2 className="h-4 w-4" />
+        </div>
+      </div>
+
+      {rows.length === 0 ? (
+        <div className="flex flex-1 items-center justify-center">
+          <EmptyState
+            icon={Building2}
+            title="No carrier distribution yet"
+            description="Add active policies to see business grouped by company."
+            compact
+          />
+        </div>
+      ) : (
+        <div className="mt-5 flex-1 overflow-hidden rounded-2xl border border-slate-100 bg-white">
+          <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(96px,0.8fr)_minmax(96px,0.8fr)] gap-3 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              Company
+            </span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              Insurance
+            </span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              Investment
+            </span>
+          </div>
+
+          <div className="divide-y divide-slate-100">
+            {rows.map((row) => (
+              <div
+                key={row.carrier}
+                className="grid grid-cols-[minmax(0,1.4fr)_minmax(96px,0.8fr)_minmax(96px,0.8fr)] items-center gap-3 px-4 py-4 transition-colors hover:bg-slate-50/70"
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <span
+                    className={cn(
+                      "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white shadow-sm",
+                      row.carrier === "Sun Life" ? "text-[#002147]" : ""
+                    )}
+                    style={{ backgroundColor: CARRIER_COLORS[row.carrier] }}
+                  >
+                    {carrierInitial(row.carrier)}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-[#002147]">
+                      {row.carrier}
+                    </p>
+                    <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                      {row.count} active {row.count === 1 ? "item" : "items"}
+                    </p>
+                  </div>
+                </div>
+
+                <LedgerMetric
+                  label="Insurance"
+                  value={row.totalFaceAmount}
+                />
+                <LedgerMetric label="Investment" value={row.totalAum} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </UniversalCard>
+  );
+}
+
+function LedgerMetric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+        {label}
+      </p>
+      <p className="mt-1 font-finance text-sm font-bold leading-none text-slate-800 sm:text-base">
+        {formatCurrencyShort(value)}
+      </p>
+    </div>
+  );
+}
