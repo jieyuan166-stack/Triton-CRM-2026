@@ -8,6 +8,7 @@ import { WidgetCard } from "@/components/ui-shared/WidgetCard";
 import { EmptyState } from "@/components/ui-shared/EmptyState";
 import { PolicyDataCard } from "@/components/ui-shared/PolicyDataCard";
 import type { Policy } from "@/lib/types";
+import { CARRIERS } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const CATEGORY_SECTION_STYLE = {
@@ -30,13 +31,21 @@ interface ClientPoliciesCardProps {
   policies: Policy[];
 }
 
+function clusterByCarrier(items: Policy[]) {
+  return [...items].sort((a, b) => {
+    const carrierOrder = CARRIERS.indexOf(a.carrier) - CARRIERS.indexOf(b.carrier);
+    if (carrierOrder !== 0) return carrierOrder;
+    return (a.productName || a.productType).localeCompare(b.productName || b.productType);
+  });
+}
+
 export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardProps) {
   const policySections = useMemo(
     () =>
       (["Insurance", "Investment"] as const)
         .map((category) => ({
           category,
-          policies: policies.filter((p) => p.category === category),
+          policies: clusterByCarrier(policies.filter((p) => p.category === category)),
           style: CATEGORY_SECTION_STYLE[category],
         }))
         .filter((s) => s.policies.length > 0),

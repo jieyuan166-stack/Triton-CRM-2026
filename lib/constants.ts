@@ -32,6 +32,7 @@ export const TAG_VALUES = [
   "VIP",
   "Loan",
   "Corporate",
+  "Missing Information",
 ] as const;
 export type TagValue = (typeof TAG_VALUES)[number];
 
@@ -41,6 +42,7 @@ export const TAG_LABELS: Record<TagValue, string> = {
   VIP: "VIP",
   Loan: "Loan",
   Corporate: "Corporate",
+  "Missing Information": "Missing Information",
 };
 
 export function isTagValue(v: unknown): v is TagValue {

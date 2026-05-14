@@ -21,6 +21,11 @@ type RouteContext = {
 type ReportSnapshot = {
   client: Client;
   policies: Policy[];
+  family?: {
+    linkedClients?: Array<{ client: Client; relationship: string }>;
+    insuranceFaceAmount?: number;
+    investmentAum?: number;
+  };
 };
 
 function parseTagList(value: string | null | undefined): TagValue[] | undefined {
@@ -63,6 +68,7 @@ async function renderPdf(snapshot: ReportSnapshot) {
   return renderClientReportPdf({
     client: snapshot.client,
     policies: snapshot.policies,
+    family: snapshot.family,
     logoDataUri,
     generatedDate: new Date(),
   });
@@ -151,6 +157,8 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     jointWithClientId: policy.jointWithClientId ?? undefined,
     policyOwnerName: policy.policyOwnerName ?? undefined,
     policyOwnerClientId: policy.policyOwnerClientId ?? undefined,
+    policyOwner2Name: policy.policyOwner2Name ?? undefined,
+    policyOwner2ClientId: policy.policyOwner2ClientId ?? undefined,
     insuredPersons: parseInsuredPersonsJson(policy.insuredPersons),
     lastRenewalEmailAt: policy.lastRenewalEmailAt?.toISOString(),
     beneficiaries: policy.beneficiaries.map((b) => ({

@@ -31,8 +31,7 @@ function annualPremium(p: Policy): number {
  * Rules:
  * - "insurance"  : any non-lapsed policy with category "Insurance"
  * - "investment" : any non-lapsed policy with category "Investment"
- * - "VIP"        : annual insurance premium total > $100k OR holds both
- *                  insurance AND investment policies
+ * - "VIP"        : annual insurance premium total >= $50k
  * - "Loan"       : any non-lapsed policy with isInvestmentLoan === true
  * - "Corporate"  : any non-lapsed policy with isCorporateInsurance === true
  *                  AND a non-empty businessName
@@ -54,9 +53,7 @@ export function calculateAutoClientTags(
     .filter((p) => p.category === "Insurance")
     .reduce((sum, p) => sum + annualPremium(p), 0);
 
-  const isVip =
-    insurancePremiumYear >= VIP_PREMIUM_THRESHOLD ||
-    (hasInsurance && hasInvestment);
+  const isVip = insurancePremiumYear >= VIP_PREMIUM_THRESHOLD;
 
   const hasLoan = live.some((p) => p.isInvestmentLoan === true);
   const hasCorporate = live.some(
@@ -65,6 +62,14 @@ export function calculateAutoClientTags(
       typeof p.businessName === "string" &&
       p.businessName.trim().length > 0
   );
+  const emailLooksValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(client.email ?? "");
+  const hasAddress = !!(
+    client.streetAddress?.trim() &&
+    client.city?.trim() &&
+    client.province &&
+    client.postalCode?.trim()
+  );
+  const missingInformation = !emailLooksValid || !client.birthday || !hasAddress;
 
   const tags: DynamicTag[] = [];
   if (hasInsurance) tags.push("insurance");
@@ -72,6 +77,7 @@ export function calculateAutoClientTags(
   if (isVip) tags.push("VIP");
   if (hasLoan) tags.push("Loan");
   if (hasCorporate) tags.push("Corporate");
+  if (missingInformation) tags.push("Missing Information");
   return tags;
 }
 

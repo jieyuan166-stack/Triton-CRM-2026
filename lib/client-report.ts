@@ -33,7 +33,10 @@ function clientName(client: Client) {
 
 function policyPartySummary(policy: Policy) {
   const parts = [];
-  if (policy.policyOwnerName) parts.push(`Owner: ${policy.policyOwnerName}`);
+  const owners = [policy.policyOwnerName, policy.policyOwner2Name]
+    .filter(Boolean)
+    .join(" / ");
+  if (owners) parts.push(`Owner: ${owners}`);
   const insured = (policy.insuredPersons ?? [])
     .map((person) => person.name)
     .filter(Boolean)

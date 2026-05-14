@@ -31,8 +31,14 @@ export function dedupePolicies<T extends Policy>(policies: T[]): T[] {
   });
 }
 
-export function calculatePortfolioMetrics(policies: Policy[]): PortfolioMetrics {
-  const active = dedupePolicies(policies).filter((policy) => policy.status === "active");
+export function calculatePortfolioMetrics(
+  policies: Policy[],
+  options: { status?: Policy["status"] | "all" } = {}
+): PortfolioMetrics {
+  const status = options.status ?? "active";
+  const active = dedupePolicies(policies).filter(
+    (policy) => status === "all" || policy.status === status
+  );
   const activeInsurance = active.filter((policy) => policy.category === "Insurance");
   const activeInvestment = active.filter((policy) => policy.category === "Investment");
 

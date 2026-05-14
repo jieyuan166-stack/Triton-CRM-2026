@@ -5,6 +5,7 @@
 
 import type { Client, Policy } from "./types";
 import { clientPath } from "./client-slug";
+import { tokenMatch } from "./text-utils";
 
 export interface ClientHit {
   kind: "client";
@@ -38,9 +39,7 @@ const PER_GROUP_LIMIT = 6;
 
 function matches(query: string, fields: Array<string | undefined | null>): boolean {
   if (!query) return false;
-  return fields.some(
-    (f) => typeof f === "string" && f.toLowerCase().includes(query)
-  );
+  return tokenMatch(query, fields);
 }
 
 export function searchAll(
@@ -55,9 +54,22 @@ export function searchAll(
 
   // Clients: firstName / lastName / email / phone
   const clientHits: ClientHit[] = clients
-    .filter((c) =>
-      matches(q, [c.firstName, c.lastName, `${c.firstName} ${c.lastName}`, c.email, c.phone])
-    )
+    .filter((c) => {
+      const clientPolicies = policies.filter((p) => p.clientId === c.id);
+      return matches(q, [
+        c.firstName,
+        c.lastName,
+        `${c.firstName} ${c.lastName}`,
+        `${c.lastName} ${c.firstName}`,
+        c.email,
+        c.phone,
+        ...clientPolicies.flatMap((p) => [
+          p.policyOwnerName,
+          p.policyOwner2Name,
+          ...(p.insuredPersons ?? []).map((person) => person.name),
+        ]),
+      ]);
+    })
     .slice(0, PER_GROUP_LIMIT)
     .map((c) => ({
       kind: "client",
@@ -77,6 +89,9 @@ export function searchAll(
         p.productName,
         p.category,
         p.productType,
+        p.policyOwnerName,
+        p.policyOwner2Name,
+        ...(p.insuredPersons ?? []).map((person) => person.name),
       ])
     )
     .slice(0, PER_GROUP_LIMIT)

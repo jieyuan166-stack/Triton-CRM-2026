@@ -25,6 +25,7 @@ import { MonthDayPicker } from "@/components/ui-shared/MonthDayPicker";
 import { PolicyPartyInput } from "@/components/ui-shared/PolicyPartyInput";
 import { formatMonthDay } from "@/lib/date-utils";
 import { clientFullName, sanitizeInsuredPersons } from "@/lib/policy-parties";
+import { toTitleCase } from "@/lib/text-utils";
 import {
   CARRIERS,
   INSURANCE_PRODUCTS,
@@ -102,6 +103,8 @@ function makeDefaults(defaultClientId?: string): Partial<PolicyFormValues> {
     jointWithClientId: "",
     policyOwnerName: "",
     policyOwnerClientId: "",
+    policyOwner2Name: "",
+    policyOwner2ClientId: "",
     insuredPersons: [],
   };
 }
@@ -151,6 +154,8 @@ export function PolicyForm({
   const businessName = watch("businessName") ?? "";
   const policyOwnerName = watch("policyOwnerName") ?? "";
   const policyOwnerClientId = watch("policyOwnerClientId") ?? "";
+  const policyOwner2Name = watch("policyOwner2Name") ?? "";
+  const policyOwner2ClientId = watch("policyOwner2ClientId") ?? "";
   const insuredPersons = watch("insuredPersons") ?? EMPTY_INSURED_PERSONS;
 
   const isInvestment = category === "Investment";
@@ -320,12 +325,17 @@ export function PolicyForm({
   useEffect(() => {
     if (!isJoint || !jointPartner) return;
     const current = watch("insuredPersons") ?? [];
+    const partnerName = clientFullName(jointPartner);
+    if (!watch("policyOwner2Name")) {
+      setValue("policyOwner2Name", partnerName, { shouldValidate: false });
+      setValue("policyOwner2ClientId", jointPartner.id, { shouldValidate: false });
+    }
     if (current[1]?.name) return;
     setValue(
       "insuredPersons",
       [
         current[0] ?? { name: ownerClientName, clientId: ownerClientId },
-        { name: clientFullName(jointPartner), clientId: jointPartner.id },
+        { name: partnerName, clientId: jointPartner.id },
       ],
       { shouldValidate: false },
     );
@@ -365,6 +375,9 @@ export function PolicyForm({
       loanAmount: toCurrencyNumber(values.loanAmount) as never,
       policyOwnerName: values.policyOwnerName?.trim() || undefined,
       policyOwnerClientId: values.policyOwnerClientId || undefined,
+      policyOwner2Name: values.policyOwner2Name?.trim() || undefined,
+      policyOwner2ClientId: values.policyOwner2ClientId || undefined,
+      productName: toTitleCase(values.productName?.trim() || values.productType),
       insuredPersons: sanitizeInsuredPersons(values.insuredPersons),
     } as PolicyFormValues;
     onSubmit(cleaned);
@@ -390,6 +403,8 @@ export function PolicyForm({
     jointWithClientId: "Joint With",
     policyOwnerName: "Policy Owner",
     policyOwnerClientId: "Policy Owner",
+    policyOwner2Name: "Policy Owner 2",
+    policyOwner2ClientId: "Policy Owner 2",
     insuredPersons: "Insured Person",
   };
   const errorList = Object.entries(errors)
@@ -524,6 +539,19 @@ export function PolicyForm({
             <FieldError message={errors.productName?.message as string} />
           </div>
 
+          {/* Policy Number */}
+          <div className="space-y-1.5">
+            <Label htmlFor="policyNumber">
+              Policy Number <span className="text-accent-red">*</span>
+            </Label>
+            <Input
+              id="policyNumber"
+              placeholder="e.g. SUN-771204"
+              {...register("policyNumber")}
+            />
+            <FieldError message={errors.policyNumber?.message} />
+          </div>
+
           {/* Status (Insurance) — replaced by Investment Loan toggle for Investment */}
           {isInvestment ? (
             <div className="space-y-1.5">
@@ -616,7 +644,7 @@ export function PolicyForm({
           ) : null}
 
           <div className="space-y-1.5 md:col-span-2">
-            <Label htmlFor="policyOwnerName">Policy Owner</Label>
+            <Label htmlFor="policyOwnerName">Policy Owner 1</Label>
             <PolicyPartyInput
               id="policyOwnerName"
               clients={clients}
@@ -639,6 +667,35 @@ export function PolicyForm({
               Defaults to the current client; corporate policies can use the business name.
             </p>
             <FieldError message={errors.policyOwnerName?.message as string} />
+          </div>
+
+          <div className="space-y-1.5 md:col-span-2">
+            <Label htmlFor="policyOwner2Name">Policy Owner 2</Label>
+            <PolicyPartyInput
+              id="policyOwner2Name"
+              clients={clients}
+              nameValue={policyOwner2Name}
+              clientIdValue={policyOwner2ClientId}
+              disabledClientId={policyOwnerClientId}
+              onNameChange={(name) => {
+                setValue("policyOwner2Name", name, { shouldValidate: true });
+                if (policyOwner2ClientId) {
+                  setValue("policyOwner2ClientId", "", { shouldValidate: true });
+                }
+              }}
+              onClientSelect={(clientId, displayName) => {
+                setValue("policyOwner2Name", displayName, { shouldValidate: true });
+                setValue("policyOwner2ClientId", clientId, { shouldValidate: true });
+              }}
+              onClearClient={() =>
+                setValue("policyOwner2ClientId", "", { shouldValidate: true })
+              }
+              placeholder="Optional second owner"
+            />
+            <p className="text-[11px] text-triton-muted">
+              Joint Account can auto-fill this with the linked owner.
+            </p>
+            <FieldError message={errors.policyOwner2Name?.message as string} />
           </div>
 
           <div className="space-y-1.5 md:col-span-2">
@@ -700,18 +757,6 @@ export function PolicyForm({
             </div>
           ) : null}
 
-          {/* Policy Number */}
-          <div className="space-y-1.5">
-            <Label htmlFor="policyNumber">
-              Policy Number <span className="text-accent-red">*</span>
-            </Label>
-            <Input
-              id="policyNumber"
-              placeholder="e.g. SUN-771204"
-              {...register("policyNumber")}
-            />
-            <FieldError message={errors.policyNumber?.message} />
-          </div>
         </div>
 
         {/* Corporate-insurance extras — Insurance only.

@@ -38,7 +38,6 @@ function buildAssetsByCompany(
     const value = policies
       .filter(
         (policy) =>
-          policy.status === "active" &&
           policy.category === "Investment" &&
           policy.carrier === carrier
       )
@@ -62,7 +61,7 @@ function buildProtectionByProduct(
   policies: ReturnType<typeof useData>["policies"]
 ): RingDatum[] {
   const totals = policies
-    .filter((policy) => policy.status === "active" && policy.category === "Insurance")
+    .filter((policy) => policy.category === "Insurance")
     .reduce((acc, policy) => {
       const bucket = protectionBucket(policy.productType);
       acc[bucket] = (acc[bucket] ?? 0) + getPolicyPortfolioAmount(policy);
@@ -196,14 +195,13 @@ function MiniRing({
   );
 }
 
-export function CategoryBreakdown() {
+export function CategoryBreakdown({ policies: overridePolicies }: { policies?: ReturnType<typeof useData>["policies"] }) {
   const { policies } = useData();
-  const activePolicies = dedupePolicies(policies).filter(
-    (policy) => policy.status === "active"
-  );
+  const sourcePolicies = overridePolicies ?? policies;
+  const filteredActivePolicies = dedupePolicies(sourcePolicies);
 
-  const assets = buildAssetsByCompany(activePolicies);
-  const protection = buildProtectionByProduct(activePolicies);
+  const assets = buildAssetsByCompany(filteredActivePolicies);
+  const protection = buildProtectionByProduct(filteredActivePolicies);
   const assetTotal = assets.reduce((sum, item) => sum + item.value, 0);
   const protectionTotal = protection.reduce((sum, item) => sum + item.value, 0);
 

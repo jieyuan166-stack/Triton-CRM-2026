@@ -10,6 +10,7 @@
 import { calculateClientTags } from "./client-tags";
 import { TAG_VALUES, type TagValue } from "./constants";
 import { parseCalendarDate } from "./date-utils";
+import { tokenMatch } from "./text-utils";
 import type { Client, FollowUp, Policy } from "./types";
 
 // ===== Contract =====
@@ -166,20 +167,25 @@ export function queryClients(
   const tagFacet = [...TAG_VALUES] as string[];
 
   // 3. Apply filters
-  const q = search.trim().toLowerCase();
+  const q = search.trim();
   let filtered = allRows.filter((r) => {
     if (q) {
-      const hay = [
+      const clientPolicies = data.policies.filter((policy) => policy.clientId === r.id);
+      const fields = [
         r.firstName,
         r.lastName,
         `${r.firstName} ${r.lastName}`,
+        `${r.lastName} ${r.firstName}`,
         r.email ?? "",
         r.phone ?? "",
         r.province ?? "",
-      ]
-        .join(" ")
-        .toLowerCase();
-      if (!hay.includes(q)) return false;
+        ...clientPolicies.flatMap((policy) => [
+          policy.policyOwnerName,
+          policy.policyOwner2Name,
+          ...(policy.insuredPersons ?? []).map((person) => person.name),
+        ]),
+      ];
+      if (!tokenMatch(q, fields)) return false;
     }
     if (provinces.length > 0) {
       if (!r.province || !provinces.includes(r.province)) return false;

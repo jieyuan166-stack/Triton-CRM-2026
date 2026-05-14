@@ -79,6 +79,8 @@ export default function PolicyDetailPage() {
     jointWithClientId: policy.jointWithClientId ?? "",
     policyOwnerName: policy.policyOwnerName ?? "",
     policyOwnerClientId: policy.policyOwnerClientId ?? "",
+    policyOwner2Name: policy.policyOwner2Name ?? "",
+    policyOwner2ClientId: policy.policyOwner2ClientId ?? "",
     insuredPersons: policy.insuredPersons ?? [],
   };
 
@@ -119,6 +121,8 @@ export default function PolicyDetailPage() {
       jointWithClientId: isJoint ? values.jointWithClientId : undefined,
       policyOwnerName: values.policyOwnerName?.trim() || undefined,
       policyOwnerClientId: values.policyOwnerClientId || undefined,
+      policyOwner2Name: values.policyOwner2Name?.trim() || undefined,
+      policyOwner2ClientId: values.policyOwner2ClientId || undefined,
       insuredPersons: values.insuredPersons,
     });
     if (client) router.push(clientPath(client));

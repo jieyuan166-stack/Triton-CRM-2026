@@ -1,6 +1,7 @@
 // app/(dashboard)/dashboard/page.tsx
 "use client";
 
+import { useState } from "react";
 import { DollarSign, ShieldCheck, TrendingUp, Users } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useData } from "@/components/providers/DataProvider";
@@ -12,22 +13,46 @@ import { CategoryBreakdown } from "@/components/dashboard/CategoryBreakdown";
 import { calculateClientTags } from "@/lib/client-tags";
 import { formatCurrency, formatCurrencyShort } from "@/lib/format";
 import { calculatePortfolioMetrics } from "@/lib/portfolio-metrics";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function DashboardPage() {
   const { clients, policies } = useData();
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "pending" | "lapsed">("active");
+  const filteredPolicies =
+    statusFilter === "all"
+      ? policies
+      : policies.filter((policy) => policy.status === statusFilter);
 
   const totalClients = clients.length;
   const vipClients = clients.filter((c) =>
     calculateClientTags(c, policies).includes("VIP")
   ).length;
 
-  const metrics = calculatePortfolioMetrics(policies);
+  const metrics = calculatePortfolioMetrics(filteredPolicies, { status: statusFilter });
 
   return (
     <>
       <PageHeader
         title="Dashboard"
         description="Overview of your book of business"
+        action={
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              Policy Status
+            </span>
+            <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}>
+              <SelectTrigger className="h-9 w-[140px] bg-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="lapsed">Lapsed</SelectItem>
+                <SelectItem value="all">All Statuses</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        }
       />
 
       {/* KPIs */}
@@ -76,8 +101,8 @@ export default function DashboardPage() {
 
       {/* Analytics */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-        <CarrierDistribution />
-        <CategoryBreakdown />
+        <CarrierDistribution policies={filteredPolicies} />
+        <CategoryBreakdown policies={filteredPolicies} />
       </div>
     </>
   );

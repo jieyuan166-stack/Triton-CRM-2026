@@ -78,7 +78,7 @@ export const PAYMENT_FREQUENCY_LABELS: Record<PaymentFrequency, string> = {
   Monthly: "Monthly",
   Quarterly: "Quarterly",
   "Semi-Annual": "Semi-Annual",
-  Annual: "Yearly",
+  Annual: "Annually",
 };
 
 export type PolicyStatus = "active" | "lapsed" | "pending";
@@ -285,6 +285,8 @@ export interface Policy {
   // owner; these describe the legal owner / insured lives on the policy.
   policyOwnerName?: string;
   policyOwnerClientId?: string;
+  policyOwner2Name?: string;
+  policyOwner2ClientId?: string;
   insuredPersons?: PolicyInsuredPerson[];
 
   /** ISO timestamp of the last renewal-reminder email sent for this

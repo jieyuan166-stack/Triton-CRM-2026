@@ -26,9 +26,7 @@ function carrierInitial(carrier: Carrier) {
 }
 
 function buildCarrierRows(policies: ReturnType<typeof useData>["policies"]) {
-  const active = dedupePolicies(policies).filter(
-    (policy) => policy.status === "active"
-  );
+  const visible = dedupePolicies(policies);
 
   const rowsByCarrier = new Map<Carrier, CarrierLedgerRow>(
     CARRIERS.map((carrier) => [
@@ -42,7 +40,7 @@ function buildCarrierRows(policies: ReturnType<typeof useData>["policies"]) {
     ])
   );
 
-  for (const policy of active) {
+  for (const policy of visible) {
     const row = rowsByCarrier.get(policy.carrier);
     if (!row) continue;
 
@@ -64,9 +62,9 @@ function buildCarrierRows(policies: ReturnType<typeof useData>["policies"]) {
     );
 }
 
-export function CarrierDistribution() {
+export function CarrierDistribution({ policies: overridePolicies }: { policies?: ReturnType<typeof useData>["policies"] }) {
   const { policies } = useData();
-  const rows = buildCarrierRows(policies);
+  const rows = buildCarrierRows(overridePolicies ?? policies);
 
   return (
     <UniversalCard className="flex min-h-[420px] flex-col">

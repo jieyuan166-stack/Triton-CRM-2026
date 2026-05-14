@@ -91,6 +91,8 @@ export async function GET(request: Request) {
     jointWithClientId: p.jointWithClientId ?? undefined,
     policyOwnerName: p.policyOwnerName ?? undefined,
     policyOwnerClientId: p.policyOwnerClientId ?? undefined,
+    policyOwner2Name: p.policyOwner2Name ?? undefined,
+    policyOwner2ClientId: p.policyOwner2ClientId ?? undefined,
     insuredPersons: parseInsuredPersonsJson(p.insuredPersons),
     lastRenewalEmailAt: p.lastRenewalEmailAt?.toISOString(),
     beneficiaries: p.beneficiaries.map((b) => ({

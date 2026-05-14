@@ -259,7 +259,7 @@ function parseCategory(value: string): Policy["category"] | undefined {
 function parsePaymentFrequency(value: string): Policy["paymentFrequency"] | undefined {
   const normalized = value.trim().toLowerCase();
   if (!normalized) return undefined;
-  if (normalized === "annually" || normalized === "annual") return "Annual";
+  if (normalized === "annually" || normalized === "annual" || normalized === "yearly") return "Annual";
   if (normalized === "monthly") return "Monthly";
   if (normalized === "quarterly") return "Quarterly";
   if (normalized === "semi-annual" || normalized === "semi annual" || normalized === "semiannually") {

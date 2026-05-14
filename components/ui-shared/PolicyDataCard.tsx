@@ -111,8 +111,17 @@ export function PolicyDataCard({
   const displayPolicyOwner =
     policy.policyOwnerClientId && getClient(policy.policyOwnerClientId)
       ? `${getClient(policy.policyOwnerClientId)?.firstName} ${getClient(policy.policyOwnerClientId)?.lastName}`.trim()
-      : policy.policyOwnerName;
-  const insuredDisplay = (policy.insuredPersons ?? [])
+      : policy.policyOwnerName || `${policyOwner?.firstName ?? ""} ${policyOwner?.lastName ?? ""}`.trim();
+  const displayPolicyOwner2 =
+    policy.policyOwner2ClientId && getClient(policy.policyOwner2ClientId)
+      ? `${getClient(policy.policyOwner2ClientId)?.firstName} ${getClient(policy.policyOwner2ClientId)?.lastName}`.trim()
+      : policy.policyOwner2Name;
+  const ownerDisplay = [displayPolicyOwner, displayPolicyOwner2]
+    .filter(Boolean)
+    .join(" / ");
+  const insuredDisplay = ((policy.insuredPersons?.length ? policy.insuredPersons : [
+    displayPolicyOwner ? { name: displayPolicyOwner } : undefined,
+  ].filter(Boolean)) as NonNullable<Policy["insuredPersons"]>)
     .map((person) => partyDisplayName(person, getClient))
     .filter(Boolean)
     .join(" / ");
@@ -139,16 +148,19 @@ export function PolicyDataCard({
       title={policy.productName || policy.productType}
       subtitle={
         <>
-          <span>{`${policy.carrier} · ${policy.productType} · #${policy.policyNumber}`}</span>
+          <span>
+            <span className="font-semibold text-slate-700">{policy.carrier}</span>
+            <span>{` · ${policy.productType} · #${policy.policyNumber}`}</span>
+          </span>
           {jointDisplayClient ? (
             <span className="mt-1 block text-purple-600">
               Joint with {jointDisplayClient.firstName} {jointDisplayClient.lastName}
             </span>
           ) : null}
-          {displayPolicyOwner || insuredDisplay ? (
+          {ownerDisplay || insuredDisplay ? (
             <span className="mt-1 block text-[11px] text-slate-500">
-              {displayPolicyOwner ? `Owner: ${displayPolicyOwner}` : ""}
-              {displayPolicyOwner && insuredDisplay ? " · " : ""}
+              {ownerDisplay ? `Owner: ${ownerDisplay}` : ""}
+              {ownerDisplay && insuredDisplay ? " · " : ""}
               {insuredDisplay ? `Insured: ${insuredDisplay}` : ""}
             </span>
           ) : null}

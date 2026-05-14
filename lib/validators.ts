@@ -114,6 +114,8 @@ export const policyFormSchema = z
     // carrier-imported records may not have this metadata yet.
     policyOwnerName: optionalPolicyString,
     policyOwnerClientId: optionalPolicyString,
+    policyOwner2Name: optionalPolicyString,
+    policyOwner2ClientId: optionalPolicyString,
     insuredPersons: z.array(insuredPersonFormSchema).max(2).optional(),
   })
   .refine(

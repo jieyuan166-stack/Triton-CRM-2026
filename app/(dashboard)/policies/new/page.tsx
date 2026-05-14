@@ -81,6 +81,8 @@ function NewPolicyContent() {
         jointWithClientId: isJoint ? values.jointWithClientId : undefined,
         policyOwnerName: values.policyOwnerName?.trim() || undefined,
         policyOwnerClientId: values.policyOwnerClientId || undefined,
+        policyOwner2Name: values.policyOwner2Name?.trim() || undefined,
+        policyOwner2ClientId: values.policyOwner2ClientId || undefined,
         insuredPersons: values.insuredPersons,
         beneficiaries: [],
       });

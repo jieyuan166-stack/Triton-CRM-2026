@@ -98,6 +98,8 @@ model Policy {
   jointWithClient      Client?       @relation("JointPolicyClient", fields: [jointWithClientId], references: [id], onDelete: SetNull)
   policyOwnerName      String?
   policyOwnerClientId  String?
+  policyOwner2Name     String?
+  policyOwner2ClientId String?
   insuredPersons       String?
   lastRenewalEmailAt   DateTime?
   createdAt            DateTime      @default(now())
@@ -107,6 +109,7 @@ model Policy {
   @@index([clientId])
   @@index([jointWithClientId])
   @@index([policyOwnerClientId])
+  @@index([policyOwner2ClientId])
   @@index([status])
 }
 

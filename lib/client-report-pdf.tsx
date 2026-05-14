@@ -253,7 +253,10 @@ function buildAddress(client: Client) {
 
 function policyPartySummary(policy: Policy) {
   const parts = [];
-  if (policy.policyOwnerName) parts.push(`Owner: ${policy.policyOwnerName}`);
+  const owners = [policy.policyOwnerName, policy.policyOwner2Name]
+    .filter(Boolean)
+    .join(" / ");
+  if (owners) parts.push(`Owner: ${owners}`);
   const insured = (policy.insuredPersons ?? [])
     .map((person) => person.name)
     .filter(Boolean)
@@ -265,11 +268,17 @@ function policyPartySummary(policy: Policy) {
 function ReportDocument({
   client,
   policies,
+  family,
   logoDataUri,
   generatedDate,
 }: {
   client: Client;
   policies: Policy[];
+  family?: {
+    linkedClients?: Array<{ client: Client; relationship: string }>;
+    insuranceFaceAmount?: number;
+    investmentAum?: number;
+  };
   logoDataUri?: string;
   generatedDate: Date;
 }) {
@@ -382,6 +391,31 @@ function ReportDocument({
           </View>
         </View>
 
+        {family?.linkedClients?.length ? (
+          <View style={styles.section}>
+            <View style={styles.sectionTitle}>
+              <Text style={styles.sectionTitleText}>Family Overview</Text>
+              <Text style={styles.sectionNumber}>03</Text>
+            </View>
+            <View style={styles.sectionBody}>
+              {family.linkedClients.map((link) => (
+                <View key={link.client.id} style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>{link.relationship}</Text>
+                  <Text>{clientName(link.client)}</Text>
+                </View>
+              ))}
+              <View style={[styles.infoRow, { marginTop: 4 }]}>
+                <Text style={styles.infoLabel}>Family Insurance</Text>
+                <Text>{formatCurrency(family.insuranceFaceAmount ?? 0)}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Family Investment</Text>
+                <Text>{formatCurrency(family.investmentAum ?? 0)}</Text>
+              </View>
+            </View>
+          </View>
+        ) : null}
+
         <View style={styles.footer}>
           <Text style={styles.footerBrand}>Triton Wealth Management Corporation</Text>
           <Text style={styles.footerMeta}>Confidential Portfolio Review</Text>
@@ -454,6 +488,11 @@ function ReportDocument({
 export async function renderClientReportPdf(input: {
   client: Client;
   policies: Policy[];
+  family?: {
+    linkedClients?: Array<{ client: Client; relationship: string }>;
+    insuranceFaceAmount?: number;
+    investmentAum?: number;
+  };
   logoDataUri?: string;
   generatedDate?: Date;
 }) {
@@ -461,6 +500,7 @@ export async function renderClientReportPdf(input: {
     <ReportDocument
       client={input.client}
       policies={input.policies}
+      family={input.family}
       logoDataUri={input.logoDataUri}
       generatedDate={input.generatedDate ?? new Date()}
     />,

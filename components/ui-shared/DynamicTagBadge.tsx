@@ -3,6 +3,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   Banknote,
   Building2,
+  CircleAlert,
   Shield,
   Sparkles,
   TrendingUp,
@@ -34,6 +35,10 @@ const STYLES: Record<
   Corporate: {
     icon: Building2,
     className: "bg-slate-100 text-slate-700 ring-slate-300/70",
+  },
+  "Missing Information": {
+    icon: CircleAlert,
+    className: "bg-rose-50 text-rose-700 ring-rose-200/70",
   },
 };
 
