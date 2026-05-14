@@ -51,7 +51,7 @@ export const policyFormSchema = z
       .optional()
       .or(z.literal("").transform(() => undefined)),
     policyNumber: z.string().trim().min(1, "Policy number is required"),
-    // sumAssured is Face Amount for Insurance and Initial Investment for
+    // sumAssured is Death Benefit for Insurance and Initial Investment for
     // Investment. Premium/paymentFrequency only surface for Insurance.
     // Currency string-to-number coercion happens at the form layer (see
     // PolicyForm.coerceCurrencyValues) before zod ever sees these.
@@ -135,7 +135,7 @@ export const policyFormSchema = z
     (d) =>
       d.category !== "Insurance" ||
       (typeof d.sumAssured === "number" && d.sumAssured > 0),
-    { message: "Face amount is required", path: ["sumAssured"] }
+    { message: "Death benefit is required", path: ["sumAssured"] }
   )
   .refine(
     (d) =>

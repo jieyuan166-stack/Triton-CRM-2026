@@ -109,7 +109,7 @@ export function UpcomingPremiums() {
     const vars = {
       "Client Name": clientName, Carrier: p.carrier ?? "", "Policy Name": p.productName ?? "",
       "Policy Number": p.policyNumber ?? "",
-      "Face Amount": faceAmount, "Premium Amount": premiumAmount,
+      "Death Benefit": faceAmount, "Face Amount": faceAmount, "Premium Amount": premiumAmount,
       Date: dueDate,
     };
     setPayload({
@@ -141,6 +141,7 @@ export function UpcomingPremiums() {
           Carrier: p.carrier ?? "",
           "Policy Name": p.productName ?? "",
           "Policy Number": p.policyNumber ?? "",
+          "Death Benefit": faceAmount,
           "Face Amount": faceAmount,
           "Premium Amount": premiumAmount,
           Date: dueDate,

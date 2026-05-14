@@ -299,7 +299,7 @@ function ReportDocument({
             <Text style={styles.metricValue}>{policies.length}</Text>
           </View>
           <View style={styles.metric}>
-            <Text style={styles.metricLabel}>Total Face Amount</Text>
+            <Text style={styles.metricLabel}>Total Death Benefit</Text>
             <Text style={styles.metricValue}>{formatCurrency(totalFaceAmount)}</Text>
           </View>
           <View style={styles.metric}>
@@ -336,7 +336,7 @@ function ReportDocument({
           </View>
           <View style={styles.sectionBody}>
             <View style={styles.tableHeader}>
-              {["Carrier", "Category", "Product", "Policy #", "Face Amount", "Premium", "Status"].map((label, index) => (
+              {["Carrier", "Category", "Product", "Policy #", "Death Benefit", "Premium", "Status"].map((label, index) => (
                 <Text key={label} style={[styles.th, { width: columns[index].width }]}>{label}</Text>
               ))}
             </View>

@@ -334,7 +334,7 @@ export function buildClientReportHtml({
           <div class="metric-value">${policies.length}</div>
         </div>
         <div class="metric">
-          <div class="metric-label">Total Face Amount</div>
+          <div class="metric-label">Total Death Benefit</div>
           <div class="metric-value">${formatCurrency(totalFaceAmount)}</div>
         </div>
         <div class="metric">
@@ -374,7 +374,7 @@ export function buildClientReportHtml({
                 <th>Category</th>
                 <th>Product</th>
                 <th>Policy #</th>
-                <th>Face Amount</th>
+                <th>Death Benefit</th>
                 <th>Premium</th>
                 <th>Frequency</th>
                 <th>Status</th>

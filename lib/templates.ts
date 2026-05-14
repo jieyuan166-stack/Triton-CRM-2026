@@ -21,7 +21,7 @@ export const LEGACY_DEFAULT_TEMPLATE_COPY: Record<string, { subject: string; bod
   renewal: {
     subject: "Premium Reminder · [Carrier] [Policy Name]",
     body:
-      "Hi [Client Name],\n\nThis is a friendly reminder that your premium of [Premium Amount] for your [Carrier] [Policy Name] policy (face amount [Face Amount]) is due on [Date].\n\nLet me know if you have any questions or would like to review the policy.\n\nBest regards,",
+      "Hi [Client Name],\n\nThis is a friendly reminder that your premium of [Premium Amount] for your [Carrier] [Policy Name] policy (death benefit [Death Benefit]) is due on [Date].\n\nLet me know if you have any questions or would like to review the policy.\n\nBest regards,",
   },
   festival: {
     subject: "Season's Greetings from Triton Wealth",
@@ -45,14 +45,14 @@ export const DEFAULT_TEMPLATES: EmailTemplate[] = [
     label: "Renewal",
     subject: "Premium Payment Reminder · [Carrier] [Policy Name] · #[Policy Number]",
     body:
-      "Dear [Client Name],\n\nI hope you are doing well.\n\nThis is a friendly reminder that the premium payment of [Premium Amount] for your [Carrier] [Policy Name] policy, policy number [Policy Number], with a face amount of [Face Amount], is due on [Date].\n\nTo ensure your coverage remains active and uninterrupted, please arrange the payment before the due date. Should you have any questions regarding your policy or if you would like to schedule a review of your coverage, please feel free to contact me at any time.\n\nThank you for your continued trust and support.\n\nBest regards,\n\n尊敬的 [Client Name]，\n\n您好！\n\n温馨提醒您，您在 [Carrier] 的 [Policy Name] 保单（保单号码：[Policy Number]，保额：[Face Amount]）保费 [Premium Amount] 将于 [Date] 到期。\n\n为确保您的保障持续有效并避免保障中断，请您在到期日前完成缴费。如您对保单内容有任何疑问，或希望重新检视您的保障规划，欢迎随时与我联系。\n\n感谢您一直以来的信任与支持！",
+      "Dear [Client Name],\n\nI hope you are doing well.\n\nThis is a friendly reminder that the premium payment of [Premium Amount] for your [Carrier] [Policy Name] policy, policy number [Policy Number], with a death benefit of [Death Benefit], is due on [Date].\n\nTo ensure your coverage remains active and uninterrupted, please arrange the payment before the due date. Should you have any questions regarding your policy or if you would like to schedule a review of your coverage, please feel free to contact me at any time.\n\nThank you for your continued trust and support.\n\nBest regards,\n\n尊敬的 [Client Name]，\n\n您好！\n\n温馨提醒您，您在 [Carrier] 的 [Policy Name] 保单（保单号码：[Policy Number]，保额：[Death Benefit]）保费 [Premium Amount] 将于 [Date] 到期。\n\n为确保您的保障持续有效并避免保障中断，请您在到期日前完成缴费。如您对保单内容有任何疑问，或希望重新检视您的保障规划，欢迎随时与我联系。\n\n感谢您一直以来的信任与支持！",
     attachments: [],
     variables: [
       "[Client Name]",
       "[Carrier]",
       "[Policy Name]",
       "[Policy Number]",
-      "[Face Amount]",
+      "[Death Benefit]",
       "[Premium Amount]",
       "[Date]",
     ],

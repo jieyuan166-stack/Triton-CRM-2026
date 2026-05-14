@@ -249,6 +249,7 @@ export function ClientsDataTable() {
           }),
           Carrier: "",
           "Policy Name": "",
+          "Death Benefit": "",
           "Face Amount": "",
           "Premium Amount": "",
         },

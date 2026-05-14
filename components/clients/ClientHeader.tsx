@@ -193,7 +193,7 @@ export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHead
           <div className="flex w-full flex-col gap-5 sm:flex-row sm:items-start sm:gap-0 xl:w-auto xl:shrink-0 xl:text-right">
             <div className="sm:border-r sm:border-slate-200 sm:pr-8 xl:pr-10">
               <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
-                Insurance Face Amount
+                Insurance Death Benefit
               </p>
               <p className="mt-1 text-xl md:text-2xl font-semibold text-slate-900 font-finance leading-none tracking-tight">
                 {formatCurrency(clientMetrics.insuranceFaceAmount)}

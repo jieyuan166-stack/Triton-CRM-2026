@@ -232,7 +232,7 @@ export function CategoryBreakdown() {
           />
           <MiniRing
             title="Protection"
-            subtitle="Insurance face amount by product"
+            subtitle="Insurance death benefit by product"
             data={protection}
             total={protectionTotal}
             emptyTitle="No protection yet"

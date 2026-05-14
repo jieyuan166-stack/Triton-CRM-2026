@@ -44,7 +44,7 @@ function buildPolicyBadges(policy: Policy, extraBadges?: ReactNode) {
 }
 
 function buildPolicyMetrics(policy: Policy): UniversalDataMetric[] {
-  const amountLabel = policy.category === "Investment" ? "Initial Amount" : "Face Amount";
+  const amountLabel = policy.category === "Investment" ? "Initial Amount" : "Death Benefit";
   const dateLabel = policy.category === "Investment" ? "Effective Date" : "Premium Date";
 
   const metrics: UniversalDataMetric[] = [
