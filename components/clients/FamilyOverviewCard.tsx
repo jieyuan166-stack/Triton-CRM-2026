@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { ArrowUpRight, Network, UsersRound } from "lucide-react";
 import { WidgetCard } from "@/components/ui-shared/WidgetCard";
 import { ClientAvatar } from "@/components/ui-shared/ClientAvatar";
@@ -66,10 +67,27 @@ const MEMBER_TONES = [
   },
 ] as const;
 
-function ownerBadgeClass(ownerId: string, currentClientId: string) {
-  return ownerId === currentClientId
-    ? "bg-blue-50 text-[#002147] ring-blue-100 [&_span]:text-[#002147]"
-    : "bg-emerald-50 text-emerald-600 ring-emerald-100 [&_span]:text-emerald-600";
+type FamilyPolicy = Policy & { owner: Client };
+
+function groupFamilyPoliciesByOwner(
+  familyMembers: Client[],
+  policies: FamilyPolicy[]
+) {
+  const jointPolicies = policies.filter((policy) => policy.isJoint);
+  const nonJointPolicies = policies.filter((policy) => !policy.isJoint);
+
+  const ownerGroups = familyMembers
+    .map((member) => ({
+      owner: member,
+      policies: nonJointPolicies.filter((policy) => policy.owner.id === member.id),
+    }))
+    .filter((group) => group.policies.length > 0);
+
+  return { ownerGroups, jointPolicies };
+}
+
+function sectionTitleForOwner(owner: Client) {
+  return `${owner.firstName} ${owner.lastName}'s Portfolio`.toUpperCase();
 }
 
 export function FamilyOverviewCard({
@@ -88,6 +106,10 @@ export function FamilyOverviewCard({
       member.id,
       MEMBER_TONES[index % MEMBER_TONES.length],
     ])
+  );
+  const groupedPolicies = groupFamilyPoliciesByOwner(
+    familyMembers,
+    summary.policies
   );
 
   if (summary.linkedClients.length === 0) return null;
@@ -170,25 +192,43 @@ export function FamilyOverviewCard({
                 </p>
               </div>
             ) : (
-              <div className="overflow-hidden rounded-xl border border-slate-100 bg-white">
-                <ul className="divide-y divide-slate-100">
-                  {summary.policies.slice(0, 8).map((policy) => (
-                    <li key={policy.id} className="relative">
+              <div className="space-y-6">
+                {groupedPolicies.ownerGroups.map((group) => {
+                  const tone = toneByClientId.get(group.owner.id);
+                  return (
+                    <PortfolioSection
+                      key={group.owner.id}
+                      title={sectionTitleForOwner(group.owner)}
+                      count={group.policies.length}
+                      accentColor={tone?.dot ?? "#CBD5E1"}
+                    >
+                      {group.policies.map((policy) => (
+                        <PolicyDataCard
+                          key={policy.id}
+                          policy={policy}
+                          href={`/policies/${policy.id}`}
+                          currentViewClientId={client.id}
+                        />
+                      ))}
+                    </PortfolioSection>
+                  );
+                })}
+
+                {groupedPolicies.jointPolicies.length > 0 ? (
+                  <PortfolioSection
+                    title="JOINT ACCOUNTS"
+                    count={groupedPolicies.jointPolicies.length}
+                    accentColor="#DDD6FE"
+                  >
+                    {groupedPolicies.jointPolicies.map((policy) => (
                       <PolicyDataCard
+                        key={policy.id}
                         policy={policy}
                         href={`/policies/${policy.id}`}
                         currentViewClientId={client.id}
-                        owner={policy.owner}
-                        ownerIsVip={calculateClientTags(policy.owner, policies).includes("VIP")}
-                        ownerBadgeClassName={ownerBadgeClass(policy.owner.id, client.id)}
                       />
-                    </li>
-                  ))}
-                </ul>
-                {summary.policies.length > 8 ? (
-                  <div className="border-t border-slate-100 bg-slate-50/60 px-3 py-2 text-xs text-slate-500">
-                    Showing latest 8 of {summary.policies.length} family products.
-                  </div>
+                    ))}
+                  </PortfolioSection>
                 ) : null}
               </div>
             )}
@@ -234,6 +274,38 @@ export function FamilyOverviewCard({
         </aside>
       </div>
     </WidgetCard>
+  );
+}
+
+function PortfolioSection({
+  title,
+  count,
+  accentColor,
+  children,
+}: {
+  title: string;
+  count: number;
+  accentColor: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span
+            className="h-2 w-2 shrink-0 rounded-full"
+            style={{ backgroundColor: accentColor }}
+          />
+          <h5 className="truncate text-sm font-bold uppercase tracking-widest text-slate-700">
+            {title}
+          </h5>
+        </div>
+        <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+          {count} {count === 1 ? "Item" : "Items"}
+        </span>
+      </div>
+      <div className="space-y-3">{children}</div>
+    </section>
   );
 }
 
