@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { auditLog, requireSession, unauthorized } from "@/lib/api-security";
-import { buildClientSlug } from "@/lib/client-slug";
+import { buildClientSlug, ensureUniqueClientSlugs } from "@/lib/client-slug";
 import { isTagValue, type TagValue } from "@/lib/constants";
 import { removeCommunicationNoteBlocks } from "@/lib/communication-notes";
 import { db } from "@/lib/db";
@@ -309,7 +309,9 @@ async function replaceAll(snapshot: {
   followUps?: FollowUp[];
   relationships?: ClientRelationship[];
 }, userId: string) {
-  const clients = Array.isArray(snapshot.clients) ? snapshot.clients : [];
+  const clients = ensureUniqueClientSlugs(
+    Array.isArray(snapshot.clients) ? snapshot.clients : []
+  );
   const policies = Array.isArray(snapshot.policies) ? snapshot.policies : [];
   const followUps = Array.isArray(snapshot.followUps) ? snapshot.followUps : [];
   const relationships = Array.isArray(snapshot.relationships) ? snapshot.relationships : [];

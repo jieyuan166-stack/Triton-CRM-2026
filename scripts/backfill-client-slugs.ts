@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import { buildClientSlug } from "../lib/client-slug";
+import { buildUniqueClientSlug } from "../lib/client-slug";
 
 const prisma = new PrismaClient();
 
@@ -14,13 +14,19 @@ async function main() {
   });
 
   let updated = 0;
+  const processed = clients.map((client) => ({
+    ...client,
+    slug: client.slug ?? undefined,
+  }));
   for (const client of clients) {
-    const slug = buildClientSlug(client);
+    const slug = buildUniqueClientSlug(client, processed);
     if (client.slug === slug) continue;
     await prisma.client.update({
       where: { id: client.id },
       data: { slug },
     });
+    const processedClient = processed.find((item) => item.id === client.id);
+    if (processedClient) processedClient.slug = slug;
     updated += 1;
   }
 

@@ -15,6 +15,44 @@ export function buildClientSlug(input: Pick<Client, "id" | "firstName" | "lastNa
   return `${name}-${suffix}`;
 }
 
+export function buildUniqueClientSlug(
+  input: Pick<Client, "id" | "firstName" | "lastName">,
+  existingClients: Array<Pick<Client, "id"> & { slug?: string }>
+): string {
+  const base = buildClientSlug(input);
+  const used = new Set(
+    existingClients
+      .filter((client) => client.id !== input.id && client.slug)
+      .map((client) => client.slug)
+  );
+  if (!used.has(base)) return base;
+
+  let counter = 2;
+  let next = `${base}-${counter}`;
+  while (used.has(next)) {
+    counter += 1;
+    next = `${base}-${counter}`;
+  }
+  return next;
+}
+
+export function ensureUniqueClientSlugs<T extends Pick<Client, "id" | "firstName" | "lastName"> & { slug?: string }>(
+  clients: T[]
+): Array<T & { slug: string }> {
+  const used = new Set<string>();
+  return clients.map((client) => {
+    const base = client.slug || buildClientSlug(client);
+    let slug = base;
+    let counter = 2;
+    while (used.has(slug)) {
+      slug = `${base}-${counter}`;
+      counter += 1;
+    }
+    used.add(slug);
+    return { ...client, slug };
+  });
+}
+
 export function ensureClientSlug<T extends Pick<Client, "id" | "firstName" | "lastName"> & { slug?: string }>(
   client: T
 ): T & { slug: string } {

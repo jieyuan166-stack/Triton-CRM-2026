@@ -14,7 +14,12 @@ import {
   type ReactNode,
 } from "react";
 import { calculateClientTags } from "@/lib/client-tags";
-import { buildClientSlug, ensureClientSlug } from "@/lib/client-slug";
+import {
+  buildClientSlug,
+  buildUniqueClientSlug,
+  ensureClientSlug,
+  ensureUniqueClientSlugs,
+} from "@/lib/client-slug";
 import { removeCommunicationNoteBlocks } from "@/lib/communication-notes";
 import { dedupePolicies } from "@/lib/portfolio-metrics";
 import { seedClients, seedFollowUps, seedPolicies } from "@/lib/mock-data";
@@ -205,8 +210,11 @@ function sanitizeSnapshot(snapshot: {
     ? (snapshot.clients.filter(
         (c): c is Client =>
           !!c && typeof c === "object" && typeof (c as Client).id === "string"
-      ) as Client[]).map((client) => ensureClientSlug(client))
+      ) as Client[])
     : [];
+  const clientsWithSlugs = ensureUniqueClientSlugs(
+    clients.map((client) => ensureClientSlug(client))
+  );
   const policies = Array.isArray(snapshot.policies)
     ? (snapshot.policies.filter(
         (p): p is Policy =>
@@ -237,10 +245,10 @@ function sanitizeSnapshot(snapshot: {
     : [];
 
   return {
-    clients,
-    policies: prunePolicyJointReferences(pruneOrphans(policies, clients), clients),
-    followUps: pruneOrphans(followUps, clients),
-    relationships: pruneRelationships(relationships, clients),
+    clients: clientsWithSlugs,
+    policies: prunePolicyJointReferences(pruneOrphans(policies, clientsWithSlugs), clientsWithSlugs),
+    followUps: pruneOrphans(followUps, clientsWithSlugs),
+    relationships: pruneRelationships(relationships, clientsWithSlugs),
   };
 }
 
@@ -251,7 +259,7 @@ function readInitialData(): {
   relationships: ClientRelationship[];
 } {
   return {
-    clients: seedClients.map((client) => ensureClientSlug(client)),
+    clients: ensureUniqueClientSlugs(seedClients.map((client) => ensureClientSlug(client))),
     policies: prunePolicyJointReferences(pruneOrphans(seedPolicies, seedClients), seedClients),
     followUps: pruneOrphans(seedFollowUps, seedClients),
     relationships: [],
@@ -392,18 +400,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   // === Mutations: clients ===
-  const createClient: DataContextValue["createClient"] = useCallback((input) => {
-    const id = uid("cli");
-    const next: Client = {
-      ...input,
-      id,
-      slug: buildClientSlug({ id, firstName: input.firstName, lastName: input.lastName }),
-      createdAt: new Date().toISOString(),
-    };
-    setClients((prev) => [...prev, next]);
-    persistInBackground("client.create", { client: next });
-    return next;
-  }, []);
+  const createClient: DataContextValue["createClient"] = useCallback(
+    (input) => {
+      const id = uid("cli");
+      const next: Client = {
+        ...input,
+        id,
+        slug: buildUniqueClientSlug(
+          { id, firstName: input.firstName, lastName: input.lastName },
+          clients
+        ),
+        createdAt: new Date().toISOString(),
+      };
+      setClients((prev) => [...prev, next]);
+      persistInBackground("client.create", { client: next });
+      return next;
+    },
+    [clients]
+  );
 
   const updateClient: DataContextValue["updateClient"] = useCallback(
     (id, patch) => {
@@ -420,9 +434,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
                     firstName: patch.firstName ?? current.firstName,
                     lastName: patch.lastName ?? current.lastName,
                   })
-                : current.slug ?? buildClientSlug(current),
+                : current.slug ?? buildUniqueClientSlug(current, clients),
           }
         : null;
+      if (
+        updated &&
+        (patch.firstName !== undefined || patch.lastName !== undefined)
+      ) {
+        updated.slug = buildUniqueClientSlug(updated, clients);
+      }
       setClients((prev) =>
         prev.map((c) => (c.id === id && updated ? updated : c))
       );
