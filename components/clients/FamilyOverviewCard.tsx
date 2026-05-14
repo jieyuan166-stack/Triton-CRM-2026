@@ -8,6 +8,7 @@ import { PolicyDataCard } from "@/components/ui-shared/PolicyDataCard";
 import { StatusBadge } from "@/components/ui-shared/StatusBadge";
 import { UniversalDataCard } from "@/components/ui-shared/UniversalDataCard";
 import { calculateClientTags } from "@/lib/client-tags";
+import { clientPath } from "@/lib/client-slug";
 import { buildFamilySummary } from "@/lib/family";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -118,7 +119,7 @@ export function FamilyOverviewCard({
               {summary.linkedClients.map((link) => (
                 <UniversalDataCard
                   key={link.relationshipId}
-                  href={`/clients/${link.client.id}`}
+                  href={clientPath(link.client)}
                   accentColor={toneByClientId.get(link.client.id)?.dot ?? "#CBD5E1"}
                   className={cn(
                     "rounded-xl border p-5 shadow-none",

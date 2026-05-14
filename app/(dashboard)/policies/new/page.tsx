@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useData } from "@/components/providers/DataProvider";
 import { PolicyForm } from "@/components/policies/PolicyForm";
+import { clientPath } from "@/lib/client-slug";
 import type { PolicyFormValues } from "@/lib/validators";
 
 function NewPolicyContent() {
@@ -17,12 +18,15 @@ function NewPolicyContent() {
   const presetClient = params.get("clientId") ?? undefined;
   const { createPolicy, getClient } = useData();
 
-  const presetName = presetClient
-    ? (() => {
-        const c = getClient(presetClient);
-        return c ? `${c.firstName} ${c.lastName}` : null;
-      })()
+  const presetClientRecord = presetClient ? getClient(presetClient) : undefined;
+  const presetName = presetClientRecord
+    ? `${presetClientRecord.firstName} ${presetClientRecord.lastName}`
     : null;
+  const backHref = presetClientRecord
+    ? clientPath(presetClientRecord)
+    : presetClient
+      ? `/clients/${presetClient}`
+      : "/policies";
 
   function handleSubmit(values: PolicyFormValues) {
     // The Client field is no longer in the form — capture it from the URL
@@ -78,7 +82,7 @@ function NewPolicyContent() {
         beneficiaries: [],
       });
       toast.success("Policy created");
-      router.push(presetClient ? `/clients/${presetClient}` : "/policies");
+      router.push(backHref);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Unable to create policy."
@@ -89,7 +93,7 @@ function NewPolicyContent() {
   return (
     <>
       <Link
-        href={presetClient ? `/clients/${presetClient}` : "/policies"}
+        href={backHref}
         className="inline-flex items-center gap-1.5 text-xs text-triton-muted hover:text-triton-text mb-4 transition-colors"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
@@ -110,7 +114,7 @@ function NewPolicyContent() {
         submitLabel="Create Policy"
         onSubmit={handleSubmit}
         onCancel={() =>
-          router.push(presetClient ? `/clients/${presetClient}` : "/policies")
+          router.push(backHref)
         }
       />
     </>

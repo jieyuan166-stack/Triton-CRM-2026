@@ -19,6 +19,7 @@ import {
   EmailPreviewDialog,
   type EmailPreviewPayload,
 } from "@/components/dashboard/EmailPreviewDialog";
+import { clientPath } from "@/lib/client-slug";
 import { calcAge, formatDate, formatRelative } from "@/lib/date-utils";
 import { calculateClientTags } from "@/lib/client-tags";
 import { applyTemplate } from "@/lib/templates";
@@ -235,7 +236,7 @@ export function UpcomingBirthdays() {
                         accentColor={daysAway <= 7 ? "#F59E0B" : "#CBD5E1"}
                         className="flex-1 rounded-lg border border-slate-100 bg-white/70 p-3 shadow-none"
                         title={
-                          <Link href={`/clients/${client.id}`} className="inline-flex items-center gap-2">
+                          <Link href={clientPath(client)} className="inline-flex items-center gap-2">
                             <ClientAvatar firstName={client.firstName} lastName={client.lastName} size="sm" />
                             <ClientNameDisplay
                               firstName={client.firstName}
@@ -285,7 +286,7 @@ export function UpcomingBirthdays() {
                         accentColor="#CBD5E1"
                         className="rounded-lg border border-slate-100 bg-white/70 p-3 shadow-none"
                         title={
-                          <Link href={`/clients/${row.clientId}`} className="inline-flex items-center gap-2">
+                          <Link href={client ? clientPath(client) : `/clients/${row.clientId}`} className="inline-flex items-center gap-2">
                             <ClientAvatar firstName={client?.firstName ?? "?"} lastName={client?.lastName ?? "?"} size="sm" />
                             {client ? (
                               <ClientNameDisplay

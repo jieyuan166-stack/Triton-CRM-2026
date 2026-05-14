@@ -10,6 +10,7 @@ import { useData } from "@/components/providers/DataProvider";
 import { PolicyForm } from "@/components/policies/PolicyForm";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui-shared/EmptyState";
+import { clientPath } from "@/lib/client-slug";
 import {
   Dialog,
   DialogContent,
@@ -110,13 +111,13 @@ export default function PolicyDetailPage() {
       isJoint,
       jointWithClientId: isJoint ? values.jointWithClientId : undefined,
     });
-    if (client) router.push(`/clients/${client.id}`);
+    if (client) router.push(clientPath(client));
     else router.push("/policies");
   }
 
   function handleDelete() {
     deletePolicy(id);
-    if (client) router.push(`/clients/${client.id}`);
+    if (client) router.push(clientPath(client));
     else router.push("/policies");
   }
 
@@ -131,7 +132,7 @@ export default function PolicyDetailPage() {
         <span className="text-slate-300">/</span>
         {client ? (
           <Link
-            href={`/clients/${client.id}`}
+            href={clientPath(client)}
             className="hover:text-triton-text"
           >
             {client.firstName} {client.lastName}
@@ -165,7 +166,7 @@ export default function PolicyDetailPage() {
         submitLabel="Save Changes"
         onSubmit={handleSubmit}
         onCancel={() =>
-          router.push(client ? `/clients/${client.id}` : "/policies")
+          router.push(client ? clientPath(client) : "/policies")
         }
       />
 

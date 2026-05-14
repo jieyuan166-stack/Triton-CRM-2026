@@ -4,11 +4,12 @@
 // without the React tree, and so the UI layer stays presentational.
 
 import type { Client, Policy } from "./types";
+import { clientPath } from "./client-slug";
 
 export interface ClientHit {
   kind: "client";
   id: string;
-  /** Where in /clients/[id] the hit links to */
+  /** Where in /clients/[slug] the hit links to */
   href: string;
   primary: string;     // "Wei Zhang"
   secondary: string;   // "VIP · Software Engineer"
@@ -61,7 +62,7 @@ export function searchAll(
     .map((c) => ({
       kind: "client",
       id: c.id,
-      href: `/clients/${c.id}`,
+      href: clientPath(c),
       primary: `${c.firstName} ${c.lastName}`,
       secondary: [c.email, c.province].filter(Boolean).join(" · "),
       client: c,

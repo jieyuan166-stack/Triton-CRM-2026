@@ -1,4 +1,4 @@
-// app/(dashboard)/clients/[id]/page.tsx
+// app/(dashboard)/clients/[slug]/page.tsx
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
@@ -15,33 +15,51 @@ import { FollowUpTimeline } from "@/components/clients/FollowUpTimeline";
 import { NewClientDialog } from "@/components/clients/NewClientDialog";
 import { EmptyState } from "@/components/ui-shared/EmptyState";
 import { Button } from "@/components/ui/button";
+import { buildClientSlug, clientPath } from "@/lib/client-slug";
 
 export default function ClientDetailPage() {
-  const params = useParams<{ id: string }>();
+  const params = useParams<{ slug: string }>();
   const router = useRouter();
-  const id = params.id;
+  const slug = params.slug;
 
   const {
     getClient,
     getClientWithStats,
+    resolveClientParam,
     getPoliciesByClient,
     getFollowUpsByClient,
+    updateClient,
     clients,
     policies: allPolicies,
     relationships,
   } = useData();
 
-  const client = getClientWithStats(id);
-  const fullClient = getClient(id);
-  const policies = getPoliciesByClient(id);
-  const followUps = getFollowUpsByClient(id);
+  const resolvedClient = resolveClientParam(slug);
+  const resolvedId = resolvedClient?.id;
+  const client = resolvedId ? getClientWithStats(resolvedId) : undefined;
+  const fullClient = resolvedId ? getClient(resolvedId) : undefined;
+  const policies = resolvedId ? getPoliciesByClient(resolvedId) : [];
+  const followUps = resolvedId ? getFollowUpsByClient(resolvedId) : [];
 
   const [editOpen, setEditOpen] = useState(false);
 
-  // Hydration guard: if id is somehow empty, just stop
+  // Hydration guard + backwards compatibility:
+  // old /clients/{id} links still resolve, then replace into the professional slug URL.
   useEffect(() => {
-    if (!id) router.replace("/clients");
-  }, [id, router]);
+    if (!slug) {
+      router.replace("/clients");
+      return;
+    }
+    if (!resolvedClient) return;
+    const nextSlug = resolvedClient.slug ?? buildClientSlug(resolvedClient);
+    if (!resolvedClient.slug) {
+      updateClient(resolvedClient.id, { slug: nextSlug });
+      return;
+    }
+    if (slug !== nextSlug) {
+      router.replace(clientPath({ id: resolvedClient.id, slug: nextSlug }));
+    }
+  }, [resolvedClient, router, slug, updateClient]);
 
   if (!client) {
     return (

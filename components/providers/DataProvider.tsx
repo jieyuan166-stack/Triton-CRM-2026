@@ -14,6 +14,7 @@ import {
   type ReactNode,
 } from "react";
 import { calculateClientTags } from "@/lib/client-tags";
+import { buildClientSlug, ensureClientSlug } from "@/lib/client-slug";
 import { removeCommunicationNoteBlocks } from "@/lib/communication-notes";
 import { dedupePolicies } from "@/lib/portfolio-metrics";
 import { seedClients, seedFollowUps, seedPolicies } from "@/lib/mock-data";
@@ -39,6 +40,8 @@ interface DataContextValue {
 
   // queries
   getClient(id: string): Client | undefined;
+  getClientBySlug(slug: string): Client | undefined;
+  resolveClientParam(param: string): Client | undefined;
   getClientWithStats(id: string): ClientWithStats | undefined;
   listClientsWithStats(): ClientWithStats[];
   getPolicy(id: string): Policy | undefined;
@@ -202,7 +205,7 @@ function sanitizeSnapshot(snapshot: {
     ? (snapshot.clients.filter(
         (c): c is Client =>
           !!c && typeof c === "object" && typeof (c as Client).id === "string"
-      ) as Client[])
+      ) as Client[]).map((client) => ensureClientSlug(client))
     : [];
   const policies = Array.isArray(snapshot.policies)
     ? (snapshot.policies.filter(
@@ -248,7 +251,7 @@ function readInitialData(): {
   relationships: ClientRelationship[];
 } {
   return {
-    clients: seedClients,
+    clients: seedClients.map((client) => ensureClientSlug(client)),
     policies: prunePolicyJointReferences(pruneOrphans(seedPolicies, seedClients), seedClients),
     followUps: pruneOrphans(seedFollowUps, seedClients),
     relationships: [],
@@ -321,6 +324,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [clients]
   );
 
+  const getClientBySlug = useCallback(
+    (slug: string) => clients.find((c) => c.slug === slug),
+    [clients]
+  );
+
+  const resolveClientParam = useCallback(
+    (param: string) => clients.find((c) => c.slug === param || c.id === param),
+    [clients]
+  );
+
   const getPoliciesByClient = useCallback(
     (clientId: string) => visiblePoliciesForClient(policies, clientId),
     [policies]
@@ -380,9 +393,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   // === Mutations: clients ===
   const createClient: DataContextValue["createClient"] = useCallback((input) => {
+    const id = uid("cli");
     const next: Client = {
       ...input,
-      id: uid("cli"),
+      id,
+      slug: buildClientSlug({ id, firstName: input.firstName, lastName: input.lastName }),
       createdAt: new Date().toISOString(),
     };
     setClients((prev) => [...prev, next]);
@@ -393,12 +408,34 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const updateClient: DataContextValue["updateClient"] = useCallback(
     (id, patch) => {
       const current = clients.find((c) => c.id === id);
-      const updated: Client | null = current ? { ...current, ...patch, id: current.id } : null;
+      const updated: Client | null = current
+        ? {
+            ...current,
+            ...patch,
+            id: current.id,
+            slug:
+              patch.firstName !== undefined || patch.lastName !== undefined
+                ? buildClientSlug({
+                    id: current.id,
+                    firstName: patch.firstName ?? current.firstName,
+                    lastName: patch.lastName ?? current.lastName,
+                  })
+                : current.slug ?? buildClientSlug(current),
+          }
+        : null;
       setClients((prev) =>
         prev.map((c) => (c.id === id && updated ? updated : c))
       );
       if (updated) {
-        persistInBackground("client.update", { id, patch });
+        persistInBackground("client.update", {
+          id,
+          patch:
+            patch.firstName !== undefined || patch.lastName !== undefined
+              ? { ...patch, slug: updated.slug }
+              : patch.slug
+                ? patch
+                : { ...patch, slug: updated.slug },
+        });
       }
       return updated;
     },
@@ -682,9 +719,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       ) {
         return { ok: false, error: "Snapshot has unexpected shape" };
       }
-      const nextClients = (snapshot.clients as Client[]).filter(
-        (c) => !!c && typeof c === "object" && typeof c.id === "string"
-      );
+      const nextClients = (snapshot.clients as Client[])
+        .filter(
+          (c) => !!c && typeof c === "object" && typeof c.id === "string"
+        )
+        .map((client) => ensureClientSlug(client));
       const nextPolicies = prunePolicyJointReferences(pruneOrphans(
         (snapshot.policies as Policy[]).filter(
           (p) =>
@@ -744,6 +783,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       followUps,
       relationships,
       getClient,
+      getClientBySlug,
+      resolveClientParam,
       getClientWithStats,
       listClientsWithStats,
       getPolicy,
@@ -773,6 +814,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       followUps,
       relationships,
       getClient,
+      getClientBySlug,
+      resolveClientParam,
       getClientWithStats,
       listClientsWithStats,
       getPolicy,

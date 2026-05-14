@@ -67,6 +67,7 @@ import {
   clientFormSchema,
   type ClientFormValues,
 } from "@/lib/validators";
+import { clientPath } from "@/lib/client-slug";
 
 interface NewClientDialogProps {
   open: boolean;
@@ -279,7 +280,7 @@ export function NewClientDialog({
       description: `${created.firstName} ${created.lastName} added to your book`,
       action: {
         label: "Open profile",
-        onClick: () => router.push(`/clients/${created.id}`),
+        onClick: () => router.push(clientPath(created)),
       },
     });
     onCreated?.({ id: created.id });

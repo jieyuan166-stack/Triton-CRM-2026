@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { auditLog, requireSession, unauthorized } from "@/lib/api-security";
+import { buildClientSlug } from "@/lib/client-slug";
 import { isTagValue, type TagValue } from "@/lib/constants";
 import { removeCommunicationNoteBlocks } from "@/lib/communication-notes";
 import { db } from "@/lib/db";
@@ -84,6 +85,7 @@ function serializeClient(
 ): Client {
   return {
     id: c.id,
+    slug: c.slug ?? buildClientSlug(c),
     firstName: c.firstName,
     lastName: c.lastName,
     email: c.email,
@@ -227,8 +229,18 @@ function nullableString(value: string | undefined, partial: boolean) {
 }
 
 function clientData(input: Partial<Client>, partial = false) {
+  const generatedSlug =
+    input.slug ??
+    (input.id && input.firstName && input.lastName
+      ? buildClientSlug({
+          id: input.id,
+          firstName: input.firstName,
+          lastName: input.lastName,
+        })
+      : undefined);
   return stripUndefined({
     id: input.id,
+    slug: generatedSlug,
     firstName: input.firstName,
     lastName: input.lastName,
     email: input.email?.toLowerCase(),

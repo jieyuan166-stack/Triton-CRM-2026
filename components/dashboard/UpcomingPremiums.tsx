@@ -19,6 +19,7 @@ import {
   type EmailPreviewPayload,
 } from "@/components/dashboard/EmailPreviewDialog";
 import { CARRIER_COLORS } from "@/lib/carrier-colors";
+import { clientPath } from "@/lib/client-slug";
 import { calculateClientTags } from "@/lib/client-tags";
 import { daysUntil, formatDate, formatRelative } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/format";
@@ -251,7 +252,7 @@ export function UpcomingPremiums() {
                         contentClassName="min-w-0"
                         title={
                           client ? (
-                            <Link href={`/clients/${p.clientId}`}>
+                            <Link href={clientPath(client)}>
                               <ClientNameDisplay
                                 firstName={client.firstName}
                                 lastName={client.lastName}
@@ -310,7 +311,7 @@ export function UpcomingPremiums() {
                         className="rounded-lg border border-slate-100 bg-white/70 p-3 shadow-none"
                         title={
                           client ? (
-                            <Link href={`/clients/${row.clientId}`}>
+                            <Link href={clientPath(client)}>
                               <ClientNameDisplay
                                 firstName={client.firstName}
                                 lastName={client.lastName}

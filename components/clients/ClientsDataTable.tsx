@@ -39,6 +39,7 @@ import { ClientsToolbar } from "@/components/clients/ClientsToolbar";
 import { NewClientDialog } from "@/components/clients/NewClientDialog";
 import type { Client } from "@/lib/types";
 import type { EmailTemplateId } from "@/lib/settings-types";
+import { clientPath } from "@/lib/client-slug";
 import { applyTemplate } from "@/lib/templates";
 import {
   queryClients,
@@ -496,7 +497,7 @@ export function ClientsDataTable() {
                         </td>
                         <td className="py-2.5 pr-3">
                           <Link
-                            href={`/clients/${r.id}`}
+                            href={clientPath(r)}
                             className="flex items-center gap-2.5 min-w-0"
                           >
                             <ClientAvatar

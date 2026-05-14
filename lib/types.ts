@@ -152,6 +152,7 @@ export interface EmailHistoryEntry {
 
 export interface Client {
   id: string;
+  slug?: string;
   firstName: string;
   lastName: string;
   /** Required + unique. Enforced by Zod (client) and DB unique index (server). */
