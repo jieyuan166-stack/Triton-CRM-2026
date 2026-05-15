@@ -26,7 +26,6 @@ import { PolicyPartyInput } from "@/components/ui-shared/PolicyPartyInput";
 import { formatMonthDay } from "@/lib/date-utils";
 import { cn } from "@/lib/utils";
 import { clientFullName, sanitizeInsuredPersons } from "@/lib/policy-parties";
-import { toTitleCase } from "@/lib/text-utils";
 import {
   CARRIERS,
   INSURANCE_PRODUCTS,
@@ -451,7 +450,7 @@ export function PolicyForm({
       policyOwnerClientId: values.policyOwnerClientId || undefined,
       policyOwner2Name: values.policyOwner2Name?.trim() || undefined,
       policyOwner2ClientId: values.policyOwner2ClientId || undefined,
-      productName: toTitleCase(values.productName?.trim() || values.productType),
+      productName: values.productName?.trim() || values.productType,
       insuredPersons:
         values.category === "Investment"
           ? []
