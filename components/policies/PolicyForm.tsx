@@ -24,6 +24,7 @@ import { CurrencyInput } from "@/components/ui-shared/CurrencyInput";
 import { MonthDayPicker } from "@/components/ui-shared/MonthDayPicker";
 import { PolicyPartyInput } from "@/components/ui-shared/PolicyPartyInput";
 import { formatMonthDay } from "@/lib/date-utils";
+import { cn } from "@/lib/utils";
 import { clientFullName, sanitizeInsuredPersons } from "@/lib/policy-parties";
 import { toTitleCase } from "@/lib/text-utils";
 import {
@@ -68,6 +69,66 @@ function Section({
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
   return <p className="text-xs text-accent-red mt-1">{message}</p>;
+}
+
+function ToggleRow({
+  id,
+  checked,
+  onCheckedChange,
+  label,
+  description,
+}: {
+  id: string;
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  label: string;
+  description: string;
+}) {
+  return (
+    <label
+      htmlFor={id}
+      className={cn(
+        "flex cursor-pointer select-none items-center justify-between gap-4 rounded-xl border px-4 py-3 transition-all duration-200 ease-out",
+        checked
+          ? "border-slate-300 bg-slate-50 shadow-sm"
+          : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/70",
+      )}
+    >
+      <span className="min-w-0">
+        <span className="block text-sm font-medium text-slate-800">
+          {label}
+        </span>
+        <span className="mt-0.5 block text-xs leading-relaxed text-slate-500">
+          {description}
+        </span>
+      </span>
+      <Checkbox
+        id={id}
+        checked={checked}
+        onCheckedChange={(c) => onCheckedChange(c === true)}
+        className="shrink-0"
+      />
+    </label>
+  );
+}
+
+function DependentFields({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "mt-3 rounded-lg border-l-2 border-slate-200 bg-slate-50/70 p-4 transition-all duration-300 ease-in-out animate-in fade-in-0 slide-in-from-top-1",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
 }
 
 /** Default Loan Amount the spec wants populated when the toggle is first
@@ -302,7 +363,20 @@ export function PolicyForm({
   useEffect(() => {
     if (!isJoint) {
       setValue("jointWithClientId", "", { shouldValidate: false });
-      clearErrors("jointWithClientId");
+      setValue("policyOwner2Name", "", { shouldValidate: false });
+      setValue("policyOwner2ClientId", "", { shouldValidate: false });
+      const currentInsured = watch("insuredPersons") ?? [];
+      if (currentInsured[1]?.name || currentInsured[1]?.clientId) {
+        setValue("insuredPersons", currentInsured.slice(0, 1), {
+          shouldValidate: false,
+        });
+      }
+      clearErrors([
+        "jointWithClientId",
+        "policyOwner2Name",
+        "policyOwner2ClientId",
+        "insuredPersons",
+      ]);
       return;
     }
 
@@ -378,7 +452,10 @@ export function PolicyForm({
       policyOwner2Name: values.policyOwner2Name?.trim() || undefined,
       policyOwner2ClientId: values.policyOwner2ClientId || undefined,
       productName: toTitleCase(values.productName?.trim() || values.productType),
-      insuredPersons: sanitizeInsuredPersons(values.insuredPersons),
+      insuredPersons:
+        values.category === "Investment"
+          ? []
+          : sanitizeInsuredPersons(values.insuredPersons),
     } as PolicyFormValues;
     onSubmit(cleaned);
   };
@@ -552,96 +629,26 @@ export function PolicyForm({
             <FieldError message={errors.policyNumber?.message} />
           </div>
 
-          {/* Status (Insurance) — replaced by Investment Loan toggle for Investment */}
-          {isInvestment ? (
-            <div className="space-y-1.5">
-              <Label htmlFor="isInvestmentLoan">Investment Loan</Label>
-              <label
-                htmlFor="isInvestmentLoan"
-                className="flex items-center gap-2.5 h-9 px-3 rounded-md border border-slate-200 bg-white cursor-pointer hover:bg-slate-50 transition-colors"
-              >
-                <Checkbox
-                  id="isInvestmentLoan"
-                  checked={isInvestmentLoan}
-                  onCheckedChange={(c) =>
-                    setValue("isInvestmentLoan", c === true, {
-                      shouldValidate: true,
-                    })
-                  }
-                />
-                <span className="text-sm text-slate-700">
-                  Funded by an investment loan
-                </span>
-              </label>
-            </div>
-          ) : (
-            <div className="space-y-1.5">
-              <Label htmlFor="status">Status</Label>
-              <Select
-                value={(watch("status") ?? "active") || "active"}
-                onValueChange={(v) =>
-                  setValue("status", v as "active" | "pending" | "lapsed", {
-                    shouldValidate: true,
-                  })
-                }
-              >
-                <SelectTrigger id="status" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="lapsed">Lapsed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
           <div className="space-y-1.5">
-            <Label htmlFor="isJoint">Joint Account</Label>
-            <label
-              htmlFor="isJoint"
-              className="flex items-center gap-2.5 h-9 px-3 rounded-md border border-slate-200 bg-white cursor-pointer hover:bg-slate-50 transition-colors"
+            <Label htmlFor="status">Status</Label>
+            <Select
+              value={(watch("status") ?? "active") || "active"}
+              onValueChange={(v) =>
+                setValue("status", v as "active" | "pending" | "lapsed", {
+                  shouldValidate: true,
+                })
+              }
             >
-              <Checkbox
-                id="isJoint"
-                checked={isJoint}
-                onCheckedChange={(c) =>
-                  setValue("isJoint", c === true, {
-                    shouldValidate: true,
-                  })
-                }
-              />
-              <span className="text-sm text-slate-700">
-                Shared with another client
-              </span>
-            </label>
+              <SelectTrigger id="status" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="lapsed">Lapsed</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-
-          {isJoint ? (
-            <div className="space-y-1.5">
-              <Label htmlFor="jointWithClientId">
-                Joint With <span className="text-accent-red">*</span>
-              </Label>
-              <ClientCombobox
-                clients={jointPartnerOptions}
-                value={watch("jointWithClientId") ?? ""}
-                onChange={(v) =>
-                  setValue("jointWithClientId", v ?? "", {
-                    shouldValidate: true,
-                  })
-                }
-                placeholder="Search joint partner"
-                emptyText="No matching clients"
-              />
-              {jointPartnerOptions.length === 0 ? (
-                <p className="text-xs text-triton-muted">
-                  Add another client before creating a joint policy.
-                </p>
-              ) : null}
-              <FieldError message={errors.jointWithClientId?.message} />
-            </div>
-          ) : null}
 
           <div className="space-y-1.5 md:col-span-2">
             <Label htmlFor="policyOwnerName">Policy Owner 1</Label>
@@ -669,71 +676,24 @@ export function PolicyForm({
             <FieldError message={errors.policyOwnerName?.message as string} />
           </div>
 
-          <div className="space-y-1.5 md:col-span-2">
-            <Label htmlFor="policyOwner2Name">Policy Owner 2</Label>
-            <PolicyPartyInput
-              id="policyOwner2Name"
-              clients={clients}
-              nameValue={policyOwner2Name}
-              clientIdValue={policyOwner2ClientId}
-              disabledClientId={policyOwnerClientId}
-              onNameChange={(name) => {
-                setValue("policyOwner2Name", name, { shouldValidate: true });
-                if (policyOwner2ClientId) {
-                  setValue("policyOwner2ClientId", "", { shouldValidate: true });
+          {isInsurance ? (
+            <div className="space-y-1.5 md:col-span-2">
+              <Label htmlFor="insuredPerson1">Insured Person 1</Label>
+              <PolicyPartyInput
+                id="insuredPerson1"
+                clients={clients}
+                nameValue={insuredPersons[0]?.name ?? ""}
+                clientIdValue={insuredPersons[0]?.clientId ?? ""}
+                disabledClientId=""
+                onNameChange={(name) => setInsuredPerson(0, { name, clientId: "" })}
+                onClientSelect={(clientId, displayName) =>
+                  setInsuredPerson(0, { name: displayName, clientId })
                 }
-              }}
-              onClientSelect={(clientId, displayName) => {
-                setValue("policyOwner2Name", displayName, { shouldValidate: true });
-                setValue("policyOwner2ClientId", clientId, { shouldValidate: true });
-              }}
-              onClearClient={() =>
-                setValue("policyOwner2ClientId", "", { shouldValidate: true })
-              }
-              placeholder="Optional second owner"
-            />
-            <p className="text-[11px] text-triton-muted">
-              Joint Account can auto-fill this with the linked owner.
-            </p>
-            <FieldError message={errors.policyOwner2Name?.message as string} />
-          </div>
-
-          <div className="space-y-1.5 md:col-span-2">
-            <Label htmlFor="insuredPerson1">Insured Person 1</Label>
-            <PolicyPartyInput
-              id="insuredPerson1"
-              clients={clients}
-              nameValue={insuredPersons[0]?.name ?? ""}
-              clientIdValue={insuredPersons[0]?.clientId ?? ""}
-              disabledClientId=""
-              onNameChange={(name) => setInsuredPerson(0, { name, clientId: "" })}
-              onClientSelect={(clientId, displayName) =>
-                setInsuredPerson(0, { name: displayName, clientId })
-              }
-              onClearClient={() => setInsuredPerson(0, { clientId: "" })}
-              placeholder="Type insured name or select a client"
-            />
-          </div>
-
-          <div className="space-y-1.5 md:col-span-2">
-            <Label htmlFor="insuredPerson2">Insured Person 2</Label>
-            <PolicyPartyInput
-              id="insuredPerson2"
-              clients={clients}
-              nameValue={insuredPersons[1]?.name ?? ""}
-              clientIdValue={insuredPersons[1]?.clientId ?? ""}
-              disabledClientId={insuredPersons[0]?.clientId}
-              onNameChange={(name) => setInsuredPerson(1, { name, clientId: "" })}
-              onClientSelect={(clientId, displayName) =>
-                setInsuredPerson(1, { name: displayName, clientId })
-              }
-              onClearClient={() => setInsuredPerson(1, { clientId: "" })}
-              placeholder="Optional second insured"
-            />
-            <p className="text-[11px] text-triton-muted">
-              Supports up to two insured persons.
-            </p>
-          </div>
+                onClearClient={() => setInsuredPerson(0, { clientId: "" })}
+                placeholder="Type insured name or select a client"
+              />
+            </div>
+          ) : null}
 
           {isInvestment ? (
             <div className="space-y-1.5">
@@ -756,6 +716,169 @@ export function PolicyForm({
               <FieldError message={errors.sumAssured?.message} />
             </div>
           ) : null}
+
+          {isInvestment ? (
+            <div className="md:col-span-2">
+              <ToggleRow
+                id="isInvestmentLoan"
+                checked={isInvestmentLoan}
+                label="Investment Loan"
+                description="Show lender and loan amount fields for financed investments."
+                onCheckedChange={(checked) =>
+                  setValue("isInvestmentLoan", checked, {
+                    shouldValidate: true,
+                  })
+                }
+              />
+
+              {isInvestmentLoan ? (
+                <DependentFields>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="lender">
+                        Lender <span className="text-accent-red">*</span>
+                      </Label>
+                      <Select
+                        value={watch("lender") ?? ""}
+                        onValueChange={(v) =>
+                          setValue("lender", (v ?? "") as never, {
+                            shouldValidate: true,
+                          })
+                        }
+                      >
+                        <SelectTrigger id="lender" className="w-full">
+                          <SelectValue placeholder="Select lender" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {LENDERS.map((l) => (
+                            <SelectItem key={l} value={l}>
+                              {l}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FieldError message={errors.lender?.message as string} />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="loanAmount">
+                        Loan Amount <span className="text-accent-red">*</span>
+                      </Label>
+                      <CurrencyInput
+                        id="loanAmount"
+                        value={watch("loanAmount")}
+                        onValueChange={(n) => {
+                          setValue("loanAmount", n as never, {
+                            shouldValidate: true,
+                          });
+                          setValue("sumAssured", n as never, {
+                            shouldValidate: true,
+                          });
+                        }}
+                      />
+                      <FieldError message={errors.loanAmount?.message} />
+                    </div>
+                  </div>
+                </DependentFields>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="md:col-span-2">
+            <ToggleRow
+              id="isJoint"
+              checked={isJoint}
+              label="Joint Account"
+              description="Add a second owner and show this policy across both linked client views."
+              onCheckedChange={(checked) =>
+                setValue("isJoint", checked, {
+                  shouldValidate: true,
+                })
+              }
+            />
+
+            {isJoint ? (
+              <DependentFields>
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="jointWithClientId">
+                      Joint With <span className="text-accent-red">*</span>
+                    </Label>
+                    <ClientCombobox
+                      clients={jointPartnerOptions}
+                      value={watch("jointWithClientId") ?? ""}
+                      onChange={(v) =>
+                        setValue("jointWithClientId", v ?? "", {
+                          shouldValidate: true,
+                        })
+                      }
+                      placeholder="Search joint partner"
+                      emptyText="No matching clients"
+                    />
+                    {jointPartnerOptions.length === 0 ? (
+                      <p className="text-xs text-triton-muted">
+                        Add another client before creating a joint policy.
+                      </p>
+                    ) : null}
+                    <FieldError message={errors.jointWithClientId?.message} />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="policyOwner2Name">Policy Owner 2</Label>
+                    <PolicyPartyInput
+                      id="policyOwner2Name"
+                      clients={clients}
+                      nameValue={policyOwner2Name}
+                      clientIdValue={policyOwner2ClientId}
+                      disabledClientId={policyOwnerClientId}
+                      onNameChange={(name) => {
+                        setValue("policyOwner2Name", name, { shouldValidate: true });
+                        if (policyOwner2ClientId) {
+                          setValue("policyOwner2ClientId", "", { shouldValidate: true });
+                        }
+                      }}
+                      onClientSelect={(clientId, displayName) => {
+                        setValue("policyOwner2Name", displayName, { shouldValidate: true });
+                        setValue("policyOwner2ClientId", clientId, { shouldValidate: true });
+                      }}
+                      onClearClient={() =>
+                        setValue("policyOwner2ClientId", "", { shouldValidate: true })
+                      }
+                      placeholder="Optional second owner"
+                    />
+                    <p className="text-[11px] text-triton-muted">
+                      Auto-fills from Joint With when a linked client is selected.
+                    </p>
+                    <FieldError message={errors.policyOwner2Name?.message as string} />
+                  </div>
+
+                  {isInsurance ? (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="insuredPerson2">Insured Person 2</Label>
+                      <PolicyPartyInput
+                        id="insuredPerson2"
+                        clients={clients}
+                        nameValue={insuredPersons[1]?.name ?? ""}
+                        clientIdValue={insuredPersons[1]?.clientId ?? ""}
+                        disabledClientId={insuredPersons[0]?.clientId}
+                        onNameChange={(name) =>
+                          setInsuredPerson(1, { name, clientId: "" })
+                        }
+                        onClientSelect={(clientId, displayName) =>
+                          setInsuredPerson(1, { name: displayName, clientId })
+                        }
+                        onClearClient={() => setInsuredPerson(1, { clientId: "" })}
+                        placeholder="Optional second insured"
+                      />
+                      <p className="text-[11px] text-triton-muted">
+                        Supports up to two insured persons.
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+              </DependentFields>
+            ) : null}
+          </div>
 
         </div>
 
@@ -801,52 +924,6 @@ export function PolicyForm({
           </div>
         ) : null}
 
-        {/* Investment-loan extras — Basic-section neighbours of the toggle.
-            Renders only when Investment + Investment Loan checkbox enabled. */}
-        {isInvestment && isInvestmentLoan ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5 pt-5 border-t border-slate-100">
-            <div className="space-y-1.5">
-              <Label htmlFor="lender">
-                Lender <span className="text-accent-red">*</span>
-              </Label>
-              <Select
-                value={watch("lender") ?? ""}
-                onValueChange={(v) =>
-                  setValue("lender", (v ?? "") as never, {
-                    shouldValidate: true,
-                  })
-                }
-              >
-                <SelectTrigger id="lender" className="w-full">
-                  <SelectValue placeholder="Select lender" />
-                </SelectTrigger>
-                <SelectContent>
-                  {LENDERS.map((l) => (
-                    <SelectItem key={l} value={l}>
-                      {l}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FieldError message={errors.lender?.message as string} />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="loanAmount">
-                Loan Amount <span className="text-accent-red">*</span>
-              </Label>
-              <CurrencyInput
-                id="loanAmount"
-                value={watch("loanAmount")}
-                onValueChange={(n) => {
-                  setValue("loanAmount", n as never, { shouldValidate: true });
-                  setValue("sumAssured", n as never, { shouldValidate: true });
-                }}
-              />
-              <FieldError message={errors.loanAmount?.message} />
-            </div>
-          </div>
-        ) : null}
       </Section>
 
       {/* === Section 2: Financial — Insurance only ===
