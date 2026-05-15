@@ -40,7 +40,7 @@ export function UniversalDataCard({
   const content = (
     <div
       className={cn(
-        "block border-l-2 p-5 transition-colors",
+        "block border-l-[3px] p-5 transition-colors",
         href ? "hover:bg-slate-50/80" : "bg-white",
         className
       )}
