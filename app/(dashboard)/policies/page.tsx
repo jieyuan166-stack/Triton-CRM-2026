@@ -1,8 +1,9 @@
 // app/(dashboard)/policies/page.tsx
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { FileText, Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useData } from "@/components/providers/DataProvider";
@@ -17,27 +18,78 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { calculateClientTags } from "@/lib/client-tags";
-import type { Policy } from "@/lib/types";
+import { CARRIERS, type Carrier, type Policy } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export default function PoliciesPage() {
+  return (
+    <Suspense fallback={null}>
+      <PoliciesContent />
+    </Suspense>
+  );
+}
+
+function parseCarrier(value: string | null): Carrier | "all" {
+  return value && (CARRIERS as readonly string[]).includes(value)
+    ? (value as Carrier)
+    : "all";
+}
+
+function PoliciesContent() {
+  const searchParams = useSearchParams();
   const { policies, getClient } = useData();
+  const carrierFromUrl = parseCarrier(searchParams.get("carrier"));
   const [statusFilter, setStatusFilter] = useState<Policy["status"] | "all">("all");
+  const [carrierFilter, setCarrierFilter] = useState<Carrier | "all">(carrierFromUrl);
+
+  useEffect(() => {
+    setCarrierFilter(carrierFromUrl);
+  }, [carrierFromUrl]);
+
   const visiblePolicies = useMemo(
     () =>
-      statusFilter === "all"
-        ? policies
-        : policies.filter((policy) => policy.status === statusFilter),
-    [policies, statusFilter]
+      policies.filter(
+        (policy) =>
+          (statusFilter === "all" || policy.status === statusFilter) &&
+          (carrierFilter === "all" || policy.carrier === carrierFilter)
+      ),
+    [carrierFilter, policies, statusFilter]
   );
 
   return (
     <>
       <PageHeader
         title="Policies"
-        description="All policies across your book"
+        description={
+          carrierFilter === "all"
+            ? "All policies across your book"
+            : `Showing ${carrierFilter} policies`
+        }
         action={
           <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                Carrier
+              </span>
+              <Select
+                value={carrierFilter}
+                onValueChange={(value) =>
+                  setCarrierFilter(value as Carrier | "all")
+                }
+              >
+                <SelectTrigger className="h-9 w-[165px] bg-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Carriers</SelectItem>
+                  {CARRIERS.map((carrier) => (
+                    <SelectItem key={carrier} value={carrier}>
+                      {carrier}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                 Status
@@ -81,7 +133,7 @@ export default function PoliciesPage() {
           <EmptyState
             icon={FileText}
             title="No matching policies"
-            description="Try another status filter."
+            description="Try another carrier or status filter."
           />
         ) : (
           <ul className="divide-y divide-slate-100">

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Building2 } from "lucide-react";
 import { useData } from "@/components/providers/DataProvider";
 import { EmptyState } from "@/components/ui-shared/EmptyState";
@@ -107,9 +108,11 @@ export function CarrierDistribution({ policies: overridePolicies }: { policies?:
 
           <div className="divide-y divide-slate-100">
             {rows.map((row) => (
-              <div
+              <Link
                 key={row.carrier}
-                className="grid grid-cols-[minmax(0,1.4fr)_minmax(96px,0.8fr)_minmax(96px,0.8fr)] items-center gap-3 px-4 py-4 transition-colors hover:bg-slate-50/70"
+                href={`/policies?carrier=${encodeURIComponent(row.carrier)}`}
+                aria-label={`View all ${row.carrier} policies`}
+                className="grid grid-cols-[minmax(0,1.4fr)_minmax(96px,0.8fr)_minmax(96px,0.8fr)] items-center gap-3 px-4 py-4 transition-colors hover:bg-slate-50/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue/30"
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <span
@@ -136,7 +139,7 @@ export function CarrierDistribution({ policies: overridePolicies }: { policies?:
                   value={row.totalFaceAmount}
                 />
                 <LedgerMetric label="Investment" value={row.totalAum} />
-              </div>
+              </Link>
             ))}
           </div>
         </div>
