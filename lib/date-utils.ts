@@ -120,6 +120,35 @@ export function formatMonthDay(input: string, locale = "en-CA"): string {
   });
 }
 
+/** Resolve a recurring MM-DD date to the next concrete calendar date.
+ *  Example in 2026: "06-10" -> "2026-06-10"; "01-10" -> "2027-01-10".
+ *  Full ISO dates pass through as their YYYY-MM-DD date portion. */
+export function resolveRecurringDate(
+  input: string,
+  today: Date = new Date()
+): string {
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(input);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+
+  const parts = parseDateLike(input);
+  if (!parts) return input;
+
+  const todayStart = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate()
+  );
+  let target = new Date(today.getFullYear(), parts.mm - 1, parts.dd);
+  if (target < todayStart) {
+    target = new Date(today.getFullYear() + 1, parts.mm - 1, parts.dd);
+  }
+  return [
+    target.getFullYear(),
+    String(target.getMonth() + 1).padStart(2, "0"),
+    String(target.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
 /** Format an ISO date as relative ("Today", "in 3 days", "5 days ago"). */
 export function formatRelative(isoDate: string, today: Date = new Date()): string {
   const days = daysUntil(isoDate, today);

@@ -63,6 +63,7 @@ import {
 import { inverseRelationship } from "@/lib/family";
 import { provinceLabel, type Client, type ClientRelationship } from "@/lib/types";
 import { formatPhone } from "@/lib/phone-format";
+import { toTitleCaseName } from "@/lib/text-utils";
 import {
   clientFormSchema,
   type ClientFormValues,
@@ -234,8 +235,8 @@ export function NewClientDialog({
 
     // Common patch payload (sans id / createdAt — those stay).
     const patch = {
-      firstName: values.firstName,
-      lastName: values.lastName,
+      firstName: toTitleCaseName(values.firstName),
+      lastName: toTitleCaseName(values.lastName),
       email: values.email,
       phone: values.phone,
       streetAddress: values.streetAddress,

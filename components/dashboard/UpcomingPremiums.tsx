@@ -18,10 +18,19 @@ import {
   EmailPreviewDialog,
   type EmailPreviewPayload,
 } from "@/components/dashboard/EmailPreviewDialog";
+import {
+  EmailHistoryPreviewDialog,
+  type EmailHistoryPreview,
+} from "@/components/dashboard/EmailHistoryPreviewDialog";
 import { CARRIER_COLORS } from "@/lib/carrier-colors";
 import { clientPath } from "@/lib/client-slug";
 import { calculateClientTags } from "@/lib/client-tags";
-import { daysUntil, formatDate, formatRelative } from "@/lib/date-utils";
+import {
+  daysUntil,
+  formatDate,
+  formatRelative,
+  resolveRecurringDate,
+} from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/format";
 import { applyTemplate } from "@/lib/templates";
 import { cn } from "@/lib/utils";
@@ -58,7 +67,14 @@ export function UpcomingPremiums() {
   // Sent: renewal emails from emailHistory (lookback 7 days)
   const sentRows = useMemo(() => {
     const cutoff = Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000;
-    const entries: { clientId: string; date: string; subject: string }[] = [];
+    const entries: {
+      id: string;
+      clientId: string;
+      date: string;
+      subject: string;
+      body: string;
+      templateLabel?: string;
+    }[] = [];
     clients.forEach((c) => {
       (c.emailHistory ?? []).forEach((e) => {
         const label = e.templateLabel?.toLowerCase() ?? "";
@@ -67,7 +83,14 @@ export function UpcomingPremiums() {
         if (!isRenewal) return;
         const t = new Date(e.date).getTime();
         if (Number.isNaN(t) || t < cutoff) return;
-        entries.push({ clientId: c.id, date: e.date, subject: e.subject });
+        entries.push({
+          id: e.id,
+          clientId: c.id,
+          date: e.date,
+          subject: e.subject,
+          body: e.body,
+          templateLabel: e.templateLabel,
+        });
       });
     });
     return entries
@@ -79,6 +102,7 @@ export function UpcomingPremiums() {
   const [activeTab, setActiveTab] = useState("upcoming");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [payload, setPayload] = useState<EmailPreviewPayload | null>(null);
+  const [sentPreview, setSentPreview] = useState<EmailHistoryPreview | null>(null);
 
   const allIds = upcomingRows.map((r) => r.id);
   const allChecked = allIds.length > 0 && allIds.every((id) => selected.has(id));
@@ -105,7 +129,9 @@ export function UpcomingPremiums() {
     const clientName = `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim() || "client";
     const premiumAmount = formatCurrency(p.premium ?? 0);
     const faceAmount = formatCurrency(p.sumAssured ?? 0);
-    const dueDate = p.premiumDate ? formatDate(p.premiumDate) : "";
+    const dueDate = p.premiumDate
+      ? formatDate(resolveRecurringDate(p.premiumDate))
+      : "";
     const vars = {
       "Client Name": clientName, Carrier: p.carrier ?? "", "Policy Name": p.productName ?? "",
       "Policy Number": p.policyNumber ?? "",
@@ -135,7 +161,9 @@ export function UpcomingPremiums() {
           "client";
         const premiumAmount = formatCurrency(p.premium ?? 0);
         const faceAmount = formatCurrency(p.sumAssured ?? 0);
-        const dueDate = p.premiumDate ? formatDate(p.premiumDate) : "";
+        const dueDate = p.premiumDate
+          ? formatDate(resolveRecurringDate(p.premiumDate))
+          : "";
         const vars = {
           "Client Name": clientName,
           Carrier: p.carrier ?? "",
@@ -255,7 +283,7 @@ export function UpcomingPremiums() {
                         contentClassName="min-w-0"
                         title={
                           client ? (
-                            <Link href={clientPath(client)}>
+                            <Link href={`/policies/${p.id}`}>
                               <ClientNameDisplay
                                 firstName={client.firstName}
                                 lastName={client.lastName}
@@ -267,7 +295,7 @@ export function UpcomingPremiums() {
                             <span>{clientName}</span>
                           )
                         }
-                        subtitle={`${p.carrier} · ${p.productName || p.productType} · ${formatCurrency(p.premium)} · ${formatRelative(p.premiumDate!)}`}
+                        subtitle={`${p.carrier} · ${p.productName || p.productType} · #${p.policyNumber} · ${formatCurrency(p.premium)} · ${formatRelative(p.premiumDate!)}`}
                         badges={
                           p.category === "Investment" && p.isInvestmentLoan ? (
                             <StatusBadge kind="loan" lender={p.lender} />
@@ -326,8 +354,26 @@ export function UpcomingPremiums() {
                             <span>{clientName}</span>
                           )
                         }
-                        subtitle={`${row.subject} · ${formatRelative(row.date)}`}
+                        subtitle={`${row.templateLabel || row.subject} · ${formatRelative(row.date)}`}
                         badges={<StatusBadge kind="custom" label="SENT" className="bg-slate-50 text-slate-500 ring-slate-100" />}
+                        actions={
+                          <button
+                            type="button"
+                            aria-label={`Preview sent email for ${clientName}`}
+                            onClick={() =>
+                              setSentPreview({
+                                to: client?.email,
+                                date: row.date,
+                                subject: row.subject,
+                                body: row.body,
+                                templateLabel: row.templateLabel,
+                              })
+                            }
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-accent-blue/10 hover:text-accent-blue"
+                          >
+                            <Mail className="h-4 w-4" />
+                          </button>
+                        }
                       />
                     </li>
                   );
@@ -339,6 +385,13 @@ export function UpcomingPremiums() {
       </WidgetCard>
 
       <EmailPreviewDialog open={dialogOpen} onOpenChange={setDialogOpen} payload={payload} onSent={clearSelection} />
+      <EmailHistoryPreviewDialog
+        open={!!sentPreview}
+        onOpenChange={(open) => {
+          if (!open) setSentPreview(null);
+        }}
+        email={sentPreview}
+      />
     </>
   );
 }

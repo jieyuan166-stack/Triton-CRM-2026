@@ -111,7 +111,7 @@ export default function PolicyDetailPage() {
       paymentFrequency,
       effectiveDate: values.effectiveDate,
       premiumDate,
-      status: isInv ? "active" : values.status ?? "active",
+      status: values.status ?? "active",
       isCorporateInsurance,
       businessName: isCorporateInsurance ? values.businessName : undefined,
       isInvestmentLoan,
@@ -123,7 +123,7 @@ export default function PolicyDetailPage() {
       policyOwnerClientId: values.policyOwnerClientId || undefined,
       policyOwner2Name: values.policyOwner2Name?.trim() || undefined,
       policyOwner2ClientId: values.policyOwner2ClientId || undefined,
-      insuredPersons: values.insuredPersons,
+      insuredPersons: isInv ? [] : values.insuredPersons,
     });
     if (client) router.push(clientPath(client));
     else router.push("/policies");

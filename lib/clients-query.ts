@@ -182,7 +182,9 @@ export function queryClients(
         ...clientPolicies.flatMap((policy) => [
           policy.policyOwnerName,
           policy.policyOwner2Name,
-          ...(policy.insuredPersons ?? []).map((person) => person.name),
+          ...(policy.category === "Insurance"
+            ? (policy.insuredPersons ?? []).map((person) => person.name)
+            : []),
         ]),
       ];
       if (!tokenMatch(q, fields)) return false;

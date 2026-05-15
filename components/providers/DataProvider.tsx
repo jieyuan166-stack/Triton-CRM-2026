@@ -24,6 +24,7 @@ import { removeCommunicationNoteBlocks } from "@/lib/communication-notes";
 import { dedupePolicies } from "@/lib/portfolio-metrics";
 import { seedClients, seedFollowUps, seedPolicies } from "@/lib/mock-data";
 import { type BackupSnapshot } from "@/lib/settings-types";
+import { toTitleCaseName } from "@/lib/text-utils";
 import type {
   Beneficiary,
   Client,
@@ -403,11 +404,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const createClient: DataContextValue["createClient"] = useCallback(
     (input) => {
       const id = uid("cli");
-      const next: Client = {
+      const normalizedInput = {
         ...input,
+        firstName: toTitleCaseName(input.firstName),
+        lastName: toTitleCaseName(input.lastName),
+      };
+      const next: Client = {
+        ...normalizedInput,
         id,
         slug: buildUniqueClientSlug(
-          { id, firstName: input.firstName, lastName: input.lastName },
+          {
+            id,
+            firstName: normalizedInput.firstName,
+            lastName: normalizedInput.lastName,
+          },
           clients
         ),
         createdAt: new Date().toISOString(),
@@ -422,24 +432,33 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const updateClient: DataContextValue["updateClient"] = useCallback(
     (id, patch) => {
       const current = clients.find((c) => c.id === id);
+      const normalizedPatch = { ...patch };
+      if (patch.firstName !== undefined) {
+        normalizedPatch.firstName = toTitleCaseName(patch.firstName);
+      }
+      if (patch.lastName !== undefined) {
+        normalizedPatch.lastName = toTitleCaseName(patch.lastName);
+      }
       const updated: Client | null = current
         ? {
             ...current,
-            ...patch,
+            ...normalizedPatch,
             id: current.id,
             slug:
-              patch.firstName !== undefined || patch.lastName !== undefined
+              normalizedPatch.firstName !== undefined ||
+              normalizedPatch.lastName !== undefined
                 ? buildClientSlug({
                     id: current.id,
-                    firstName: patch.firstName ?? current.firstName,
-                    lastName: patch.lastName ?? current.lastName,
+                    firstName: normalizedPatch.firstName ?? current.firstName,
+                    lastName: normalizedPatch.lastName ?? current.lastName,
                   })
                 : current.slug ?? buildUniqueClientSlug(current, clients),
           }
         : null;
       if (
         updated &&
-        (patch.firstName !== undefined || patch.lastName !== undefined)
+        (normalizedPatch.firstName !== undefined ||
+          normalizedPatch.lastName !== undefined)
       ) {
         updated.slug = buildUniqueClientSlug(updated, clients);
       }
@@ -450,11 +469,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
         persistInBackground("client.update", {
           id,
           patch:
-            patch.firstName !== undefined || patch.lastName !== undefined
-              ? { ...patch, slug: updated.slug }
-              : patch.slug
-                ? patch
-                : { ...patch, slug: updated.slug },
+            normalizedPatch.firstName !== undefined ||
+            normalizedPatch.lastName !== undefined
+              ? { ...normalizedPatch, slug: updated.slug }
+              : normalizedPatch.slug
+                ? normalizedPatch
+                : { ...normalizedPatch, slug: updated.slug },
         });
       }
       return updated;

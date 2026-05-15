@@ -71,7 +71,7 @@ function NewPolicyContent() {
         paymentFrequency,
         effectiveDate: values.effectiveDate,
         premiumDate,
-        status: isInv ? "active" : values.status ?? "active",
+        status: values.status ?? "active",
         isCorporateInsurance,
         businessName: isCorporateInsurance ? values.businessName : undefined,
         isInvestmentLoan,
@@ -83,7 +83,7 @@ function NewPolicyContent() {
         policyOwnerClientId: values.policyOwnerClientId || undefined,
         policyOwner2Name: values.policyOwner2Name?.trim() || undefined,
         policyOwner2ClientId: values.policyOwner2ClientId || undefined,
-        insuredPersons: values.insuredPersons,
+        insuredPersons: isInv ? [] : values.insuredPersons,
         beneficiaries: [],
       });
       toast.success("Policy created");

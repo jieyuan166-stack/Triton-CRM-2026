@@ -257,10 +257,13 @@ function policyPartySummary(policy: Policy) {
     .filter(Boolean)
     .join(" / ");
   if (owners) parts.push(`Owner: ${owners}`);
-  const insured = (policy.insuredPersons ?? [])
-    .map((person) => person.name)
-    .filter(Boolean)
-    .join(" / ");
+  const insured =
+    policy.category === "Insurance"
+      ? (policy.insuredPersons ?? [])
+          .map((person) => person.name)
+          .filter(Boolean)
+          .join(" / ")
+      : "";
   if (insured) parts.push(`Insured: ${insured}`);
   return parts.join(" · ");
 }

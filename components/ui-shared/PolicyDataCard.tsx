@@ -119,12 +119,17 @@ export function PolicyDataCard({
   const ownerDisplay = [displayPolicyOwner, displayPolicyOwner2]
     .filter(Boolean)
     .join(" / ");
-  const insuredDisplay = ((policy.insuredPersons?.length ? policy.insuredPersons : [
-    displayPolicyOwner ? { name: displayPolicyOwner } : undefined,
-  ].filter(Boolean)) as NonNullable<Policy["insuredPersons"]>)
-    .map((person) => partyDisplayName(person, getClient))
-    .filter(Boolean)
-    .join(" / ");
+  const insuredDisplay =
+    policy.category === "Insurance"
+      ? ((policy.insuredPersons?.length
+          ? policy.insuredPersons
+          : [
+              displayPolicyOwner ? { name: displayPolicyOwner } : undefined,
+            ].filter(Boolean)) as NonNullable<Policy["insuredPersons"]>)
+          .map((person) => partyDisplayName(person, getClient))
+          .filter(Boolean)
+          .join(" / ")
+      : "";
   const ownerBadge = owner ? (
     <span
       className={cn(

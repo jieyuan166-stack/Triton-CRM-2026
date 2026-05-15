@@ -1,6 +1,7 @@
 // components/ui-shared/ClientNameDisplay.tsx
 import { Crown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toTitleCaseName } from "@/lib/text-utils";
 
 type ClientNameDisplaySize = "xs" | "sm" | "md" | "lg";
 
@@ -34,13 +35,6 @@ const CROWN_CLASS: Record<ClientNameDisplaySize, string> = {
   lg: "h-3.5 w-3.5",
 };
 
-function toTitleCaseName(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/\b[\p{L}\p{N}]/gu, (char) => char.toUpperCase());
-}
-
 export function ClientNameDisplay({
   firstName,
   lastName,
@@ -63,7 +57,7 @@ export function ClientNameDisplay({
           isVip ? "text-amber-900" : "text-slate-900"
         )}
       >
-        {firstName}
+        {toTitleCaseName(firstName)}
       </span>
       {lastName ? (
         <span

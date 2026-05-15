@@ -5,6 +5,7 @@ import { parseClientQueryParams, queryClients } from "@/lib/clients-query";
 import { isTagValue, type TagValue } from "@/lib/constants";
 import { db } from "@/lib/db";
 import { parseInsuredPersonsJson } from "@/lib/policy-parties";
+import { toTitleCaseName } from "@/lib/text-utils";
 import { clientFormSchema } from "@/lib/validators";
 import type { Client, FollowUp, Policy } from "@/lib/types";
 
@@ -138,6 +139,8 @@ export async function POST(request: Request) {
   }
 
   const data = parsed.data;
+  const firstName = toTitleCaseName(data.firstName);
+  const lastName = toTitleCaseName(data.lastName);
   const emailLower = data.email.toLowerCase();
   if (await db.client.findUnique({ where: { email: emailLower } })) {
     return NextResponse.json(
@@ -151,8 +154,8 @@ export async function POST(request: Request) {
 
   const createdRow = await db.client.create({
     data: {
-      firstName: data.firstName,
-      lastName: data.lastName,
+      firstName,
+      lastName,
       email: emailLower,
       phone: data.phone || null,
       streetAddress: data.streetAddress || null,

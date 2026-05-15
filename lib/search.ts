@@ -66,7 +66,9 @@ export function searchAll(
         ...clientPolicies.flatMap((p) => [
           p.policyOwnerName,
           p.policyOwner2Name,
-          ...(p.insuredPersons ?? []).map((person) => person.name),
+          ...(p.category === "Insurance"
+            ? (p.insuredPersons ?? []).map((person) => person.name)
+            : []),
         ]),
       ]);
     })
@@ -91,7 +93,9 @@ export function searchAll(
         p.productType,
         p.policyOwnerName,
         p.policyOwner2Name,
-        ...(p.insuredPersons ?? []).map((person) => person.name),
+        ...(p.category === "Insurance"
+          ? (p.insuredPersons ?? []).map((person) => person.name)
+          : []),
       ])
     )
     .slice(0, PER_GROUP_LIMIT)

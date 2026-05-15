@@ -19,6 +19,7 @@ import { useData } from "@/components/providers/DataProvider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui-shared/ConfirmDialog";
+import { EmailHistoryPreviewDialog, type EmailHistoryPreview } from "@/components/dashboard/EmailHistoryPreviewDialog";
 import { EmptyState } from "@/components/ui-shared/EmptyState";
 import { formatDate } from "@/lib/date-utils";
 import type { EmailHistoryEntry } from "@/lib/types";
@@ -51,8 +52,9 @@ function actionDescription(entry: EmailHistoryEntry): string {
 }
 
 export function CommunicationLog({ clientId, history }: CommunicationLogProps) {
-  const { deleteEmailHistory } = useData();
+  const { deleteEmailHistory, getClient } = useData();
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [preview, setPreview] = useState<EmailHistoryPreview | null>(null);
   const [deletingIds, setDeletingIds] = useState<string[]>([]);
 
   // Sort newest-first without mutating the caller's array.
@@ -175,9 +177,22 @@ export function CommunicationLog({ clientId, history }: CommunicationLogProps) {
                     }
                   />
 
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent-blue/10 text-accent-blue">
+                  <button
+                    type="button"
+                    aria-label={`Preview ${action}`}
+                    onClick={() =>
+                      setPreview({
+                        to: getClient(clientId)?.email,
+                        date: entry.date,
+                        subject: entry.subject,
+                        body: entry.body,
+                        templateLabel: entry.templateLabel,
+                      })
+                    }
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent-blue/10 text-accent-blue transition-colors hover:bg-accent-blue/15"
+                  >
                     <Mail className="h-3.5 w-3.5" />
-                  </span>
+                  </button>
 
                   <span className="w-[10.5rem] shrink-0 font-number text-xs text-triton-muted">
                     {fmtTimestamp(entry.date)}
@@ -202,6 +217,14 @@ export function CommunicationLog({ clientId, history }: CommunicationLogProps) {
           </ul>
         )}
       </div>
+
+      <EmailHistoryPreviewDialog
+        open={!!preview}
+        onOpenChange={(open) => {
+          if (!open) setPreview(null);
+        }}
+        email={preview}
+      />
 
       <ConfirmDialog
         open={deletingIds.length > 0}

@@ -159,6 +159,7 @@ export const policyFormSchema = z
   .refine(
     (d) =>
       d.category !== "Investment" ||
+      d.status === "pending" ||
       (typeof d.sumAssured === "number" && d.sumAssured > 0),
     { message: "Initial investment is required", path: ["sumAssured"] }
   )

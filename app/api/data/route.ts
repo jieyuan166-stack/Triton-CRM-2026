@@ -9,6 +9,7 @@ import {
   parseInsuredPersonsJson,
   serializeInsuredPersonsJson,
 } from "@/lib/policy-parties";
+import { toTitleCaseName } from "@/lib/text-utils";
 import type {
   Beneficiary,
   Client,
@@ -238,20 +239,24 @@ function nullableString(value: string | undefined, partial: boolean) {
 }
 
 function clientData(input: Partial<Client>, partial = false) {
+  const firstName =
+    input.firstName === undefined ? undefined : toTitleCaseName(input.firstName);
+  const lastName =
+    input.lastName === undefined ? undefined : toTitleCaseName(input.lastName);
   const generatedSlug =
     input.slug ??
-    (input.id && input.firstName && input.lastName
+    (input.id && firstName && lastName
       ? buildClientSlug({
           id: input.id,
-          firstName: input.firstName,
-          lastName: input.lastName,
+          firstName,
+          lastName,
         })
       : undefined);
   return stripUndefined({
     id: input.id,
     slug: generatedSlug,
-    firstName: input.firstName,
-    lastName: input.lastName,
+    firstName,
+    lastName,
     email: input.email?.toLowerCase(),
     phone: nullableString(input.phone, partial),
     streetAddress: nullableString(input.streetAddress, partial),

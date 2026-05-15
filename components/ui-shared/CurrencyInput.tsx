@@ -137,7 +137,7 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
           disabled={disabled}
           className={cn(
             showCurrency ? "pl-7" : undefined,
-            "font-number",
+            "font-finance",
             className
           )}
           {...rest}

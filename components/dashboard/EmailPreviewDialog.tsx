@@ -111,6 +111,7 @@ export function EmailPreviewDialog({
     appendEmailHistory,
     markRenewalEmailSent,
     markBirthdayEmailSent,
+    getPolicy,
   } = useData();
   const { settings } = useSettings();
 
@@ -258,9 +259,15 @@ export function EmailPreviewDialog({
 
       const clientId = message.clientId;
       const template = message.template ?? "custom";
+      const renewalPolicy =
+        template === "renewal" && message.policyId
+          ? getPolicy(message.policyId)
+          : undefined;
       const templateLabel =
         template === "renewal"
-          ? "Renewal Reminder"
+          ? renewalPolicy
+            ? `Renewal Reminder · ${renewalPolicy.carrier} · #${renewalPolicy.policyNumber}`
+            : "Renewal Reminder"
           : template === "birthday"
           ? "Birthday Greeting"
           : "Custom";
