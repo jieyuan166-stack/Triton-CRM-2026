@@ -68,9 +68,10 @@ export const policyFormSchema = z
     // PolicyForm.coerceCurrencyValues) before zod ever sees these.
     sumAssured: z.number().positive("Must be > 0").optional(),
     premium: z.number().min(0, "Cannot be negative").optional(),
-    paymentFrequency: z
-      .enum(PAYMENT_FREQUENCIES as unknown as [string, ...string[]])
-      .optional(),
+    // Hidden legacy Investment imports can contain values like "Bi-Weekly".
+    // Do not reject those before category-specific validation runs; Insurance
+    // still gets strictly checked in the refine below.
+    paymentFrequency: z.string().trim().optional(),
     effectiveDate: z.string().min(1, "Effective date is required"),
     /** Insurance + Annually only. Stored as "MM-DD" (year-less). */
     premiumDate: z
@@ -168,7 +169,12 @@ export const policyFormSchema = z
     { message: "Premium is required", path: ["premium"] }
   )
   .refine(
-    (d) => d.category !== "Insurance" || !!d.paymentFrequency,
+    (d) =>
+      d.category !== "Insurance" ||
+      !!d.paymentFrequency &&
+        (PAYMENT_FREQUENCIES as readonly string[]).includes(
+          d.paymentFrequency
+        ),
     { message: "Payment frequency is required", path: ["paymentFrequency"] }
   )
   .refine(

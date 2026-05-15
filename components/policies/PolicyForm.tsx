@@ -319,6 +319,8 @@ export function PolicyForm({
       setValue("isCorporateInsurance", false, { shouldValidate: false });
       setValue("businessName", "", { shouldValidate: false });
       setValue("premium", undefined as never, { shouldValidate: false });
+      setValue("paymentFrequency", "Monthly", { shouldValidate: false });
+      setValue("premiumDate", "", { shouldValidate: false });
     }
 
     clearErrors([
