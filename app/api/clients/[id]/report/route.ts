@@ -42,11 +42,12 @@ function parseTagList(value: string | null | undefined): TagValue[] | undefined 
 
 async function getLogoDataUri() {
   const publicDir = path.join(/* turbopackIgnore: true */ process.cwd(), "public");
+  const brandDir = path.join(publicDir, "brand");
   const candidates = [
+    path.join(brandDir, "triton-logo-vertical.png"),
+    path.join(brandDir, "triton-logo-signature.png"),
+    path.join(brandDir, "triton-logo-horizontal.png"),
     path.join(publicDir, "triton-logo-vertical.png"),
-    path.join(publicDir, "LOGO PNG 竖版.png"),
-    path.join(publicDir, "triton-logo.png"),
-    path.join(publicDir, "logo.png"),
   ];
 
   for (const candidate of candidates) {
