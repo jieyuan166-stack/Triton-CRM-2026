@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useData } from "@/components/providers/DataProvider";
 import { ClientNameDisplay } from "@/components/ui-shared/ClientNameDisplay";
+import { CarrierLogoBadge } from "@/components/ui-shared/CarrierLogoBadge";
 import { StatusBadge } from "@/components/ui-shared/StatusBadge";
 import { UniversalDataCard, type UniversalDataMetric } from "@/components/ui-shared/UniversalDataCard";
 import { CARRIER_COLORS } from "@/lib/carrier-colors";
@@ -153,8 +154,11 @@ export function PolicyDataCard({
       title={policy.productName || policy.productType}
       subtitle={
         <>
-          <span>
-            <span className="font-semibold text-slate-700">{policy.carrier}</span>
+          <span className="inline-flex flex-wrap items-center gap-x-1.5 gap-y-1">
+            <span className="inline-flex items-center gap-1.5">
+              <CarrierLogoBadge carrier={policy.carrier} size="sm" />
+              <span className="font-semibold text-slate-700">{policy.carrier}</span>
+            </span>
             <span>{` · ${policy.productType} · #${policy.policyNumber}`}</span>
           </span>
           {jointDisplayClient ? (

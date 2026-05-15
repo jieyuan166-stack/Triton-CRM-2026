@@ -3,27 +3,21 @@
 import Link from "next/link";
 import { Building2 } from "lucide-react";
 import { useData } from "@/components/providers/DataProvider";
+import { CarrierLogoBadge } from "@/components/ui-shared/CarrierLogoBadge";
 import { EmptyState } from "@/components/ui-shared/EmptyState";
 import { UniversalCard } from "@/components/ui-shared/UniversalCard";
-import { CARRIER_COLORS } from "@/lib/carrier-colors";
 import { formatCurrencyShort } from "@/lib/format";
 import {
   dedupePolicies,
   getPolicyPortfolioAmount,
 } from "@/lib/portfolio-metrics";
 import { CARRIERS, type Carrier } from "@/lib/types";
-import { cn } from "@/lib/utils";
 
 interface CarrierLedgerRow {
   carrier: Carrier;
   totalFaceAmount: number;
   totalAum: number;
   count: number;
-}
-
-function carrierInitial(carrier: Carrier) {
-  if (carrier === "iA") return "iA";
-  return carrier.charAt(0);
 }
 
 function buildCarrierRows(policies: ReturnType<typeof useData>["policies"]) {
@@ -115,15 +109,7 @@ export function CarrierDistribution({ policies: overridePolicies }: { policies?:
                 className="grid grid-cols-[minmax(0,1.4fr)_minmax(96px,0.8fr)_minmax(96px,0.8fr)] items-center gap-3 px-4 py-4 transition-colors hover:bg-slate-50/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue/30"
               >
                 <div className="flex min-w-0 items-center gap-3">
-                  <span
-                    className={cn(
-                      "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white shadow-sm",
-                      row.carrier === "Sun Life" ? "text-[#002147]" : ""
-                    )}
-                    style={{ backgroundColor: CARRIER_COLORS[row.carrier] }}
-                  >
-                    {carrierInitial(row.carrier)}
-                  </span>
+                  <CarrierLogoBadge carrier={row.carrier} size="md" />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-[#002147]">
                       {row.carrier}
