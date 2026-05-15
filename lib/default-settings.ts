@@ -90,7 +90,7 @@ function mergeSignature(input: unknown): AppSettings["signature"] {
     typeof raw.html === "string" &&
     raw.html.includes("Jeffrey Yuan") &&
     raw.html.includes("Independent Broker") &&
-    raw.html.includes("padding: 0 8px;") &&
+    (raw.html.includes("padding: 0 8px;") || raw.html.includes("data:image/")) &&
     raw.html.includes("jieyuan165@gmail.com")
   ) {
     return DEFAULT_APP_SETTINGS.signature;
