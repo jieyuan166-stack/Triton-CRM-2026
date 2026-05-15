@@ -32,7 +32,7 @@ import {
   type EmailPreviewPayload,
 } from "@/components/dashboard/EmailPreviewDialog";
 import { formatCurrency } from "@/lib/format";
-import { calculateAutoClientTags } from "@/lib/client-tags";
+import { calculateAutoClientTags, getDynamicTagReasons } from "@/lib/client-tags";
 import { TAG_VALUES, type TagValue } from "@/lib/constants";
 import { calculatePortfolioMetrics } from "@/lib/portfolio-metrics";
 import type { ClientWithStats, Policy } from "@/lib/types";
@@ -151,7 +151,18 @@ export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHead
               <Pencil className="h-3 w-3" />
             </Button>
             {client.tags.map((t) => (
-              <DynamicTagBadge key={t} tag={t} />
+              <DynamicTagBadge
+                key={t}
+                tag={t}
+                details={getDynamicTagReasons(client, policies, t)}
+                detailsTitle={
+                  t === "Missing Information"
+                    ? "Missing client information"
+                    : t === "VIP"
+                      ? "VIP qualification"
+                      : undefined
+                }
+              />
             ))}
             <Button
               type="button"

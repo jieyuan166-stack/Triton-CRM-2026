@@ -5,6 +5,7 @@
 // Client record. Computing on-read avoids drift when policies change.
 
 import { TAG_VALUES, isTagValue, type TagValue } from "./constants";
+import { formatCurrency } from "./format";
 import type { Client, PaymentFrequency, Policy } from "./types";
 
 export type DynamicTag = TagValue;
@@ -22,6 +23,76 @@ const FREQUENCY_PER_YEAR: Record<PaymentFrequency, number> = {
 
 function annualPremium(p: Policy): number {
   return p.premium * FREQUENCY_PER_YEAR[p.paymentFrequency];
+}
+
+function isValidEmail(email: string | null | undefined): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email ?? "");
+}
+
+export function getMissingInformationReasons(client: Client): string[] {
+  const reasons: string[] = [];
+
+  if (!client.email?.trim()) {
+    reasons.push("Email is missing");
+  } else if (!isValidEmail(client.email)) {
+    reasons.push("Email format looks invalid");
+  }
+
+  if (!client.birthday) reasons.push("Birthday is missing");
+  if (!client.streetAddress?.trim()) reasons.push("Street address is missing");
+  if (!client.city?.trim()) reasons.push("City is missing");
+  if (!client.province) reasons.push("Province is missing");
+  if (!client.postalCode?.trim()) reasons.push("Postal code is missing");
+
+  return reasons;
+}
+
+export function getVipTagReasons(client: Client, policies: Policy[]): string[] {
+  const liveInsurance = policies.filter(
+    (p) =>
+      p.clientId === client.id &&
+      p.status !== "lapsed" &&
+      p.category === "Insurance"
+  );
+  const annualPremiumTotal = liveInsurance.reduce(
+    (sum, p) => sum + annualPremium(p),
+    0
+  );
+
+  const reasons = [
+    `VIP rule: annualized insurance premium must be at least ${formatCurrency(
+      VIP_PREMIUM_THRESHOLD
+    )}.`,
+    `Current annualized insurance premium: ${formatCurrency(
+      annualPremiumTotal
+    )}.`,
+  ];
+
+  const topContributors = [...liveInsurance]
+    .sort((a, b) => annualPremium(b) - annualPremium(a))
+    .slice(0, 3);
+
+  for (const policy of topContributors) {
+    reasons.push(
+      `${policy.carrier} ${policy.productType}${
+        policy.policyNumber ? ` #${policy.policyNumber}` : ""
+      }: ${formatCurrency(policy.premium)} ${policy.paymentFrequency} = ${formatCurrency(
+        annualPremium(policy)
+      )}/year`
+    );
+  }
+
+  return reasons;
+}
+
+export function getDynamicTagReasons(
+  client: Client,
+  policies: Policy[],
+  tag: TagValue
+): string[] {
+  if (tag === "Missing Information") return getMissingInformationReasons(client);
+  if (tag === "VIP") return getVipTagReasons(client, policies);
+  return [];
 }
 
 /**
@@ -62,14 +133,7 @@ export function calculateAutoClientTags(
       typeof p.businessName === "string" &&
       p.businessName.trim().length > 0
   );
-  const emailLooksValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(client.email ?? "");
-  const hasAddress = !!(
-    client.streetAddress?.trim() &&
-    client.city?.trim() &&
-    client.province &&
-    client.postalCode?.trim()
-  );
-  const missingInformation = !emailLooksValid || !client.birthday || !hasAddress;
+  const missingInformation = getMissingInformationReasons(client).length > 0;
 
   const tags: DynamicTag[] = [];
   if (hasInsurance) tags.push("insurance");

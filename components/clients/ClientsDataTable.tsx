@@ -40,6 +40,7 @@ import { NewClientDialog } from "@/components/clients/NewClientDialog";
 import type { Client } from "@/lib/types";
 import type { EmailTemplateId } from "@/lib/settings-types";
 import { clientPath } from "@/lib/client-slug";
+import { getDynamicTagReasons } from "@/lib/client-tags";
 import { applyTemplate } from "@/lib/templates";
 import {
   queryClients,
@@ -479,6 +480,7 @@ export function ClientsDataTable() {
                   {result.rows.map((r) => {
                     const isChecked = selected.has(r.id);
                     const isVipClient = r.tags.includes("VIP");
+                    const fullClient = clients.find((c) => c.id === r.id);
                     return (
                       <tr
                         key={r.id}
@@ -552,7 +554,26 @@ export function ClientsDataTable() {
                           ) : (
                             <div className="flex flex-wrap gap-1 max-w-[14rem]">
                               {r.tags.map((t) => (
-                                <DynamicTagBadge key={t} tag={t} />
+                                <DynamicTagBadge
+                                  key={t}
+                                  tag={t}
+                                  details={
+                                    fullClient
+                                      ? getDynamicTagReasons(
+                                          fullClient,
+                                          policies,
+                                          t
+                                        )
+                                      : undefined
+                                  }
+                                  detailsTitle={
+                                    t === "Missing Information"
+                                      ? "Missing client information"
+                                      : t === "VIP"
+                                        ? "VIP qualification"
+                                        : undefined
+                                  }
+                                />
                               ))}
                             </div>
                           )}
