@@ -9,7 +9,7 @@ import {
   renderToBuffer,
 } from "@react-pdf/renderer";
 
-import type { Client, Policy } from "@/lib/types";
+import type { Carrier, Client, Policy } from "@/lib/types";
 import { formatDate as formatCalendarDate } from "@/lib/date-utils";
 import { formatCurrency as formatMoney } from "@/lib/format";
 
@@ -162,6 +162,32 @@ const styles = StyleSheet.create({
     fontSize: 8.5,
     color: "#111827",
   },
+  carrierCell: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  carrierLogoFrame: {
+    width: 14,
+    height: 14,
+    borderColor: "#E2E8F0",
+    borderWidth: 0.75,
+    borderRadius: 3,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 1,
+  },
+  carrierLogo: {
+    width: 12,
+    height: 12,
+    objectFit: "contain",
+  },
+  carrierText: {
+    flex: 1,
+    fontSize: 8.5,
+    color: "#111827",
+  },
   footer: {
     position: "absolute",
     left: 48,
@@ -273,6 +299,7 @@ function ReportDocument({
   policies,
   family,
   logoDataUri,
+  carrierLogoDataUris,
   generatedDate,
 }: {
   client: Client;
@@ -283,6 +310,7 @@ function ReportDocument({
     investmentAum?: number;
   };
   logoDataUri?: string;
+  carrierLogoDataUris?: Partial<Record<Carrier, string>>;
   generatedDate: Date;
 }) {
   const activePolicies = policies.filter((policy) => policy.status !== "lapsed");
@@ -376,7 +404,17 @@ function ReportDocument({
             ) : (
               policies.slice(0, 10).map((policy) => (
                 <View key={policy.id} style={styles.tableRow}>
-                  <Text style={[styles.td, { width: columns[0].width }]}>{policy.carrier}</Text>
+                  <View style={[styles.carrierCell, { width: columns[0].width }]}>
+                    {carrierLogoDataUris?.[policy.carrier] ? (
+                      <View style={styles.carrierLogoFrame}>
+                        <Image
+                          src={carrierLogoDataUris[policy.carrier]}
+                          style={styles.carrierLogo}
+                        />
+                      </View>
+                    ) : null}
+                    <Text style={styles.carrierText}>{policy.carrier}</Text>
+                  </View>
                   <Text style={[styles.td, { width: columns[1].width }]}>{policy.category}</Text>
                   <View style={{ width: columns[2].width }}>
                     <Text style={styles.td}>{policy.productType}</Text>
@@ -497,6 +535,7 @@ export async function renderClientReportPdf(input: {
     investmentAum?: number;
   };
   logoDataUri?: string;
+  carrierLogoDataUris?: Partial<Record<Carrier, string>>;
   generatedDate?: Date;
 }) {
   return renderToBuffer(
@@ -505,6 +544,7 @@ export async function renderClientReportPdf(input: {
       policies={input.policies}
       family={input.family}
       logoDataUri={input.logoDataUri}
+      carrierLogoDataUris={input.carrierLogoDataUris}
       generatedDate={input.generatedDate ?? new Date()}
     />,
   );

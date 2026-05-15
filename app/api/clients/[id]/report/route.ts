@@ -4,10 +4,11 @@ import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 
 import { buildClientReportFilename } from "@/lib/client-report";
+import { CARRIER_LOGOS } from "@/lib/carrier-logos";
 import { isTagValue, type TagValue } from "@/lib/constants";
 import { renderClientReportPdf } from "@/lib/client-report-pdf";
 import { parseInsuredPersonsJson } from "@/lib/policy-parties";
-import type { Client, Policy } from "@/lib/types";
+import type { Carrier, Client, Policy } from "@/lib/types";
 import { auditLog, requireSession, unauthorized } from "@/lib/api-security";
 import { db } from "@/lib/db";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
@@ -40,6 +41,13 @@ function parseTagList(value: string | null | undefined): TagValue[] | undefined 
   }
 }
 
+async function fileToDataUri(candidate: string) {
+  const buffer = await readFile(candidate);
+  const ext = path.extname(candidate).toLowerCase();
+  const mime = ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" : "image/png";
+  return `data:${mime};base64,${buffer.toString("base64")}`;
+}
+
 async function getLogoDataUri() {
   const publicDir = path.join(/* turbopackIgnore: true */ process.cwd(), "public");
   const brandDir = path.join(publicDir, "brand");
@@ -52,10 +60,7 @@ async function getLogoDataUri() {
 
   for (const candidate of candidates) {
     try {
-      const buffer = await readFile(candidate);
-      const ext = path.extname(candidate).toLowerCase();
-      const mime = ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" : "image/png";
-      return `data:${mime};base64,${buffer.toString("base64")}`;
+      return await fileToDataUri(candidate);
     } catch {
       // Try the next known logo candidate.
     }
@@ -64,13 +69,34 @@ async function getLogoDataUri() {
   return undefined;
 }
 
+async function getCarrierLogoDataUris() {
+  const publicDir = path.join(/* turbopackIgnore: true */ process.cwd(), "public");
+  const entries = await Promise.all(
+    Object.entries(CARRIER_LOGOS).map(async ([carrier, logoPath]) => {
+      try {
+        const normalizedPath = logoPath.startsWith("/") ? logoPath.slice(1) : logoPath;
+        const dataUri = await fileToDataUri(path.join(publicDir, normalizedPath));
+        return [carrier, dataUri] as const;
+      } catch {
+        return [carrier, undefined] as const;
+      }
+    })
+  );
+
+  return Object.fromEntries(
+    entries.filter((entry): entry is readonly [Carrier, string] => Boolean(entry[1]))
+  ) as Partial<Record<Carrier, string>>;
+}
+
 async function renderPdf(snapshot: ReportSnapshot) {
   const logoDataUri = await getLogoDataUri();
+  const carrierLogoDataUris = await getCarrierLogoDataUris();
   return renderClientReportPdf({
     client: snapshot.client,
     policies: snapshot.policies,
     family: snapshot.family,
     logoDataUri,
+    carrierLogoDataUris,
     generatedDate: new Date(),
   });
 }
