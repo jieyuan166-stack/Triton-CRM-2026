@@ -93,15 +93,6 @@ export function TemplatesSection() {
               updateSignature({ enabled: true, html, text: htmlToPlainText(html) })
             }
           />
-
-          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-              Plain-text fallback
-            </p>
-            <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-slate-600">
-              {signature.text || "No signature fallback yet."}
-            </p>
-          </div>
         </div>
       </div>
 

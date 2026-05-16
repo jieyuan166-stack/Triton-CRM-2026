@@ -13,14 +13,38 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Mail, Trash2 } from "lucide-react";
+import {
+  Mail,
+  MessageCircle,
+  MessageSquare,
+  Phone,
+  Plus,
+  StickyNote,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useData } from "@/components/providers/DataProvider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { ConfirmDialog } from "@/components/ui-shared/ConfirmDialog";
 import { EmailHistoryPreviewDialog, type EmailHistoryPreview } from "@/components/dashboard/EmailHistoryPreviewDialog";
 import { EmptyState } from "@/components/ui-shared/EmptyState";
+import {
+  isManualCommunicationLabel,
+  MANUAL_COMMUNICATION_TYPES,
+  type ManualCommunicationType,
+} from "@/lib/communication-log";
 import { formatDate } from "@/lib/date-utils";
 import type { EmailHistoryEntry } from "@/lib/types";
 
@@ -42,6 +66,11 @@ function fmtTimestamp(iso: string): string {
 /** Build the "Sent X Email" action description. Falls back gracefully
  *  when older entries lack the templateLabel field. */
 function actionDescription(entry: EmailHistoryEntry): string {
+  if (isManualCommunicationLabel(entry.templateLabel)) {
+    return entry.subject?.trim()
+      ? `${entry.templateLabel}: ${entry.subject.trim()}`
+      : entry.templateLabel;
+  }
   if (entry.templateLabel) {
     return `Sent "${entry.templateLabel}" Email`;
   }
@@ -51,11 +80,35 @@ function actionDescription(entry: EmailHistoryEntry): string {
   return subj ? `Sent email - ${subj}` : "Sent email";
 }
 
+function iconForEntry(entry: EmailHistoryEntry) {
+  switch (entry.templateLabel) {
+    case "Phone Call":
+      return Phone;
+    case "Meeting":
+      return Users;
+    case "WeChat":
+      return MessageCircle;
+    case "Text Message":
+      return MessageSquare;
+    case "Note":
+      return StickyNote;
+    case "External Email":
+      return Mail;
+    default:
+      return Mail;
+  }
+}
+
 export function CommunicationLog({ clientId, history }: CommunicationLogProps) {
-  const { deleteEmailHistory, getClient } = useData();
+  const { appendEmailHistory, deleteEmailHistory, getClient } = useData();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [preview, setPreview] = useState<EmailHistoryPreview | null>(null);
   const [deletingIds, setDeletingIds] = useState<string[]>([]);
+  const [adding, setAdding] = useState(false);
+  const [manualType, setManualType] =
+    useState<ManualCommunicationType>("Phone Call");
+  const [manualSummary, setManualSummary] = useState("");
+  const [manualDetails, setManualDetails] = useState("");
 
   // Sort newest-first without mutating the caller's array.
   const sorted = [...(history ?? [])].sort((a, b) =>
@@ -99,6 +152,30 @@ export function CommunicationLog({ clientId, history }: CommunicationLogProps) {
     );
   }
 
+  function resetManualForm() {
+    setAdding(false);
+    setManualType("Phone Call");
+    setManualSummary("");
+    setManualDetails("");
+  }
+
+  function handleManualSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    const summary = manualSummary.trim();
+    if (!summary) return;
+    const saved = appendEmailHistory(clientId, {
+      subject: summary,
+      body: manualDetails.trim(),
+      templateLabel: manualType,
+    });
+    if (!saved) {
+      toast.error("Unable to save communication log.");
+      return;
+    }
+    toast.success("Communication log added", { description: manualType });
+    resetManualForm();
+  }
+
   return (
     <>
       <div className="bg-card rounded-xl border border-slate-200 shadow-sm">
@@ -118,7 +195,7 @@ export function CommunicationLog({ clientId, history }: CommunicationLogProps) {
               </h3>
             </div>
             <p className="mt-0.5 text-xs text-triton-muted">
-              When &amp; what - emails sent to this client from the CRM
+              When &amp; what - emails and manual touchpoints for this client
               {sorted.length > 0
                 ? ` (${sorted.length} ${sorted.length === 1 ? "entry" : "entries"})`
                 : ""}
@@ -147,14 +224,100 @@ export function CommunicationLog({ clientId, history }: CommunicationLogProps) {
                 Delete
               </Button>
             </div>
-          ) : null}
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8"
+              onClick={() => setAdding((value) => !value)}
+            >
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              {adding ? "Close" : "Add Log"}
+            </Button>
+          )}
         </div>
+
+        {adding ? (
+          <form
+            onSubmit={handleManualSubmit}
+            className="mx-5 my-4 rounded-xl border border-slate-100 bg-slate-50/70 p-4 md:mx-6"
+          >
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-[12rem_minmax(0,1fr)]">
+              <div className="space-y-1.5">
+                <Label htmlFor="communication-type" className="label-caps">
+                  Type
+                </Label>
+                <Select
+                  value={manualType}
+                  onValueChange={(value) =>
+                    setManualType(value as ManualCommunicationType)
+                  }
+                >
+                  <SelectTrigger id="communication-type" className="h-9 bg-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MANUAL_COMMUNICATION_TYPES.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="communication-summary" className="label-caps">
+                  Summary <span className="text-accent-red">*</span>
+                </Label>
+                <Input
+                  id="communication-summary"
+                  value={manualSummary}
+                  onChange={(event) => setManualSummary(event.target.value)}
+                  placeholder="e.g. Called about pending premium payment"
+                  className="h-9 bg-white"
+                  required
+                />
+              </div>
+            </div>
+            <div className="mt-3 space-y-1.5">
+              <Label htmlFor="communication-details" className="label-caps">
+                Details
+              </Label>
+              <Textarea
+                id="communication-details"
+                value={manualDetails}
+                onChange={(event) => setManualDetails(event.target.value)}
+                placeholder="Optional details..."
+                rows={3}
+                className="resize-none bg-white"
+              />
+            </div>
+            <div className="mt-3 flex justify-end gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={resetManualForm}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                className="bg-navy text-white hover:bg-navy/90"
+                disabled={!manualSummary.trim()}
+              >
+                Save Log
+              </Button>
+            </div>
+          </form>
+        ) : null}
 
         {sorted.length === 0 ? (
           <EmptyState
-            icon={Mail}
-            title="No emails sent yet"
-            description="Emails sent from the client header or the dashboard widgets will appear here."
+            icon={MessageCircle}
+            title="No communication yet"
+            description="Emails and manual touchpoints will appear here."
             compact
           />
         ) : (
@@ -162,6 +325,7 @@ export function CommunicationLog({ clientId, history }: CommunicationLogProps) {
             {sorted.map((entry) => {
               const isChecked = selected.has(entry.id);
               const action = actionDescription(entry);
+              const Icon = iconForEntry(entry);
               return (
                 <li
                   key={entry.id}
@@ -191,7 +355,7 @@ export function CommunicationLog({ clientId, history }: CommunicationLogProps) {
                     }
                     className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent-blue/10 text-accent-blue transition-colors hover:bg-accent-blue/15"
                   >
-                    <Mail className="h-3.5 w-3.5" />
+                    <Icon className="h-3.5 w-3.5" />
                   </button>
 
                   <span className="w-[10.5rem] shrink-0 font-number text-xs text-triton-muted">
