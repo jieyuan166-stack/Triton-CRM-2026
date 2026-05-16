@@ -5,13 +5,6 @@ import { useMemo, useState } from "react";
 import { ChevronDown, ExternalLink, FileText, Plus, Search } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { WidgetCard } from "@/components/ui-shared/WidgetCard";
 import { EmptyState } from "@/components/ui-shared/EmptyState";
 import { PolicyDataCard } from "@/components/ui-shared/PolicyDataCard";
@@ -19,7 +12,7 @@ import { CarrierLogoBadge } from "@/components/ui-shared/CarrierLogoBadge";
 import { StatusBadge } from "@/components/ui-shared/StatusBadge";
 import { formatDate, formatMonthDay } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/format";
-import type { Policy, PolicyCategory, PolicyStatus } from "@/lib/types";
+import type { Policy } from "@/lib/types";
 import { CARRIERS, PAYMENT_FREQUENCY_LABELS } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -44,14 +37,6 @@ interface ClientPoliciesCardProps {
 }
 
 const DEFAULT_VISIBLE_COUNT = 5;
-type PolicyQuickFilter = "all" | "joint" | "loan" | "corporate" | "pending";
-const FILTER_TRIGGER_CLASS =
-  "h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm shadow-none";
-const FILTER_CONTENT_PROPS = {
-  align: "start" as const,
-  sideOffset: 8,
-  className: "z-50",
-};
 
 function clusterByCarrier(items: Policy[]) {
   return [...items].sort((a, b) => {
@@ -64,9 +49,6 @@ function clusterByCarrier(items: Policy[]) {
 export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardProps) {
   const [expandedList, setExpandedList] = useState(false);
   const [query, setQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<"all" | PolicyCategory>("all");
-  const [quickFilter, setQuickFilter] = useState<PolicyQuickFilter>("all");
-  const [statusFilter, setStatusFilter] = useState<"all" | PolicyStatus>("all");
   const [expandedPolicyIds, setExpandedPolicyIds] = useState<Set<string>>(new Set());
 
   const filteredPolicies = useMemo(() => {
@@ -87,15 +69,9 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
         .toLowerCase();
 
       if (q && !haystack.includes(q)) return false;
-      if (categoryFilter !== "all" && policy.category !== categoryFilter) return false;
-      if (statusFilter !== "all" && policy.status !== statusFilter) return false;
-      if (quickFilter === "joint" && !policy.isJoint) return false;
-      if (quickFilter === "loan" && !policy.isInvestmentLoan) return false;
-      if (quickFilter === "corporate" && !policy.isCorporateInsurance) return false;
-      if (quickFilter === "pending" && policy.status !== "pending") return false;
       return true;
     });
-  }, [categoryFilter, policies, query, quickFilter, statusFilter]);
+  }, [policies, query]);
 
   const visiblePolicies = expandedList
     ? filteredPolicies
@@ -139,8 +115,7 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
       ) : (
         <div>
           <div className="border-b border-slate-100 px-5 pb-4 md:px-6">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="relative min-w-0 flex-1">
+            <div className="relative min-w-0">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-300" />
                 <Input
                   value={query}
@@ -148,42 +123,6 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
                   placeholder="Search policy, carrier, number..."
                   className="h-9 pl-9"
                 />
-              </div>
-              <div className="flex flex-wrap gap-4 lg:justify-end">
-                <Select value={categoryFilter} onValueChange={(value) => setCategoryFilter(value as typeof categoryFilter)}>
-                  <SelectTrigger className={cn(FILTER_TRIGGER_CLASS, "min-w-[9.5rem]")}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent {...FILTER_CONTENT_PROPS}>
-                    <SelectItem value="all">All Categories</SelectItem>
-                    <SelectItem value="Insurance">Insurance</SelectItem>
-                    <SelectItem value="Investment">Investment</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={quickFilter} onValueChange={(value) => setQuickFilter(value as PolicyQuickFilter)}>
-                  <SelectTrigger className={cn(FILTER_TRIGGER_CLASS, "min-w-[9.5rem]")}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent {...FILTER_CONTENT_PROPS}>
-                    <SelectItem value="all">All Types</SelectItem>
-                    <SelectItem value="joint">Joint</SelectItem>
-                    <SelectItem value="loan">Loan</SelectItem>
-                    <SelectItem value="corporate">Corporate</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}>
-                  <SelectTrigger className={cn(FILTER_TRIGGER_CLASS, "min-w-[9.5rem]")}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent {...FILTER_CONTENT_PROPS}>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="lapsed">Lapsed</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
           </div>
 
