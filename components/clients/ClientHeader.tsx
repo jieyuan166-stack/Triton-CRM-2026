@@ -10,6 +10,7 @@ import {
   Pencil,
   Phone as PhoneIcon,
   Tags,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -42,9 +43,15 @@ interface ClientHeaderProps {
   client: ClientWithStats;
   reportPolicies?: Policy[];
   onEdit?: () => void;
+  onDelete?: () => void;
 }
 
-export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHeaderProps) {
+export function ClientHeader({
+  client,
+  reportPolicies = [],
+  onEdit,
+  onDelete,
+}: ClientHeaderProps) {
   const { policies, getPoliciesByClient, updateClient } = useData();
   const [composeOpen, setComposeOpen] = useState(false);
   const [composePayload, setComposePayload] =
@@ -231,6 +238,19 @@ export function ClientHeader({ client, reportPolicies = [], onEdit }: ClientHead
             policies={reportPolicies}
             className="self-start xl:self-end"
           />
+          {onDelete ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              onClick={onDelete}
+              aria-label={`Delete ${client.firstName} ${client.lastName}`}
+              title="Delete client"
+              className="self-start rounded-lg text-slate-300 transition-colors hover:bg-accent-red/10 hover:text-accent-red xl:self-end"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          ) : null}
         </div>
       </div>
 

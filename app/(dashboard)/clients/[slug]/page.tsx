@@ -4,6 +4,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { UserX } from "lucide-react";
+import { toast } from "sonner";
 import { useData } from "@/components/providers/DataProvider";
 import { ClientHeader } from "@/components/clients/ClientHeader";
 import { ClientInfoCard } from "@/components/clients/ClientInfoCard";
@@ -14,6 +15,7 @@ import { FamilyOverviewCard } from "@/components/clients/FamilyOverviewCard";
 import { FollowUpTimeline } from "@/components/clients/FollowUpTimeline";
 import { NewClientDialog } from "@/components/clients/NewClientDialog";
 import { EmptyState } from "@/components/ui-shared/EmptyState";
+import { ConfirmDialog } from "@/components/ui-shared/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { buildClientSlug, clientPath } from "@/lib/client-slug";
 
@@ -29,6 +31,7 @@ export default function ClientDetailPage() {
     getPoliciesByClient,
     getFollowUpsByClient,
     updateClient,
+    deleteClient,
     clients,
     policies: allPolicies,
     relationships,
@@ -42,6 +45,7 @@ export default function ClientDetailPage() {
   const followUps = resolvedId ? getFollowUpsByClient(resolvedId) : [];
 
   const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   // Hydration guard + backwards compatibility:
   // old /clients/{id} links still resolve, then replace into the professional slug URL.
@@ -60,6 +64,19 @@ export default function ClientDetailPage() {
       router.replace(clientPath({ id: resolvedClient.id, slug: nextSlug }));
     }
   }, [resolvedClient, router, slug, updateClient]);
+
+  function handleDeleteClient() {
+    if (!client) return;
+    const ok = deleteClient(client.id);
+    if (!ok) {
+      toast.error("Could not delete client");
+      return;
+    }
+    toast.success("Client deleted", {
+      description: `${client.firstName} ${client.lastName} and associated records were removed.`,
+    });
+    router.push("/clients");
+  }
 
   if (!client) {
     return (
@@ -84,6 +101,7 @@ export default function ClientDetailPage() {
         client={client}
         reportPolicies={policies}
         onEdit={() => setEditOpen(true)}
+        onDelete={() => setDeleteOpen(true)}
       />
 
       {/* Responsive layout:
@@ -127,6 +145,23 @@ export default function ClientDetailPage() {
         open={editOpen}
         onOpenChange={setEditOpen}
         client={fullClient}
+      />
+
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Are you absolutely sure?"
+        description={
+          <>
+            This action cannot be undone. This will permanently delete{" "}
+            <span className="font-semibold">
+              {client.firstName} {client.lastName}
+            </span>{" "}
+            and all associated policies, follow-ups, relationships, and client data.
+          </>
+        }
+        confirmLabel="Delete"
+        onConfirm={handleDeleteClient}
       />
     </>
   );
