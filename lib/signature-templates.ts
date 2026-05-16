@@ -22,21 +22,21 @@ const BORDER = "#E2E8F0";
 const PUBLIC_ORIGIN = "https://crm.tritonwealth.ca";
 
 const TRITON_LOGO_URL = `${PUBLIC_ORIGIN}/brand/triton-logo-signature.png`;
-const MDRT_BADGE_URL = `${PUBLIC_ORIGIN}/brand/signature/mdrt-tot.jpg`;
+const MDRT_BADGE_URL = `${PUBLIC_ORIGIN}/brand/signature/mdrt-tot-transparent.png`;
 const RRC_BADGE_URL = `${PUBLIC_ORIGIN}/brand/signature/rrc-logo.png`;
 const CSC_BADGE_URL = `${PUBLIC_ORIGIN}/brand/signature/csc.png`;
 
 const credentialBadges = `
 <table cellpadding="0" cellspacing="0" border="0" role="presentation" style="margin: 9px 0 8px;">
   <tr>
-    <td style="vertical-align: middle; padding-right: 10px;">
-      <img src="${MDRT_BADGE_URL}" alt="MDRT Top of the Table Member" width="54" style="display: block; width: 54px; height: auto; border: 0;" />
+    <td style="vertical-align: middle; padding-right: 8px;">
+      <img src="${MDRT_BADGE_URL}" alt="MDRT Top of the Table Member" width="44" style="display: block; width: 44px; height: auto; border: 0;" />
     </td>
-    <td style="vertical-align: middle; padding-right: 10px;">
-      <img src="${RRC_BADGE_URL}" alt="Registered Retirement Consultant" width="126" style="display: block; width: 126px; height: auto; border: 0;" />
+    <td style="vertical-align: middle; padding-right: 8px;">
+      <img src="${RRC_BADGE_URL}" alt="Registered Retirement Consultant" width="108" style="display: block; width: 108px; height: auto; border: 0;" />
     </td>
     <td style="vertical-align: middle;">
-      <img src="${CSC_BADGE_URL}" alt="Canadian Securities Course Completed" width="46" style="display: block; width: 46px; height: auto; border: 0;" />
+      <img src="${CSC_BADGE_URL}" alt="Canadian Securities Course Completed" width="38" style="display: block; width: 38px; height: auto; border: 0;" />
     </td>
   </tr>
 </table>`.trim();

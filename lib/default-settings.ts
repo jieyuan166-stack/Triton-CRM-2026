@@ -99,7 +99,8 @@ function mergeSignature(input: unknown): AppSettings["signature"] {
       raw.html.includes("padding: 0 8px;") ||
       raw.html.includes("data:image/") ||
       raw.html.includes("broker-badge") ||
-      !raw.html.includes("/brand/signature/mdrt-tot")
+      raw.html.includes("/brand/signature/mdrt-tot.jpg") ||
+      !raw.html.includes("/brand/signature/mdrt-tot-transparent.png")
     ) &&
     raw.html.includes("jieyuan165@gmail.com")
   ) {
