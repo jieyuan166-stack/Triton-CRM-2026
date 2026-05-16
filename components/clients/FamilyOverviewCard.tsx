@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { ArrowUpRight, ChevronDown, Network, UsersRound } from "lucide-react";
@@ -9,7 +10,6 @@ import { ClientAvatar } from "@/components/ui-shared/ClientAvatar";
 import { ClientNameDisplay } from "@/components/ui-shared/ClientNameDisplay";
 import { PolicyDataCard } from "@/components/ui-shared/PolicyDataCard";
 import { StatusBadge } from "@/components/ui-shared/StatusBadge";
-import { UniversalDataCard } from "@/components/ui-shared/UniversalDataCard";
 import { calculateClientTags } from "@/lib/client-tags";
 import { clientPath } from "@/lib/client-slug";
 import { buildFamilySummary } from "@/lib/family";
@@ -133,7 +133,7 @@ export function FamilyOverviewCard({
       icon={<UsersRound className="h-4 w-4 text-slate-400" />}
       className="overflow-hidden"
     >
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(280px,0.8fr)]">
         <div className="space-y-5">
           <section>
             <div className="mb-3 flex items-center justify-between gap-3">
@@ -149,40 +149,55 @@ export function FamilyOverviewCard({
                 </span>
               </p>
             </div>
-            <div className="grid gap-2 md:grid-cols-2">
+            <div className="grid gap-3 xl:grid-cols-2">
               {summary.linkedClients.map((link) => (
-                <UniversalDataCard
+                <Link
                   key={link.relationshipId}
                   href={clientPath(link.client)}
-                  accentColor={toneByClientId.get(link.client.id)?.dot ?? "#CBD5E1"}
                   className={cn(
-                    "rounded-xl border p-5 shadow-none",
+                    "block rounded-xl border border-l-[3px] p-5 shadow-none transition-colors hover:bg-white",
                     toneByClientId.get(link.client.id)?.bg ?? "bg-slate-50/70",
                     toneByClientId.get(link.client.id)?.border ?? "border-slate-100"
                   )}
-                  title={
-                    <span className="inline-flex items-center gap-3">
+                  style={{
+                    borderLeftColor:
+                      toneByClientId.get(link.client.id)?.dot ?? "#CBD5E1",
+                  }}
+                >
+                  <div className="flex min-w-0 items-start gap-3">
+                    <div className="shrink-0">
                       <ClientAvatar
                         firstName={link.client.firstName}
                         lastName={link.client.lastName}
                         size="sm"
                       />
-                      <ClientNameDisplay
-                        firstName={link.client.firstName}
-                        lastName={link.client.lastName}
-                        isVip={calculateClientTags(link.client, policies).includes("VIP")}
-                        size="sm"
-                      />
-                    </span>
-                  }
-                  subtitle={`${link.client.email}${link.client.phone ? ` · ${link.client.phone}` : ""}`}
-                  badges={
-                    <>
-                      <StatusBadge kind="custom" label={link.relationship} className="bg-white/80 text-slate-600 ring-slate-100" />
-                      <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-slate-300" />
-                    </>
-                  }
-                />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="whitespace-nowrap">
+                          <ClientNameDisplay
+                            firstName={link.client.firstName}
+                            lastName={link.client.lastName}
+                            isVip={calculateClientTags(link.client, policies).includes("VIP")}
+                            size="sm"
+                          />
+                        </span>
+                        <StatusBadge
+                          kind="custom"
+                          label={link.relationship}
+                          className="bg-white/80 text-slate-600 ring-slate-100"
+                        />
+                      </div>
+                      <p className="mt-1 break-words text-xs leading-relaxed text-slate-500">
+                        {link.client.email}
+                        {link.client.phone ? (
+                          <span className="whitespace-nowrap"> · {link.client.phone}</span>
+                        ) : null}
+                      </p>
+                    </div>
+                    <ArrowUpRight className="mt-1 h-3.5 w-3.5 shrink-0 text-slate-300" />
+                  </div>
+                </Link>
               ))}
             </div>
           </section>
@@ -325,7 +340,7 @@ function PortfolioSection({
             className="h-2 w-2 shrink-0 rounded-full"
             style={{ backgroundColor: accentColor }}
           />
-          <span className="truncate text-sm font-bold uppercase tracking-widest text-slate-700">
+          <span className="min-w-0 text-sm font-bold uppercase leading-snug tracking-widest text-slate-700">
             {title}
           </span>
           <ChevronDown

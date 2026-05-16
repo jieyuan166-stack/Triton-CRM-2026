@@ -10,9 +10,8 @@ import { ClientHeader } from "@/components/clients/ClientHeader";
 import { ClientInfoCard } from "@/components/clients/ClientInfoCard";
 import { ClientNotesCard } from "@/components/clients/ClientNotesCard";
 import { ClientPoliciesCard } from "@/components/clients/ClientPoliciesCard";
-import { CommunicationLog } from "@/components/clients/CommunicationLog";
+import { ActivityTimeline } from "@/components/clients/ActivityTimeline";
 import { FamilyOverviewCard } from "@/components/clients/FamilyOverviewCard";
-import { FollowUpTimeline } from "@/components/clients/FollowUpTimeline";
 import { LinkedFamilyCompactCard } from "@/components/clients/LinkedFamilyCompactCard";
 import { NewClientDialog } from "@/components/clients/NewClientDialog";
 import { EmptyState } from "@/components/ui-shared/EmptyState";
@@ -110,9 +109,8 @@ export default function ClientDetailPage() {
           {[
             ["Info", "#info"],
             ["Policies", "#policies"],
-            ["Follow-ups", "#follow-ups"],
             ["Family", "#family"],
-            ["Communication", "#communication"],
+            ["Activity", "#activity"],
           ].map(([label, href]) => (
             <a
               key={href}
@@ -138,16 +136,17 @@ export default function ClientDetailPage() {
                 relationships={relationships}
               />
             ) : null}
+            <ActivityTimeline
+              clientId={client.id}
+              followUps={followUps}
+              history={fullClient?.emailHistory}
+            />
           </div>
         </aside>
 
         <main className="min-w-0 space-y-4 md:space-y-6">
           <section id="policies" className="scroll-mt-28">
             <ClientPoliciesCard clientId={client.id} policies={policies} />
-          </section>
-
-          <section id="follow-ups" className="scroll-mt-28">
-            <FollowUpTimeline clientId={client.id} followUps={followUps} />
           </section>
 
           {fullClient ? (
@@ -160,10 +159,6 @@ export default function ClientDetailPage() {
               />
             </section>
           ) : null}
-
-          <section id="communication" className="scroll-mt-28">
-            <CommunicationLog clientId={client.id} history={fullClient?.emailHistory} />
-          </section>
         </main>
       </div>
 

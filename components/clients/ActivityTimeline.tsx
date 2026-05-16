@@ -1,0 +1,470 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import {
+  CalendarDays,
+  ListChecks,
+  Mail,
+  MessageCircle,
+  MessageSquare,
+  Phone,
+  Plus,
+  StickyNote,
+  Trash2,
+  Users,
+} from "lucide-react";
+import { toast } from "sonner";
+import { useData } from "@/components/providers/DataProvider";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { ConfirmDialog } from "@/components/ui-shared/ConfirmDialog";
+import {
+  EmailHistoryPreviewDialog,
+  type EmailHistoryPreview,
+} from "@/components/dashboard/EmailHistoryPreviewDialog";
+import {
+  isManualCommunicationLabel,
+  MANUAL_COMMUNICATION_TYPES,
+  type ManualCommunicationType,
+} from "@/lib/communication-log";
+import { formatDate } from "@/lib/date-utils";
+import { cn } from "@/lib/utils";
+import type { EmailHistoryEntry, FollowUp } from "@/lib/types";
+
+interface ActivityTimelineProps {
+  clientId: string;
+  followUps: FollowUp[];
+  history: EmailHistoryEntry[] | undefined;
+}
+
+type ActivityFilter = "all" | "notes" | "emails";
+type ActivitySource = "followup" | "history";
+
+interface ActivityItem {
+  id: string;
+  source: ActivitySource;
+  tab: Exclude<ActivityFilter, "all">;
+  date: string;
+  title: string;
+  subtitle: string;
+  body?: string;
+  icon: React.ElementType;
+  accentClassName: string;
+  muted: boolean;
+  preview: EmailHistoryPreview;
+  rawId: string;
+}
+
+const FILTERS: Array<{ value: ActivityFilter; label: string }> = [
+  { value: "all", label: "All" },
+  { value: "notes", label: "Notes" },
+  { value: "emails", label: "Emails" },
+];
+
+const MANUAL_ICON: Record<ManualCommunicationType, React.ElementType> = {
+  "Phone Call": Phone,
+  Meeting: Users,
+  WeChat: MessageCircle,
+  "Text Message": MessageSquare,
+  Note: StickyNote,
+  "External Email": Mail,
+};
+
+const FOLLOWUP_ICON: Record<FollowUp["type"], React.ElementType> = {
+  Phone,
+  Email: Mail,
+  Meeting: Users,
+  Note: StickyNote,
+  WeChat: MessageCircle,
+};
+
+const FOLLOWUP_ACCENT: Record<FollowUp["type"], string> = {
+  Phone: "bg-blue-50 text-blue-600 ring-blue-100",
+  Email: "bg-purple-50 text-purple-600 ring-purple-100",
+  Meeting: "bg-emerald-50 text-emerald-600 ring-emerald-100",
+  Note: "bg-slate-100 text-slate-500 ring-slate-200",
+  WeChat: "bg-amber-50 text-amber-600 ring-amber-100",
+};
+
+function formatTimestamp(iso: string): string {
+  const d = new Date(iso);
+  const time = d.toLocaleTimeString("en-CA", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  return `${formatDate(iso)} ${time}`;
+}
+
+function historyDescription(entry: EmailHistoryEntry): string {
+  if (isManualCommunicationLabel(entry.templateLabel)) {
+    return entry.subject?.trim()
+      ? `${entry.templateLabel}: ${entry.subject.trim()}`
+      : entry.templateLabel;
+  }
+  if (entry.templateLabel) return `Sent "${entry.templateLabel}" Email`;
+  return entry.subject?.trim() ? `Sent email - ${entry.subject.trim()}` : "Sent email";
+}
+
+function followUpTimestamp(followUp: FollowUp): string {
+  return followUp.createdAt || `${followUp.date}T12:00:00.000`;
+}
+
+export function ActivityTimeline({
+  clientId,
+  followUps,
+  history,
+}: ActivityTimelineProps) {
+  const { appendEmailHistory, deleteEmailHistory, deleteFollowUp, getClient } =
+    useData();
+  const [filter, setFilter] = useState<ActivityFilter>("all");
+  const [adding, setAdding] = useState(false);
+  const [manualType, setManualType] =
+    useState<ManualCommunicationType>("Phone Call");
+  const [manualSummary, setManualSummary] = useState("");
+  const [manualDetails, setManualDetails] = useState("");
+  const [preview, setPreview] = useState<EmailHistoryPreview | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ActivityItem | null>(null);
+
+  const items = useMemo<ActivityItem[]>(() => {
+    const followUpItems = followUps.map((followUp) => {
+      const Icon = FOLLOWUP_ICON[followUp.type];
+      return {
+        id: `followup:${followUp.id}`,
+        rawId: followUp.id,
+        source: "followup" as const,
+        tab: "notes" as const,
+        date: followUpTimestamp(followUp),
+        title: followUp.summary,
+        subtitle: `${followUp.type}${followUp.createdByName ? ` · ${followUp.createdByName}` : ""}`,
+        body: followUp.details,
+        icon: Icon,
+        accentClassName: FOLLOWUP_ACCENT[followUp.type],
+        muted: false,
+        preview: {
+          date: followUpTimestamp(followUp),
+          subject: followUp.summary,
+          body: followUp.details ?? "",
+          templateLabel:
+            followUp.type === "Phone"
+              ? "Phone Call"
+              : followUp.type === "Email"
+                ? "External Email"
+                : followUp.type,
+        },
+      };
+    });
+
+    const historyItems = (history ?? []).map((entry) => {
+      const manualLabel = isManualCommunicationLabel(entry.templateLabel)
+        ? entry.templateLabel
+        : undefined;
+      const isManual = !!manualLabel;
+      const isExternalEmail = entry.templateLabel === "External Email";
+      const Icon = manualLabel ? MANUAL_ICON[manualLabel] : Mail;
+      return {
+        id: `history:${entry.id}`,
+        rawId: entry.id,
+        source: "history" as const,
+        tab: isManual && !isExternalEmail ? "notes" as const : "emails" as const,
+        date: entry.date,
+        title: historyDescription(entry),
+        subtitle: isManual
+          ? isExternalEmail
+            ? "External email"
+            : "Manual log"
+          : "System email",
+        body: entry.body,
+        icon: Icon,
+        accentClassName:
+          isManual && !isExternalEmail
+            ? "bg-blue-50 text-blue-600 ring-blue-100"
+            : "bg-slate-100 text-slate-400 ring-slate-200",
+        muted: !isManual || isExternalEmail,
+        preview: {
+          to: getClient(clientId)?.email,
+          date: entry.date,
+          subject: entry.subject,
+          body: entry.body,
+          templateLabel: entry.templateLabel,
+        },
+      };
+    });
+
+    return [...followUpItems, ...historyItems].sort((a, b) =>
+      a.date < b.date ? 1 : -1
+    );
+  }, [clientId, followUps, getClient, history]);
+
+  const filteredItems =
+    filter === "all" ? items : items.filter((item) => item.tab === filter);
+
+  function resetManualForm() {
+    setAdding(false);
+    setManualType("Phone Call");
+    setManualSummary("");
+    setManualDetails("");
+  }
+
+  function handleManualSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    const summary = manualSummary.trim();
+    if (!summary) return;
+    const saved = appendEmailHistory(clientId, {
+      subject: summary,
+      body: manualDetails.trim(),
+      templateLabel: manualType,
+    });
+    if (!saved) {
+      toast.error("Unable to save activity.");
+      return;
+    }
+    toast.success("Activity added", { description: manualType });
+    resetManualForm();
+  }
+
+  function confirmDelete() {
+    if (!deleteTarget) return;
+    if (deleteTarget.source === "followup") {
+      const ok = deleteFollowUp(deleteTarget.rawId);
+      if (!ok) {
+        toast.error("Could not delete follow-up.");
+        return;
+      }
+      toast.success("Follow-up deleted.");
+      return;
+    }
+    const removed = deleteEmailHistory(clientId, [deleteTarget.rawId]);
+    if (!removed) {
+      toast.error("Could not delete activity.");
+      return;
+    }
+    toast.success("Activity deleted.");
+  }
+
+  return (
+    <>
+      <div id="activity" className="scroll-mt-28 rounded-xl border border-slate-200 bg-card shadow-sm">
+        <div className="border-b border-slate-100 px-5 py-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-bold uppercase tracking-widest text-slate-700">
+                Activity Timeline
+              </h3>
+              <p className="mt-0.5 text-xs text-triton-muted">
+                Client touchpoints, notes, and sent emails.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 shrink-0"
+              onClick={() => setAdding((value) => !value)}
+            >
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              {adding ? "Close" : "Add"}
+            </Button>
+          </div>
+
+          <div className="mt-4 inline-flex rounded-full bg-slate-50 p-1 ring-1 ring-slate-100">
+            {FILTERS.map((item) => (
+              <button
+                key={item.value}
+                type="button"
+                onClick={() => setFilter(item.value)}
+                className={cn(
+                  "rounded-full px-3 py-1 text-[11px] font-semibold transition-colors",
+                  filter === item.value
+                    ? "bg-white text-[#002147] shadow-sm"
+                    : "text-slate-400 hover:text-slate-600"
+                )}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {adding ? (
+          <form
+            onSubmit={handleManualSubmit}
+            className="m-4 rounded-xl border border-slate-100 bg-slate-50/70 p-4"
+          >
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="activity-type" className="label-caps">
+                  Type
+                </Label>
+                <Select
+                  value={manualType}
+                  onValueChange={(value) =>
+                    setManualType(value as ManualCommunicationType)
+                  }
+                >
+                  <SelectTrigger id="activity-type" className="h-9 bg-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MANUAL_COMMUNICATION_TYPES.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="activity-summary" className="label-caps">
+                  Summary <span className="text-accent-red">*</span>
+                </Label>
+                <Input
+                  id="activity-summary"
+                  value={manualSummary}
+                  onChange={(event) => setManualSummary(event.target.value)}
+                  placeholder="e.g. Discussed policy review"
+                  className="h-9 bg-white"
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="activity-details" className="label-caps">
+                  Details
+                </Label>
+                <Textarea
+                  id="activity-details"
+                  value={manualDetails}
+                  onChange={(event) => setManualDetails(event.target.value)}
+                  placeholder="Optional details..."
+                  rows={3}
+                  className="resize-none bg-white"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" size="sm" variant="ghost" onClick={resetManualForm}>
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  className="bg-navy text-white hover:bg-navy/90"
+                  disabled={!manualSummary.trim()}
+                >
+                  Save
+                </Button>
+              </div>
+            </div>
+          </form>
+        ) : null}
+
+        {filteredItems.length === 0 ? (
+          <div className="px-5 pb-5 pt-4">
+            <div className="rounded-xl border border-dashed border-slate-200 px-4 py-7 text-center">
+              <ListChecks className="mx-auto h-5 w-5 text-slate-300" />
+              <p className="mt-2 text-sm font-medium text-slate-600">
+                No activity yet
+              </p>
+              <p className="mt-1 text-xs text-slate-400">
+                {filter === "emails"
+                  ? "Sent emails will appear here."
+                  : filter === "notes"
+                    ? "Manual touchpoints and follow-ups will appear here."
+                    : "Add a note or send an email to start the timeline."}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <ul className="max-h-[38rem] overflow-y-auto px-4 py-3">
+            {filteredItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <li
+                  key={item.id}
+                  className={cn(
+                    "group rounded-xl px-2 py-2.5 transition-colors",
+                    item.muted
+                      ? "text-slate-400 hover:bg-slate-50"
+                      : "hover:bg-blue-50/40"
+                  )}
+                >
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      aria-label={`Preview ${item.title}`}
+                      onClick={() => setPreview(item.preview)}
+                      className={cn(
+                        "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ring-1 transition-colors",
+                        item.accentClassName
+                      )}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                    </button>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setPreview(item.preview)}
+                          className={cn(
+                            "min-w-0 text-left text-sm leading-snug",
+                            item.muted
+                              ? "font-normal text-slate-500"
+                              : "font-medium text-slate-800"
+                          )}
+                        >
+                          <span className="line-clamp-2">{item.title}</span>
+                        </button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          className="h-7 w-7 shrink-0 text-slate-300 opacity-0 transition-opacity hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100"
+                          aria-label={`Delete ${item.title}`}
+                          onClick={() => setDeleteTarget(item)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-400">
+                        <span className="inline-flex items-center gap-1">
+                          <CalendarDays className="h-3 w-3" />
+                          {formatTimestamp(item.date)}
+                        </span>
+                        {item.subtitle ? <span>{item.subtitle}</span> : null}
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      <EmailHistoryPreviewDialog
+        open={!!preview}
+        onOpenChange={(open) => {
+          if (!open) setPreview(null);
+        }}
+        email={preview}
+      />
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        title="Delete activity?"
+        description="This will permanently delete this activity entry. This action cannot be undone."
+        confirmLabel="Delete"
+        onConfirm={confirmDelete}
+      />
+    </>
+  );
+}
