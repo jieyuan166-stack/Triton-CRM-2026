@@ -3,7 +3,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarClock, Mail, Send } from "lucide-react";
+import { CalendarClock, Mail, Send, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useData } from "@/components/providers/DataProvider";
 import { useSettings } from "@/components/providers/SettingsProvider";
@@ -12,6 +13,7 @@ import { EmptyState } from "@/components/ui-shared/EmptyState";
 import { ClientNameDisplay } from "@/components/ui-shared/ClientNameDisplay";
 import { UniversalDataCard } from "@/components/ui-shared/UniversalDataCard";
 import { StatusBadge } from "@/components/ui-shared/StatusBadge";
+import { ConfirmDialog } from "@/components/ui-shared/ConfirmDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import {
@@ -59,7 +61,7 @@ function resolvePremiumReminderDate(input: string, today = new Date()) {
 }
 
 export function UpcomingPremiums() {
-  const { policies, clients } = useData();
+  const { policies, clients, deleteClient } = useData();
   const { settings } = useSettings();
   const renewalTpl = settings.templates.find((t) => t.id === "renewal") ?? { subject: "", body: "", attachments: [] };
 
@@ -121,6 +123,7 @@ export function UpcomingPremiums() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [payload, setPayload] = useState<EmailPreviewPayload | null>(null);
   const [sentPreview, setSentPreview] = useState<EmailHistoryPreview | null>(null);
+  const [deletingClientId, setDeletingClientId] = useState<string | null>(null);
 
   const allIds = upcomingRows.map((r) => r.id);
   const allChecked = allIds.length > 0 && allIds.every((id) => selected.has(id));
@@ -218,6 +221,28 @@ export function UpcomingPremiums() {
   }
 
   function clearSelection() { setSelected(new Set()); }
+
+  const deletingClient = deletingClientId
+    ? clients.find((client) => client.id === deletingClientId)
+    : null;
+
+  function handleDeleteClient() {
+    if (!deletingClient) return;
+    const name = `${deletingClient.firstName} ${deletingClient.lastName}`.trim();
+    const ok = deleteClient(deletingClient.id);
+    if (!ok) {
+      toast.error("Could not delete client");
+      return;
+    }
+    setSelected((prev) => {
+      const next = new Set(prev);
+      upcomingRows
+        .filter((policy) => policy.clientId === deletingClient.id)
+        .forEach((policy) => next.delete(policy.id));
+      return next;
+    });
+    toast.success("Client deleted", { description: name });
+  }
 
   return (
     <>
@@ -322,14 +347,26 @@ export function UpcomingPremiums() {
                           )
                         }
                         actions={
-                          canEmail ? (
-                            <button type="button" aria-label={`Email ${clientName}`} onClick={() => openSingle(p.id)}
-                              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-accent-blue/10 hover:text-accent-blue">
-                              <Mail className="h-4 w-4" />
-                            </button>
-                          ) : (
-                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-200"><Mail className="h-4 w-4" /></span>
-                          )
+                          <div className="flex items-center gap-1">
+                            {canEmail ? (
+                              <button type="button" aria-label={`Email ${clientName}`} onClick={() => openSingle(p.id)}
+                                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-accent-blue/10 hover:text-accent-blue">
+                                <Mail className="h-4 w-4" />
+                              </button>
+                            ) : (
+                              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-200"><Mail className="h-4 w-4" /></span>
+                            )}
+                            {client ? (
+                              <button
+                                type="button"
+                                aria-label={`Delete ${clientName}`}
+                                onClick={() => setDeletingClientId(client.id)}
+                                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-300 transition-colors hover:bg-accent-red/10 hover:text-accent-red"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            ) : null}
+                          </div>
                         }
                       />
                     </li>
@@ -409,6 +446,26 @@ export function UpcomingPremiums() {
           if (!open) setSentPreview(null);
         }}
         email={sentPreview}
+      />
+      <ConfirmDialog
+        open={!!deletingClientId}
+        onOpenChange={(open) => {
+          if (!open) setDeletingClientId(null);
+        }}
+        title="Are you absolutely sure?"
+        description={
+          <>
+            This action cannot be undone. This will permanently delete{" "}
+            <span className="font-semibold">
+              {deletingClient
+                ? `${deletingClient.firstName} ${deletingClient.lastName}`
+                : "this client"}
+            </span>{" "}
+            and all associated policies, follow-ups, relationships, and client data.
+          </>
+        }
+        confirmLabel="Delete"
+        onConfirm={handleDeleteClient}
       />
     </>
   );
