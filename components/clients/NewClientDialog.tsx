@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import {
   Check,
   Loader2,
+  MailPlus,
   Plus,
   Search,
   Trash2,
@@ -96,6 +97,14 @@ const DEFAULTS: Partial<ClientFormValues> = {
   birthday: undefined,
   notes: "",
 };
+
+function emailSlugPart(value: string | undefined) {
+  return (value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ".")
+    .replace(/^\.+|\.+$/g, "");
+}
 
 interface RelationshipDraft {
   id: string;
@@ -187,6 +196,8 @@ export function NewClientDialog({
 
   const phone = watch("phone") ?? "";
   const postalCode = watch("postalCode") ?? "";
+  const firstName = watch("firstName") ?? "";
+  const lastName = watch("lastName") ?? "";
 
   function handlePhoneChange(e: ChangeEvent<HTMLInputElement>) {
     setValue("phone", formatPhone(e.target.value), { shouldValidate: false });
@@ -195,6 +206,67 @@ export function NewClientDialog({
     setValue("postalCode", formatPostalCode(e.target.value), {
       shouldValidate: false,
     });
+  }
+
+  function generateNoEmailAddress() {
+    const first = emailSlugPart(firstName);
+    const last = emailSlugPart(lastName);
+    const baseLocal = [first, last, "noemail"].filter(Boolean).join(".");
+    const local = baseLocal || "client.noemail";
+    let candidate = `${local}@tritonwealth.ca`;
+    let index = 2;
+    const currentClientId = client?.id;
+    const exists = (email: string) =>
+      clients.some(
+        (existing) =>
+          existing.id !== currentClientId &&
+          existing.email.toLowerCase() === email.toLowerCase()
+      );
+
+    while (exists(candidate)) {
+      candidate = `${local}${index}@tritonwealth.ca`;
+      index += 1;
+    }
+
+    setValue("email", candidate, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+  }
+
+  function copyAddressFromClientIfEmpty(linkedClientId: string | undefined) {
+    if (isEdit || !linkedClientId) return;
+    const linked = clients.find((candidate) => candidate.id === linkedClientId);
+    if (!linked) return;
+
+    const currentStreet = watch("streetAddress")?.trim();
+    const currentUnit = watch("unit")?.trim();
+    const currentCity = watch("city")?.trim();
+    const currentProvince = watch("province");
+    const currentPostal = watch("postalCode")?.trim();
+
+    if (!currentStreet && linked.streetAddress) {
+      setValue("streetAddress", linked.streetAddress, { shouldDirty: true });
+    }
+    if (!currentUnit && linked.unit) {
+      setValue("unit", linked.unit, { shouldDirty: true });
+    }
+    if (!currentCity && linked.city) {
+      setValue("city", linked.city, { shouldDirty: true });
+    }
+    if (!currentProvince && linked.province) {
+      setValue("province", linked.province, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+    if (!currentPostal && linked.postalCode) {
+      setValue("postalCode", linked.postalCode, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
   }
 
   function validateRelationshipDrafts() {
@@ -336,13 +408,30 @@ export function NewClientDialog({
                 <Label htmlFor="cli-email">
                   Email <span className="text-accent-red">*</span>
                 </Label>
-                <Input
-                  id="cli-email"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="name@example.com"
-                  {...register("email")}
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="cli-email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="name@example.com"
+                    className="min-w-0 flex-1"
+                    {...register("email")}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="shrink-0 text-slate-500 hover:text-accent-blue"
+                    title="Generate no-email placeholder"
+                    aria-label="Generate no-email placeholder"
+                    onClick={generateNoEmailAddress}
+                  >
+                    <MailPlus className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  Use the icon if the client does not have an email.
+                </p>
                 <FieldError message={errors.email?.message} />
               </div>
               <div className="space-y-1.5">
@@ -510,6 +599,7 @@ export function NewClientDialog({
                                 : item
                             )
                           );
+                          copyAddressFromClientIfEmpty(id);
                         }}
                       />
                       <Select
