@@ -13,6 +13,7 @@ import { ClientPoliciesCard } from "@/components/clients/ClientPoliciesCard";
 import { CommunicationLog } from "@/components/clients/CommunicationLog";
 import { FamilyOverviewCard } from "@/components/clients/FamilyOverviewCard";
 import { FollowUpTimeline } from "@/components/clients/FollowUpTimeline";
+import { LinkedFamilyCompactCard } from "@/components/clients/LinkedFamilyCompactCard";
 import { NewClientDialog } from "@/components/clients/NewClientDialog";
 import { EmptyState } from "@/components/ui-shared/EmptyState";
 import { ConfirmDialog } from "@/components/ui-shared/ConfirmDialog";
@@ -107,11 +108,11 @@ export default function ClientDetailPage() {
       <nav className="sticky top-16 z-20 -mx-2 mb-4 overflow-x-auto border-y border-slate-100 bg-triton-bg/90 px-2 py-2 backdrop-blur md:mb-6">
         <div className="flex min-w-max items-center gap-2">
           {[
-            ["Overview", "#overview"],
+            ["Info", "#info"],
             ["Policies", "#policies"],
+            ["Follow-ups", "#follow-ups"],
             ["Family", "#family"],
             ["Communication", "#communication"],
-            ["Follow-ups", "#follow-ups"],
           ].map(([label, href]) => (
             <a
               key={href}
@@ -124,41 +125,46 @@ export default function ClientDetailPage() {
         </div>
       </nav>
 
-      {/* Responsive layout:
-          - < xl: stacked for tablet/narrow readability
-          - xl: info | policies | follow-ups */}
-      <div className="grid grid-cols-1 gap-4 md:gap-6 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)_minmax(280px,0.8fr)]">
-        <div id="overview" className="min-w-0 scroll-mt-28">
-          <div className="space-y-4 md:space-y-6">
+      <div className="grid grid-cols-1 gap-4 md:gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+        <aside id="info" className="min-w-0 scroll-mt-28">
+          <div className="space-y-4 md:space-y-6 xl:sticky xl:top-28">
             <ClientInfoCard client={client} onEdit={() => setEditOpen(true)} />
             <ClientNotesCard client={client} />
+            {fullClient ? (
+              <LinkedFamilyCompactCard
+                client={fullClient}
+                clients={clients}
+                policies={allPolicies}
+                relationships={relationships}
+              />
+            ) : null}
           </div>
-        </div>
-        <div id="policies" className="min-w-0 scroll-mt-28">
-          <ClientPoliciesCard clientId={client.id} policies={policies} />
-        </div>
-        <div id="follow-ups" className="min-w-0 scroll-mt-28">
-          <FollowUpTimeline clientId={client.id} followUps={followUps} />
-        </div>
-      </div>
+        </aside>
 
-      {fullClient ? (
-        <div id="family" className="mt-4 scroll-mt-28 md:mt-6">
-          <FamilyOverviewCard
-            client={fullClient}
-            clients={clients}
-            policies={allPolicies}
-            relationships={relationships}
-          />
-        </div>
-      ) : null}
+        <main className="min-w-0 space-y-4 md:space-y-6">
+          <section id="policies" className="scroll-mt-28">
+            <ClientPoliciesCard clientId={client.id} policies={policies} />
+          </section>
 
-      {/* Communication Log — full width below the three-up grid so the
-          newest send is the first thing visible after Follow-ups, and so
-          long bodies have room to expand. Source is fullClient.emailHistory
-          (ClientWithStats doesn't carry emailHistory by design). */}
-      <div id="communication" className="mt-4 scroll-mt-28 md:mt-6">
-        <CommunicationLog clientId={client.id} history={fullClient?.emailHistory} />
+          <section id="follow-ups" className="scroll-mt-28">
+            <FollowUpTimeline clientId={client.id} followUps={followUps} />
+          </section>
+
+          {fullClient ? (
+            <section id="family" className="scroll-mt-28">
+              <FamilyOverviewCard
+                client={fullClient}
+                clients={clients}
+                policies={allPolicies}
+                relationships={relationships}
+              />
+            </section>
+          ) : null}
+
+          <section id="communication" className="scroll-mt-28">
+            <CommunicationLog clientId={client.id} history={fullClient?.emailHistory} />
+          </section>
+        </main>
       </div>
 
       <NewClientDialog
