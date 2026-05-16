@@ -133,8 +133,8 @@ export function FamilyOverviewCard({
       icon={<UsersRound className="h-4 w-4 text-slate-400" />}
       className="overflow-hidden"
     >
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(280px,0.8fr)]">
-        <div className="space-y-5">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+        <div className="space-y-5 xl:col-span-8">
           <section>
             <div className="mb-3 flex items-center justify-between gap-3">
               <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
@@ -149,7 +149,7 @@ export function FamilyOverviewCard({
                 </span>
               </p>
             </div>
-            <div className="grid gap-3 xl:grid-cols-2">
+            <div className="grid gap-3 2xl:grid-cols-2">
               {summary.linkedClients.map((link) => (
                 <Link
                   key={link.relationshipId}
@@ -164,22 +164,23 @@ export function FamilyOverviewCard({
                       toneByClientId.get(link.client.id)?.dot ?? "#CBD5E1",
                   }}
                 >
-                  <div className="flex min-w-0 items-start gap-3">
-                    <div className="shrink-0">
+                  <div className="flex min-w-0 flex-row items-center gap-4 text-left">
+                    <div className="shrink-0 self-start">
                       <ClientAvatar
                         firstName={link.client.firstName}
                         lastName={link.client.lastName}
                         size="sm"
                       />
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="whitespace-nowrap">
+                    <div className="flex min-w-0 flex-1 flex-col text-left">
+                      <div className="flex min-w-0 flex-row flex-wrap items-center gap-2 text-left">
+                        <span className="min-w-0 whitespace-nowrap">
                           <ClientNameDisplay
                             firstName={link.client.firstName}
                             lastName={link.client.lastName}
                             isVip={calculateClientTags(link.client, policies).includes("VIP")}
                             size="sm"
+                            className="max-w-full"
                           />
                         </span>
                         <StatusBadge
@@ -188,14 +189,14 @@ export function FamilyOverviewCard({
                           className="bg-white/80 text-slate-600 ring-slate-100"
                         />
                       </div>
-                      <p className="mt-1 break-words text-xs leading-relaxed text-slate-500">
-                        {link.client.email}
+                      <p className="mt-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-left text-sm leading-relaxed text-slate-500">
+                        <span>{link.client.email}</span>
                         {link.client.phone ? (
-                          <span className="whitespace-nowrap"> · {link.client.phone}</span>
+                          <span className="whitespace-nowrap text-xs"> · {link.client.phone}</span>
                         ) : null}
                       </p>
                     </div>
-                    <ArrowUpRight className="mt-1 h-3.5 w-3.5 shrink-0 text-slate-300" />
+                    <ArrowUpRight className="h-3.5 w-3.5 shrink-0 self-start text-slate-300" />
                   </div>
                 </Link>
               ))}
@@ -212,8 +213,8 @@ export function FamilyOverviewCard({
               </span>
             </div>
             {summary.policies.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-200 px-4 py-6 text-center">
-                <Network className="mx-auto h-5 w-5 text-slate-300" />
+              <div className="rounded-xl border border-dashed border-slate-200 px-4 py-6 text-left">
+                <Network className="h-5 w-5 text-slate-300" />
                 <p className="mt-2 text-sm font-medium text-slate-600">
                   No family products yet
                 </p>
@@ -268,7 +269,7 @@ export function FamilyOverviewCard({
           </section>
         </div>
 
-        <aside className="space-y-4 rounded-2xl bg-slate-50/70 p-4 ring-1 ring-slate-100">
+        <aside className="space-y-4 rounded-2xl bg-slate-50/70 p-4 text-left ring-1 ring-slate-100 xl:col-span-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
               Family Portfolio Summary
