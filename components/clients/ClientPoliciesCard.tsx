@@ -45,6 +45,13 @@ interface ClientPoliciesCardProps {
 
 const DEFAULT_VISIBLE_COUNT = 5;
 type PolicyQuickFilter = "all" | "joint" | "loan" | "corporate" | "pending";
+const FILTER_TRIGGER_CLASS =
+  "h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm shadow-none";
+const FILTER_CONTENT_PROPS = {
+  align: "start" as const,
+  sideOffset: 8,
+  className: "z-50",
+};
 
 function clusterByCarrier(items: Policy[]) {
   return [...items].sort((a, b) => {
@@ -142,22 +149,22 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
                   className="h-9 pl-9"
                 />
               </div>
-              <div className="grid grid-cols-3 gap-2 lg:w-[26rem]">
+              <div className="flex flex-wrap gap-4 lg:justify-end">
                 <Select value={categoryFilter} onValueChange={(value) => setCategoryFilter(value as typeof categoryFilter)}>
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger className={cn(FILTER_TRIGGER_CLASS, "min-w-[9.5rem]")}>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent {...FILTER_CONTENT_PROPS}>
                     <SelectItem value="all">All Categories</SelectItem>
                     <SelectItem value="Insurance">Insurance</SelectItem>
                     <SelectItem value="Investment">Investment</SelectItem>
                   </SelectContent>
                 </Select>
                 <Select value={quickFilter} onValueChange={(value) => setQuickFilter(value as PolicyQuickFilter)}>
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger className={cn(FILTER_TRIGGER_CLASS, "min-w-[9.5rem]")}>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent {...FILTER_CONTENT_PROPS}>
                     <SelectItem value="all">All Types</SelectItem>
                     <SelectItem value="joint">Joint</SelectItem>
                     <SelectItem value="loan">Loan</SelectItem>
@@ -166,10 +173,10 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
                   </SelectContent>
                 </Select>
                 <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}>
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger className={cn(FILTER_TRIGGER_CLASS, "min-w-[9.5rem]")}>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent {...FILTER_CONTENT_PROPS}>
                     <SelectItem value="all">All Status</SelectItem>
                     <SelectItem value="active">Active</SelectItem>
                     <SelectItem value="pending">Pending</SelectItem>
@@ -251,8 +258,8 @@ function CompactPolicyRow({
   onToggle: () => void;
 }) {
   const primaryAmountLabel =
-    policy.category === "Investment" ? "Initial" : "Death Benefit";
-  const dateLabel = policy.category === "Investment" ? "Effective" : "Premium";
+    policy.category === "Investment" ? "Initial Amount" : "Death Benefit";
+  const dateLabel = policy.category === "Investment" ? "Effective Date" : "Due Date";
   const dateValue =
     policy.category === "Investment"
       ? policy.effectiveDate
@@ -264,7 +271,7 @@ function CompactPolicyRow({
 
   return (
     <div className={cn("transition-colors", className)}>
-      <div className="grid grid-cols-1 gap-3 px-5 py-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:px-6">
+      <div className="grid grid-cols-1 gap-3 px-5 py-3 lg:grid-cols-[minmax(0,1fr)_9.5rem_9.5rem_8rem_2.25rem] lg:items-center lg:gap-4 md:px-6">
         <button
           type="button"
           onClick={onToggle}
@@ -290,15 +297,17 @@ function CompactPolicyRow({
           </p>
         </button>
 
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 md:justify-end">
-          <Metric label={primaryAmountLabel} value={formatCurrency(policy.sumAssured)} />
+        <Metric label={primaryAmountLabel} value={formatCurrency(policy.sumAssured)} />
+        <div className={policy.category === "Investment" ? "hidden lg:block" : ""}>
           {policy.category !== "Investment" ? (
             <Metric
               label="Premium"
               value={`${formatCurrency(policy.premium)} /${PAYMENT_FREQUENCY_LABELS[policy.paymentFrequency].toLowerCase()}`}
             />
           ) : null}
-          <Metric label={dateLabel} value={dateValue} />
+        </div>
+        <Metric label={dateLabel} value={dateValue} />
+        <div className="flex justify-start lg:justify-end">
           <Link
             href={`/policies/${policy.id}`}
             className={cn(
@@ -328,9 +337,9 @@ function CompactPolicyRow({
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-[5.5rem]">
+    <div className="min-w-0 lg:text-right">
       <p className="label-caps leading-none">{label}</p>
-      <p className="mt-1 whitespace-nowrap text-xs font-medium text-slate-800">
+      <p className="mt-1 whitespace-nowrap font-finance text-xs font-medium text-slate-800">
         {value}
       </p>
     </div>
