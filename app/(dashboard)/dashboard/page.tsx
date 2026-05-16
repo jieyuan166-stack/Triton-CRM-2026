@@ -12,6 +12,7 @@ import { CategoryBreakdown } from "@/components/dashboard/CategoryBreakdown";
 import { calculateClientTags } from "@/lib/client-tags";
 import { formatCurrency, formatCurrencyShort } from "@/lib/format";
 import { calculatePortfolioMetrics } from "@/lib/portfolio-metrics";
+import { buildPremiumReminderState } from "@/lib/premium-reminders";
 
 export default function DashboardPage() {
   const { clients, policies } = useData();
@@ -21,6 +22,9 @@ export default function DashboardPage() {
   ).length;
 
   const metrics = calculatePortfolioMetrics(policies);
+  const premiumReminderState = buildPremiumReminderState({ policies, clients });
+  const pendingPremiumReminders = premiumReminderState.pendingPolicies.length;
+  const completedPremiumReminders = premiumReminderState.completedPolicies.length;
 
   return (
     <>
@@ -59,9 +63,17 @@ export default function DashboardPage() {
         <KPICard
           label="Premiums Due (30d)"
           value={metrics.premiumDueCount30d}
-          subValue={`Total premium ${formatCurrency(
-            metrics.premiumDueAmount30d
-          )}`}
+          subValue={
+            metrics.premiumDueCount30d === 0
+              ? "No policies due in the next 30 days"
+              : pendingPremiumReminders === 0
+                ? `All reminders completed · Total premium ${formatCurrency(
+                    metrics.premiumDueAmount30d
+                  )}`
+                : `${pendingPremiumReminders} reminders to send · ${completedPremiumReminders} completed · Total premium ${formatCurrency(
+                    metrics.premiumDueAmount30d
+                  )}`
+          }
           icon={TrendingUp}
           accent="amber"
           className={

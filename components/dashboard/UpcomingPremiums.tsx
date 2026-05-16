@@ -27,128 +27,52 @@ import {
 import { CARRIER_COLORS } from "@/lib/carrier-colors";
 import { clientPath } from "@/lib/client-slug";
 import { calculateClientTags } from "@/lib/client-tags";
-import {
-  daysUntil,
-  formatDate,
-  formatRelative,
-  resolveRecurringDate,
-} from "@/lib/date-utils";
+import { formatDate, formatRelative } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/format";
 import { applyTemplate } from "@/lib/templates";
-import type { Policy } from "@/lib/types";
+import {
+  buildPremiumReminderState,
+  PREMIUM_REMINDER_WINDOW_DAYS,
+} from "@/lib/premium-reminders";
 import { cn } from "@/lib/utils";
 
-const WINDOW_DAYS = 30;
-const RENEWAL_SUPPRESSION_DAYS = 30;
-const LOOKBACK_DAYS = 7;
-const MAX_SENT = 5;
-
-type PremiumReminderRow = {
-  id: string;
-  policy: Policy;
-  clientId: string;
-  isJointRecipient: boolean;
-};
-
-function resolvePremiumReminderDate(input: string, today = new Date()) {
-  const parts = /^(\d{2})-(\d{2})$/.exec(input) ?? /^\d{4}-(\d{2})-(\d{2})/.exec(input);
-  if (!parts) return resolveRecurringDate(input, today);
-
-  const month = Number(parts[1]);
-  const day = Number(parts[2]);
-  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  let target = new Date(today.getFullYear(), month - 1, day);
-  if (target < todayStart) {
-    target = new Date(today.getFullYear() + 1, month - 1, day);
-  }
-  return [
-    target.getFullYear(),
-    String(target.getMonth() + 1).padStart(2, "0"),
-    String(target.getDate()).padStart(2, "0"),
-  ].join("-");
-}
+const WINDOW_DAYS = PREMIUM_REMINDER_WINDOW_DAYS;
 
 export function UpcomingPremiums() {
   const { policies, clients, deleteClient } = useData();
   const { settings } = useSettings();
   const renewalTpl = settings.templates.find((t) => t.id === "renewal") ?? { subject: "", body: "", attachments: [] };
 
-  const now = Date.now();
-  const upcomingRows = useMemo(
-    () =>
-      policies
-        .filter((p) => {
-          if (p.status !== "active" || !p.premiumDate) return false;
-          const d = daysUntil(p.premiumDate);
-          if (d < 0 || d > WINDOW_DAYS) return false;
-          if (p.lastRenewalEmailAt) {
-            const sinceDays = (now - new Date(p.lastRenewalEmailAt).getTime()) / (1000 * 60 * 60 * 24);
-            if (sinceDays >= 0 && sinceDays < RENEWAL_SUPPRESSION_DAYS) return false;
-          }
-          return true;
-        })
-        .flatMap((policy): PremiumReminderRow[] => {
-          const rows: PremiumReminderRow[] = [
-            {
-              id: `${policy.id}:${policy.clientId}`,
-              policy,
-              clientId: policy.clientId,
-              isJointRecipient: false,
-            },
-          ];
-          if (
-            policy.isJoint &&
-            policy.jointWithClientId &&
-            policy.jointWithClientId !== policy.clientId &&
-            clients.some((client) => client.id === policy.jointWithClientId)
-          ) {
-            rows.push({
-              id: `${policy.id}:${policy.jointWithClientId}`,
-              policy,
-              clientId: policy.jointWithClientId,
-              isJointRecipient: true,
-            });
-          }
-          return rows;
-        })
-        .sort((a, b) => (a.policy.premiumDate! < b.policy.premiumDate! ? -1 : 1))
-        .slice(0, 8),
-    [clients, policies, now]
+  const premiumReminderState = useMemo(
+    () => buildPremiumReminderState({ policies, clients }),
+    [clients, policies]
   );
+  const upcomingRows = premiumReminderState.pendingRows;
+  const completedRows = premiumReminderState.completedRows;
 
-  // Sent: renewal emails from emailHistory (lookback 7 days)
-  const sentRows = useMemo(() => {
-    const cutoff = Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000;
-    const entries: {
-      id: string;
-      clientId: string;
-      date: string;
-      subject: string;
-      body: string;
-      templateLabel?: string;
-    }[] = [];
-    clients.forEach((c) => {
-      (c.emailHistory ?? []).forEach((e) => {
-        const label = e.templateLabel?.toLowerCase() ?? "";
-        const subject = e.subject?.toLowerCase() ?? "";
-        const isRenewal = label.includes("renewal") || subject.includes("renewal") || subject.includes("premium") || subject.includes("reminder");
-        if (!isRenewal) return;
-        const t = new Date(e.date).getTime();
-        if (Number.isNaN(t) || t < cutoff) return;
-        entries.push({
-          id: e.id,
-          clientId: c.id,
-          date: e.date,
-          subject: e.subject,
-          body: e.body,
-          templateLabel: e.templateLabel,
-        });
-      });
-    });
-    return entries
-      .sort((a, b) => (a.date > b.date ? -1 : 1))
-      .slice(0, MAX_SENT);
-  }, [clients]);
+  function findRenewalHistory(clientId: string, policyNumber: string) {
+    const client = clients.find((c) => c.id === clientId);
+    const renewalEntries = (client?.emailHistory ?? [])
+      .filter((entry) => {
+        const label = entry.templateLabel?.toLowerCase() ?? "";
+        const subject = entry.subject?.toLowerCase() ?? "";
+        return (
+          label.includes("renewal") ||
+          subject.includes("renewal") ||
+          subject.includes("premium") ||
+          subject.includes("reminder")
+        );
+      })
+      .sort((a, b) => (a.date > b.date ? -1 : 1));
+
+    return (
+      renewalEntries.find((entry) =>
+        policyNumber
+          ? entry.subject.includes(policyNumber) || entry.body.includes(policyNumber)
+          : false
+      ) ?? renewalEntries[0]
+    );
+  }
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState("upcoming");
@@ -183,9 +107,7 @@ export function UpcomingPremiums() {
     const clientName = `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim() || "client";
     const premiumAmount = formatCurrency(p.premium ?? 0);
     const faceAmount = formatCurrency(p.sumAssured ?? 0);
-    const dueDate = p.premiumDate
-      ? formatDate(resolvePremiumReminderDate(p.premiumDate))
-      : "";
+    const dueDate = formatDate(row.dueDate);
     const vars = {
       "Client Name": clientName, Carrier: p.carrier ?? "", "Policy Name": p.productName ?? "",
       "Policy Number": p.policyNumber ?? "",
@@ -216,9 +138,7 @@ export function UpcomingPremiums() {
           "client";
         const premiumAmount = formatCurrency(p.premium ?? 0);
         const faceAmount = formatCurrency(p.sumAssured ?? 0);
-        const dueDate = p.premiumDate
-          ? formatDate(resolvePremiumReminderDate(p.premiumDate))
-          : "";
+        const dueDate = formatDate(row.dueDate);
         const vars = {
           "Client Name": clientName,
           Carrier: p.carrier ?? "",
@@ -282,7 +202,7 @@ export function UpcomingPremiums() {
     <>
       <WidgetCard
         title="Upcoming Premiums"
-        description={`Due in the next ${WINDOW_DAYS} days`}
+        description={`${premiumReminderState.duePolicies.length} policies due in the next ${WINDOW_DAYS} days`}
         bodyFlush
         className="rounded-2xl border-slate-100 shadow-[0_4px_20px_-5px_rgba(15,23,42,0.06)]"
         icon={
@@ -302,7 +222,7 @@ export function UpcomingPremiums() {
           value={activeTab}
           onValueChange={(value) => {
             setActiveTab(value);
-            if (value === "sent") clearSelection();
+            if (value === "completed") clearSelection();
           }}
           className="w-full"
         >
@@ -318,12 +238,12 @@ export function UpcomingPremiums() {
                 </span>
               </TabsTrigger>
               <TabsTrigger
-                value="sent"
+                value="completed"
                 className="h-7 rounded-lg px-3 text-xs font-semibold text-slate-400 transition-colors data-active:bg-white data-active:text-slate-900 data-active:shadow-sm hover:text-slate-600"
               >
-                Sent{" "}
+                Completed{" "}
                 <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
-                  {sentRows.length}
+                  {completedRows.length}
                 </span>
               </TabsTrigger>
             </TabsList>
@@ -333,8 +253,16 @@ export function UpcomingPremiums() {
             {upcomingRows.length === 0 ? (
               <EmptyState
                 icon={CalendarClock}
-                title="No premiums due soon"
-                description="Nothing scheduled in the next month."
+                title={
+                  premiumReminderState.duePolicies.length > 0
+                    ? "All premium reminders completed"
+                    : "No premiums due soon"
+                }
+                description={
+                  premiumReminderState.duePolicies.length > 0
+                    ? `${premiumReminderState.duePolicies.length} policies are due in the next ${WINDOW_DAYS} days and all have been contacted.`
+                    : "Nothing scheduled in the next month."
+                }
                 compact
                 className="py-5 [&>div]:bg-slate-50 [&>div_svg]:text-slate-300 [&>h4]:text-slate-600 [&>p]:text-slate-400"
               />
@@ -373,7 +301,7 @@ export function UpcomingPremiums() {
                             <span>{clientName}</span>
                           )
                         }
-                        subtitle={`${row.isJointRecipient ? "Joint Policy · " : ""}${p.carrier} · ${p.productName || p.productType} · #${p.policyNumber} · ${formatCurrency(p.premium)} · ${formatRelative(p.premiumDate!)}`}
+                        subtitle={`${row.isJointRecipient ? "Joint Policy · " : ""}${p.carrier} · ${p.productName || p.productType} · #${p.policyNumber} · ${formatCurrency(p.premium)} · ${formatRelative(row.dueDate)}`}
                         badges={
                           p.category === "Investment" && p.isInvestmentLoan ? (
                             <StatusBadge kind="loan" lender={p.lender} />
@@ -411,22 +339,23 @@ export function UpcomingPremiums() {
             )}
           </TabsContent>
 
-          <TabsContent value="sent" className="mt-0">
-            {sentRows.length === 0 ? (
+          <TabsContent value="completed" className="mt-0">
+            {completedRows.length === 0 ? (
               <EmptyState
                 icon={Mail}
-                title="No sent emails yet"
-                description={`No renewal reminders sent in the last ${LOOKBACK_DAYS} days.`}
+                title="No completed reminders yet"
+                description={`No due policies have been contacted in this ${WINDOW_DAYS}-day window.`}
                 compact
                 className="[&>div]:bg-slate-50 [&>div_svg]:text-slate-300 [&>h4]:text-slate-600 [&>p]:text-slate-400"
               />
             ) : (
               <ul className="divide-y divide-slate-100">
-                {sentRows.map((row) => {
+                {completedRows.map((row) => {
                   const client = clients.find((c) => c.id === row.clientId);
                   const clientName = client ? `${client.firstName} ${client.lastName}` : "—";
+                  const history = findRenewalHistory(row.clientId, row.policy.policyNumber);
                   return (
-                    <li key={`${row.clientId}-${row.date}`} className="px-5 py-2 md:px-6">
+                    <li key={row.id} className="px-5 py-2 md:px-6">
                       <UniversalDataCard
                         accentColor="#CBD5E1"
                         className="rounded-lg border border-slate-100 bg-white/70 p-3 shadow-none"
@@ -444,19 +373,23 @@ export function UpcomingPremiums() {
                             <span>{clientName}</span>
                           )
                         }
-                        subtitle={`${row.templateLabel || row.subject} · ${formatRelative(row.date)}`}
-                        badges={<StatusBadge kind="custom" label="SENT" className="bg-slate-50 text-slate-500 ring-slate-100" />}
+                        subtitle={`${row.policy.carrier} · ${row.policy.productName || row.policy.productType} · #${row.policy.policyNumber} · due ${formatDate(row.dueDate)} · completed ${formatRelative(row.completedAt)}`}
+                        badges={<StatusBadge kind="custom" label="COMPLETED" className="bg-slate-50 text-slate-500 ring-slate-100" />}
                         actions={
                           <button
                             type="button"
-                            aria-label={`Preview sent email for ${clientName}`}
+                            aria-label={`Preview completed reminder for ${clientName}`}
                             onClick={() =>
                               setSentPreview({
                                 to: client?.email,
-                                date: row.date,
-                                subject: row.subject,
-                                body: row.body,
-                                templateLabel: row.templateLabel,
+                                date: history?.date ?? row.completedAt,
+                                subject:
+                                  history?.subject ??
+                                  `Renewal reminder completed · #${row.policy.policyNumber}`,
+                                body:
+                                  history?.body ??
+                                  `Reminder completed for ${row.policy.carrier} ${row.policy.productName || row.policy.productType} policy #${row.policy.policyNumber}.`,
+                                templateLabel: history?.templateLabel ?? "Renewal Reminder",
                               })
                             }
                             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-accent-blue/10 hover:text-accent-blue"

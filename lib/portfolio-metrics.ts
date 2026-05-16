@@ -1,4 +1,4 @@
-import { daysUntil } from "@/lib/date-utils";
+import { buildPremiumReminderState } from "@/lib/premium-reminders";
 import type { Policy } from "@/lib/types";
 
 export interface PortfolioMetrics {
@@ -42,11 +42,7 @@ export function calculatePortfolioMetrics(
   const activeInsurance = active.filter((policy) => policy.category === "Insurance");
   const activeInvestment = active.filter((policy) => policy.category === "Investment");
 
-  const premiumsDue = activeInsurance.filter((policy) => {
-    if (!policy.premiumDate) return false;
-    const dueInDays = daysUntil(policy.premiumDate);
-    return dueInDays >= 0 && dueInDays <= 30;
-  });
+  const premiumReminderState = buildPremiumReminderState({ policies: active });
 
   return {
     insuranceFaceAmount: activeInsurance.reduce(
@@ -59,10 +55,7 @@ export function calculatePortfolioMetrics(
     ),
     activeInsuranceCount: activeInsurance.length,
     activeInvestmentCount: activeInvestment.length,
-    premiumDueCount30d: premiumsDue.length,
-    premiumDueAmount30d: premiumsDue.reduce(
-      (sum, policy) => sum + (policy.premium || 0),
-      0
-    ),
+    premiumDueCount30d: premiumReminderState.duePolicies.length,
+    premiumDueAmount30d: premiumReminderState.duePremiumAmount,
   };
 }
