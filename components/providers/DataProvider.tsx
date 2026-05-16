@@ -43,6 +43,8 @@ interface DataContextValue {
   policies: Policy[];
   followUps: FollowUp[];
   relationships: ClientRelationship[];
+  dataStatus: "loading" | "ready" | "error";
+  dataError?: string;
 
   // queries
   getClient(id: string): Client | undefined;
@@ -297,6 +299,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [relationships, setRelationships] = useState<ClientRelationship[]>(
     initialData.relationships
   );
+  const [dataStatus, setDataStatus] =
+    useState<DataContextValue["dataStatus"]>("loading");
+  const [dataError, setDataError] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     let cancelled = false;
@@ -317,9 +322,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setPolicies(next.policies);
         setFollowUps(next.followUps);
         setRelationships(next.relationships);
+        setDataStatus("ready");
+        setDataError(undefined);
       })
       .catch((error) => {
         console.error("[DataProvider] Prisma data hydrate failed", error);
+        if (!cancelled) {
+          setDataStatus("error");
+          setDataError(error instanceof Error ? error.message : "Data load failed");
+        }
       });
 
     return () => {
@@ -822,6 +833,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       policies,
       followUps,
       relationships,
+      dataStatus,
+      dataError,
       getClient,
       getClientBySlug,
       resolveClientParam,
@@ -853,6 +866,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       policies,
       followUps,
       relationships,
+      dataStatus,
+      dataError,
       getClient,
       getClientBySlug,
       resolveClientParam,

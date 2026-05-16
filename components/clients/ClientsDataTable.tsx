@@ -119,7 +119,7 @@ function lastContactTone(lastContactAt?: string) {
 }
 
 export function ClientsDataTable() {
-  const { clients, policies, followUps, deleteClient } = useData();
+  const { clients, policies, followUps, deleteClient, dataStatus, dataError } = useData();
   const { settings } = useSettings();
 
   const [search, setSearch] = useState("");
@@ -364,6 +364,27 @@ export function ClientsDataTable() {
   const empty = result.total === 0;
   const hasFilters =
     !!search.trim() || provinces.length > 0 || tagsFilter.length > 0;
+
+  if (dataStatus === "loading") {
+    return <ClientsTableSkeleton />;
+  }
+
+  if (dataStatus === "error") {
+    return (
+      <div className="rounded-xl border border-rose-100 bg-white shadow-sm">
+        <EmptyState
+          icon={Users}
+          title="Could not load clients"
+          description={dataError ?? "Please refresh the page and try again."}
+          action={
+            <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+              Refresh
+            </Button>
+          }
+        />
+      </div>
+    );
+  }
 
   return (
     <>
@@ -788,5 +809,44 @@ export function ClientsDataTable() {
         onConfirm={handleConfirmDeleteBulk}
       />
     </>
+  );
+}
+
+function ClientsTableSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="h-9 w-full max-w-md animate-pulse rounded-lg bg-slate-100" />
+        <div className="flex flex-wrap gap-2">
+          <div className="h-9 w-28 animate-pulse rounded-lg bg-slate-100" />
+          <div className="h-9 w-28 animate-pulse rounded-lg bg-slate-100" />
+          <div className="h-9 w-36 animate-pulse rounded-lg bg-slate-100" />
+        </div>
+      </div>
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-100 bg-slate-50/60 px-5 py-3">
+          <div className="h-3 w-72 max-w-full animate-pulse rounded bg-slate-200" />
+        </div>
+        <div className="divide-y divide-slate-100">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <div key={index} className="grid grid-cols-[2.5rem_minmax(0,1.3fr)_minmax(0,1fr)_5rem_minmax(0,1fr)_7rem_3rem] items-center gap-3 px-5 py-4">
+              <div className="h-4 w-4 animate-pulse rounded bg-slate-100" />
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 animate-pulse rounded-full bg-slate-100" />
+                <div className="space-y-2">
+                  <div className="h-3 w-36 animate-pulse rounded bg-slate-200" />
+                  <div className="h-2.5 w-24 animate-pulse rounded bg-slate-100" />
+                </div>
+              </div>
+              <div className="h-3 w-40 animate-pulse rounded bg-slate-100" />
+              <div className="h-5 w-10 animate-pulse rounded-full bg-slate-100" />
+              <div className="h-5 w-32 animate-pulse rounded-full bg-slate-100" />
+              <div className="h-5 w-20 animate-pulse rounded-full bg-slate-100" />
+              <div className="h-7 w-7 animate-pulse rounded bg-slate-100" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }

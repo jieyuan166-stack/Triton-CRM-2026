@@ -6,7 +6,6 @@ import {
   Cell,
   Pie,
   PieChart,
-  ResponsiveContainer,
   Tooltip,
 } from "recharts";
 import { useData } from "@/components/providers/DataProvider";
@@ -15,7 +14,11 @@ import { WidgetCard } from "@/components/ui-shared/WidgetCard";
 import { CARRIER_COLORS } from "@/lib/carrier-colors";
 import { CARRIERS, INSURANCE_PRODUCTS, type ProductType } from "@/lib/types";
 import { formatCurrency, formatCurrencyShort } from "@/lib/format";
-import { dedupePolicies, getPolicyPortfolioAmount } from "@/lib/portfolio-metrics";
+import {
+  calculatePortfolioMetrics,
+  dedupePolicies,
+  getPolicyPortfolioAmount,
+} from "@/lib/portfolio-metrics";
 import { cn } from "@/lib/utils";
 
 type RingDatum = {
@@ -85,6 +88,17 @@ function centerValueClass(value: number) {
   );
 }
 
+function displayPercentages(data: RingDatum[], total: number) {
+  let accumulated = 0;
+  return data.map((item, index) => {
+    const isLast = index === data.length - 1;
+    const raw = total > 0 ? (item.value / total) * 100 : 0;
+    const pct = isLast ? Math.max(0, 100 - accumulated) : Math.floor(raw * 10) / 10;
+    if (!isLast) accumulated += pct;
+    return pct.toFixed(1);
+  });
+}
+
 function MiniRing({
   title,
   subtitle,
@@ -128,37 +142,37 @@ function MiniRing({
         </p>
       </div>
 
-      <div className="relative mx-auto h-36 w-36">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={data}
-              dataKey="value"
-              nameKey="name"
-              innerRadius={44}
-              outerRadius={62}
-              paddingAngle={3}
-              startAngle={90}
-              endAngle={-270}
-              stroke="#FFFFFF"
-              strokeWidth={3}
-            >
-              {data.map((item) => (
-                <Cell key={item.name} fill={item.color} />
-              ))}
-            </Pie>
-            <Tooltip
-              contentStyle={{
-                borderRadius: 10,
-                border: "1px solid #E2E8F0",
-                boxShadow: "0 10px 30px rgba(15, 23, 42, 0.08)",
-                fontSize: 12,
-                padding: "8px 10px",
-              }}
-              formatter={(value) => [formatCurrency(value as number), "Amount"]}
-            />
-          </PieChart>
-        </ResponsiveContainer>
+      <div className="relative mx-auto h-36 min-h-36 w-36 min-w-36">
+        <PieChart width={144} height={144}>
+          <Pie
+            data={data}
+            dataKey="value"
+            nameKey="name"
+            cx={72}
+            cy={72}
+            innerRadius={44}
+            outerRadius={62}
+            paddingAngle={3}
+            startAngle={90}
+            endAngle={-270}
+            stroke="#FFFFFF"
+            strokeWidth={3}
+          >
+            {data.map((item) => (
+              <Cell key={item.name} fill={item.color} />
+            ))}
+          </Pie>
+          <Tooltip
+            contentStyle={{
+              borderRadius: 10,
+              border: "1px solid #E2E8F0",
+              boxShadow: "0 10px 30px rgba(15, 23, 42, 0.08)",
+              fontSize: 12,
+              padding: "8px 10px",
+            }}
+            formatter={(value) => [formatCurrency(value as number), "Amount"]}
+          />
+        </PieChart>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
             Total
@@ -170,9 +184,9 @@ function MiniRing({
       </div>
 
       <ul className="mt-4 space-y-2.5">
-        {data.map((item) => {
-          const pct = total > 0 ? (item.value / total) * 100 : 0;
-          return (
+        {(() => {
+          const percentages = displayPercentages(data, total);
+          return data.map((item, index) => (
             <li key={item.name || "unknown"} className="grid grid-cols-[0.625rem_minmax(0,1fr)_auto_2.25rem] items-center gap-2.5">
               <span
                 className="h-2.5 w-2.5 shrink-0 rounded-full"
@@ -188,11 +202,11 @@ function MiniRing({
                 {formatCurrencyShort(item.value)}
               </span>
               <span className="w-9 text-right font-number text-[10px] text-slate-400">
-                {Math.trunc(pct)}%
+                {percentages[index]}%
               </span>
             </li>
-          );
-        })}
+          ));
+        })()}
       </ul>
     </div>
   );
@@ -201,12 +215,15 @@ function MiniRing({
 export function CategoryBreakdown({ policies: overridePolicies }: { policies?: ReturnType<typeof useData>["policies"] }) {
   const { policies } = useData();
   const sourcePolicies = overridePolicies ?? policies;
-  const filteredActivePolicies = dedupePolicies(sourcePolicies);
+  const filteredActivePolicies = dedupePolicies(sourcePolicies).filter(
+    (policy) => policy.status === "active"
+  );
+  const metrics = calculatePortfolioMetrics(sourcePolicies);
 
   const assets = buildAssetsByCompany(filteredActivePolicies);
   const protection = buildProtectionByProduct(filteredActivePolicies);
-  const assetTotal = assets.reduce((sum, item) => sum + item.value, 0);
-  const protectionTotal = protection.reduce((sum, item) => sum + item.value, 0);
+  const assetTotal = metrics.investmentAum;
+  const protectionTotal = metrics.insuranceFaceAmount;
 
   const hasAnyData = assetTotal > 0 || protectionTotal > 0;
 

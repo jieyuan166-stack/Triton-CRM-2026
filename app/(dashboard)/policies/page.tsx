@@ -43,7 +43,7 @@ function parseCarrier(value: string | null): Carrier | "all" {
 
 function PoliciesContent() {
   const searchParams = useSearchParams();
-  const { policies, getClient } = useData();
+  const { policies, getClient, dataStatus, dataError } = useData();
   const carrierFromUrl = parseCarrier(searchParams.get("carrier"));
   const [view, setView] = useState<"cards" | "table" | "client">("cards");
   const [search, setSearch] = useState("");
@@ -216,7 +216,27 @@ function PoliciesContent() {
       </div>
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        {policies.length === 0 ? (
+        {dataStatus === "loading" ? (
+          <PoliciesListSkeleton view={view} />
+        ) : dataStatus === "error" ? (
+          <EmptyState
+            icon={FileText}
+            title="Could not load policies"
+            description={dataError ?? "Please refresh the page and try again."}
+            action={
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "sm" }),
+                  "bg-white"
+                )}
+              >
+                Refresh
+              </button>
+            }
+          />
+        ) : policies.length === 0 ? (
           <EmptyState
             icon={FileText}
             title="No policies yet"
@@ -251,6 +271,61 @@ function PoliciesContent() {
         )}
       </div>
     </>
+  );
+}
+
+function PoliciesListSkeleton({ view }: { view: "cards" | "table" | "client" }) {
+  if (view === "table") {
+    return (
+      <div className="overflow-x-auto">
+        <div className="min-w-[980px]">
+          <div className="grid grid-cols-[1.6fr_1fr_1fr_0.7fr_0.8fr_0.7fr] gap-4 border-b border-slate-100 bg-slate-50/70 px-5 py-3">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="h-3 animate-pulse rounded bg-slate-200" />
+            ))}
+          </div>
+          <div className="divide-y divide-slate-100">
+            {Array.from({ length: 8 }).map((_, row) => (
+              <div key={row} className="grid grid-cols-[1.6fr_1fr_1fr_0.7fr_0.8fr_0.7fr] items-center gap-4 px-5 py-4">
+                {Array.from({ length: 6 }).map((__, index) => (
+                  <div
+                    key={index}
+                    className={cn(
+                      "h-3 animate-pulse rounded bg-slate-100",
+                      index === 0 ? "w-44" : "w-24"
+                    )}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="divide-y divide-slate-100">
+      {Array.from({ length: view === "client" ? 5 : 8 }).map((_, index) => (
+        <div key={index} className="p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="h-4 w-56 max-w-full animate-pulse rounded bg-slate-200" />
+              <div className="h-3 w-80 max-w-full animate-pulse rounded bg-slate-100" />
+            </div>
+            <div className="h-6 w-24 animate-pulse rounded-full bg-slate-100" />
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+            {Array.from({ length: 4 }).map((__, metric) => (
+              <div key={metric} className="space-y-2">
+                <div className="h-2.5 w-20 animate-pulse rounded bg-slate-100" />
+                <div className="h-3 w-24 animate-pulse rounded bg-slate-200" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
