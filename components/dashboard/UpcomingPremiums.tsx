@@ -40,6 +40,24 @@ const RENEWAL_SUPPRESSION_DAYS = 30;
 const LOOKBACK_DAYS = 7;
 const MAX_SENT = 5;
 
+function resolvePremiumReminderDate(input: string, today = new Date()) {
+  const parts = /^(\d{2})-(\d{2})$/.exec(input) ?? /^\d{4}-(\d{2})-(\d{2})/.exec(input);
+  if (!parts) return resolveRecurringDate(input, today);
+
+  const month = Number(parts[1]);
+  const day = Number(parts[2]);
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  let target = new Date(today.getFullYear(), month - 1, day);
+  if (target < todayStart) {
+    target = new Date(today.getFullYear() + 1, month - 1, day);
+  }
+  return [
+    target.getFullYear(),
+    String(target.getMonth() + 1).padStart(2, "0"),
+    String(target.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
 export function UpcomingPremiums() {
   const { policies, clients } = useData();
   const { settings } = useSettings();
@@ -130,7 +148,7 @@ export function UpcomingPremiums() {
     const premiumAmount = formatCurrency(p.premium ?? 0);
     const faceAmount = formatCurrency(p.sumAssured ?? 0);
     const dueDate = p.premiumDate
-      ? formatDate(resolveRecurringDate(p.premiumDate))
+      ? formatDate(resolvePremiumReminderDate(p.premiumDate))
       : "";
     const vars = {
       "Client Name": clientName, Carrier: p.carrier ?? "", "Policy Name": p.productName ?? "",
@@ -162,7 +180,7 @@ export function UpcomingPremiums() {
         const premiumAmount = formatCurrency(p.premium ?? 0);
         const faceAmount = formatCurrency(p.sumAssured ?? 0);
         const dueDate = p.premiumDate
-          ? formatDate(resolveRecurringDate(p.premiumDate))
+          ? formatDate(resolvePremiumReminderDate(p.premiumDate))
           : "";
         const vars = {
           "Client Name": clientName,

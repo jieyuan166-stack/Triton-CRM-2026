@@ -11,6 +11,7 @@ const ALLOWED_TAGS = new Set([
   "p",
   "span",
   "strong",
+  "sub",
   "table",
   "tbody",
   "td",

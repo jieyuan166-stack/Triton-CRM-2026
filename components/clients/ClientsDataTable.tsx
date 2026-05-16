@@ -7,6 +7,7 @@ import {
   ArrowDown,
   ArrowUp,
   ChevronsUpDown,
+  MailX,
   Pencil,
   Send,
   Trash2,
@@ -525,9 +526,16 @@ export function ClientsDataTable() {
                           </Link>
                         </td>
                         <td className="py-2.5 pr-3">
-                          <p className="max-w-[16rem] truncate text-[13px] font-medium text-sky-700">
-                            {r.email ?? "—"}
-                          </p>
+                          {r.email ? (
+                            <p className="max-w-[16rem] truncate text-[13px] font-medium text-sky-700">
+                              {r.email}
+                            </p>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-rose-600 ring-1 ring-rose-100">
+                              <MailX className="h-3.5 w-3.5" />
+                              No email
+                            </span>
+                          )}
                           {r.phone ? (
                             <p className="text-[11px] text-slate-400">
                               {r.phone}
