@@ -35,12 +35,20 @@ import {
 } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/format";
 import { applyTemplate } from "@/lib/templates";
+import type { Policy } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const WINDOW_DAYS = 30;
 const RENEWAL_SUPPRESSION_DAYS = 30;
 const LOOKBACK_DAYS = 7;
 const MAX_SENT = 5;
+
+type PremiumReminderRow = {
+  id: string;
+  policy: Policy;
+  clientId: string;
+  isJointRecipient: boolean;
+};
 
 function resolvePremiumReminderDate(input: string, today = new Date()) {
   const parts = /^(\d{2})-(\d{2})$/.exec(input) ?? /^\d{4}-(\d{2})-(\d{2})/.exec(input);
@@ -79,9 +87,33 @@ export function UpcomingPremiums() {
           }
           return true;
         })
-        .sort((a, b) => (a.premiumDate! < b.premiumDate! ? -1 : 1))
+        .flatMap((policy): PremiumReminderRow[] => {
+          const rows: PremiumReminderRow[] = [
+            {
+              id: `${policy.id}:${policy.clientId}`,
+              policy,
+              clientId: policy.clientId,
+              isJointRecipient: false,
+            },
+          ];
+          if (
+            policy.isJoint &&
+            policy.jointWithClientId &&
+            policy.jointWithClientId !== policy.clientId &&
+            clients.some((client) => client.id === policy.jointWithClientId)
+          ) {
+            rows.push({
+              id: `${policy.id}:${policy.jointWithClientId}`,
+              policy,
+              clientId: policy.jointWithClientId,
+              isJointRecipient: true,
+            });
+          }
+          return rows;
+        })
+        .sort((a, b) => (a.policy.premiumDate! < b.policy.premiumDate! ? -1 : 1))
         .slice(0, 8),
-    [policies, now]
+    [clients, policies, now]
   );
 
   // Sent: renewal emails from emailHistory (lookback 7 days)
@@ -142,10 +174,11 @@ export function UpcomingPremiums() {
     });
   }
 
-  function openSingle(policyId: string) {
-    const p = upcomingRows.find((r) => r.id === policyId);
-    if (!p) return;
-    const client = clients.find((c) => c.id === p.clientId);
+  function openSingle(reminderId: string) {
+    const row = upcomingRows.find((r) => r.id === reminderId);
+    if (!row) return;
+    const p = row.policy;
+    const client = clients.find((c) => c.id === row.clientId);
     if (!client?.email) return;
     const clientName = `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim() || "client";
     const premiumAmount = formatCurrency(p.premium ?? 0);
@@ -173,9 +206,10 @@ export function UpcomingPremiums() {
   function openBulk() {
     const batch = Array.from(selected)
       .map((id) => upcomingRows.find((r) => r.id === id))
-      .filter((p): p is NonNullable<typeof p> => !!p)
-      .map((p) => {
-        const client = clients.find((c) => c.id === p.clientId);
+      .filter((row): row is NonNullable<typeof row> => !!row)
+      .map((row) => {
+        const p = row.policy;
+        const client = clients.find((c) => c.id === row.clientId);
         if (!client?.email) return null;
         const clientName =
           `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim() ||
@@ -237,8 +271,8 @@ export function UpcomingPremiums() {
     setSelected((prev) => {
       const next = new Set(prev);
       upcomingRows
-        .filter((policy) => policy.clientId === deletingClient.id)
-        .forEach((policy) => next.delete(policy.id));
+        .filter((row) => row.clientId === deletingClient.id)
+        .forEach((row) => next.delete(row.id));
       return next;
     });
     toast.success("Client deleted", { description: name });
@@ -306,20 +340,21 @@ export function UpcomingPremiums() {
               />
             ) : (
               <ul className="divide-y divide-slate-100">
-                {upcomingRows.map((p) => {
-                  const client = clients.find((c) => c.id === p.clientId);
+                {upcomingRows.map((row) => {
+                  const p = row.policy;
+                  const client = clients.find((c) => c.id === row.clientId);
                   const clientName = client ? `${client.firstName} ${client.lastName}` : "—";
                   const canEmail = !!client?.email;
-                  const isChecked = selected.has(p.id);
+                  const isChecked = selected.has(row.id);
                   return (
                     <li
-                      key={p.id}
+                      key={row.id}
                       className={cn(
                         "flex items-center gap-3 px-5 py-2 md:px-6 transition-colors",
                         isChecked ? "bg-accent-blue/5" : "hover:bg-slate-50/80"
                       )}
                     >
-                      <Checkbox aria-label={`Select ${clientName}`} checked={isChecked} onCheckedChange={(c) => toggleOne(p.id, c === true)} disabled={!canEmail} />
+                      <Checkbox aria-label={`Select ${clientName}`} checked={isChecked} onCheckedChange={(c) => toggleOne(row.id, c === true)} disabled={!canEmail} />
                       <UniversalDataCard
                         accentColor={CARRIER_COLORS[p.carrier]}
                         className="flex-1 rounded-lg border border-slate-100 bg-white/70 p-3 shadow-none"
@@ -338,7 +373,7 @@ export function UpcomingPremiums() {
                             <span>{clientName}</span>
                           )
                         }
-                        subtitle={`${p.carrier} · ${p.productName || p.productType} · #${p.policyNumber} · ${formatCurrency(p.premium)} · ${formatRelative(p.premiumDate!)}`}
+                        subtitle={`${row.isJointRecipient ? "Joint Policy · " : ""}${p.carrier} · ${p.productName || p.productType} · #${p.policyNumber} · ${formatCurrency(p.premium)} · ${formatRelative(p.premiumDate!)}`}
                         badges={
                           p.category === "Investment" && p.isInvestmentLoan ? (
                             <StatusBadge kind="loan" lender={p.lender} />
@@ -349,7 +384,7 @@ export function UpcomingPremiums() {
                         actions={
                           <div className="flex items-center gap-1">
                             {canEmail ? (
-                              <button type="button" aria-label={`Email ${clientName}`} onClick={() => openSingle(p.id)}
+                              <button type="button" aria-label={`Email ${clientName}`} onClick={() => openSingle(row.id)}
                                 className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-accent-blue/10 hover:text-accent-blue">
                                 <Mail className="h-4 w-4" />
                               </button>

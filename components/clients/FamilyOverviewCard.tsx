@@ -1,7 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { ArrowUpRight, Network, UsersRound } from "lucide-react";
+import { useState } from "react";
+import { ArrowUpRight, ChevronDown, Network, UsersRound } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { WidgetCard } from "@/components/ui-shared/WidgetCard";
 import { ClientAvatar } from "@/components/ui-shared/ClientAvatar";
 import { ClientNameDisplay } from "@/components/ui-shared/ClientNameDisplay";
@@ -111,6 +113,16 @@ export function FamilyOverviewCard({
     familyMembers,
     summary.policies
   );
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+
+  function toggleSection(key: string) {
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
 
   if (summary.linkedClients.length === 0) return null;
 
@@ -198,9 +210,12 @@ export function FamilyOverviewCard({
                   return (
                     <PortfolioSection
                       key={group.owner.id}
+                      sectionKey={group.owner.id}
                       title={sectionTitleForOwner(group.owner)}
                       count={group.policies.length}
                       accentColor={tone?.dot ?? "#CBD5E1"}
+                      open={expandedSections.has(group.owner.id)}
+                      onToggle={toggleSection}
                     >
                       {group.policies.map((policy) => (
                         <PolicyDataCard
@@ -216,9 +231,12 @@ export function FamilyOverviewCard({
 
                 {groupedPolicies.jointPolicies.length > 0 ? (
                   <PortfolioSection
+                    sectionKey="joint"
                     title="JOINT ACCOUNTS"
                     count={groupedPolicies.jointPolicies.length}
                     accentColor="#DDD6FE"
+                    open={expandedSections.has("joint")}
+                    onToggle={toggleSection}
                   >
                     {groupedPolicies.jointPolicies.map((policy) => (
                       <PolicyDataCard
@@ -278,33 +296,56 @@ export function FamilyOverviewCard({
 }
 
 function PortfolioSection({
+  sectionKey,
   title,
   count,
   accentColor,
+  open,
+  onToggle,
   children,
 }: {
+  sectionKey: string;
   title: string;
   count: number;
   accentColor: string;
+  open: boolean;
+  onToggle: (key: string) => void;
   children: ReactNode;
 }) {
   return (
     <section className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2.5">
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/70 px-4 py-3">
+        <button
+          type="button"
+          onClick={() => onToggle(sectionKey)}
+          className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+          aria-expanded={open}
+        >
           <span
             className="h-2 w-2 shrink-0 rounded-full"
             style={{ backgroundColor: accentColor }}
           />
-          <h5 className="truncate text-sm font-bold uppercase tracking-widest text-slate-700">
+          <span className="truncate text-sm font-bold uppercase tracking-widest text-slate-700">
             {title}
-          </h5>
-        </div>
-        <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+          </span>
+          <ChevronDown
+            className={cn(
+              "h-3.5 w-3.5 shrink-0 text-slate-300 transition-transform",
+              open ? "rotate-180" : ""
+            )}
+          />
+        </button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => onToggle(sectionKey)}
+          className="h-7 text-[10px] uppercase tracking-wider text-slate-400"
+        >
           {count} {count === 1 ? "Item" : "Items"}
-        </span>
+        </Button>
       </div>
-      <div className="space-y-3">{children}</div>
+      {open ? <div className="space-y-3">{children}</div> : null}
     </section>
   );
 }

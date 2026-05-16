@@ -104,26 +104,46 @@ export default function ClientDetailPage() {
         onDelete={() => setDeleteOpen(true)}
       />
 
+      <nav className="sticky top-16 z-20 -mx-2 mb-4 overflow-x-auto border-y border-slate-100 bg-triton-bg/90 px-2 py-2 backdrop-blur md:mb-6">
+        <div className="flex min-w-max items-center gap-2">
+          {[
+            ["Overview", "#overview"],
+            ["Policies", "#policies"],
+            ["Family", "#family"],
+            ["Communication", "#communication"],
+            ["Follow-ups", "#follow-ups"],
+          ].map(([label, href]) => (
+            <a
+              key={href}
+              href={href}
+              className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:bg-white hover:text-[#002147] hover:shadow-sm"
+            >
+              {label}
+            </a>
+          ))}
+        </div>
+      </nav>
+
       {/* Responsive layout:
           - < xl: stacked for tablet/narrow readability
           - xl: info | policies | follow-ups */}
       <div className="grid grid-cols-1 gap-4 md:gap-6 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)_minmax(280px,0.8fr)]">
-        <div className="min-w-0">
+        <div id="overview" className="min-w-0 scroll-mt-28">
           <div className="space-y-4 md:space-y-6">
             <ClientInfoCard client={client} onEdit={() => setEditOpen(true)} />
             <ClientNotesCard client={client} />
           </div>
         </div>
-        <div className="min-w-0">
+        <div id="policies" className="min-w-0 scroll-mt-28">
           <ClientPoliciesCard clientId={client.id} policies={policies} />
         </div>
-        <div className="min-w-0">
+        <div id="follow-ups" className="min-w-0 scroll-mt-28">
           <FollowUpTimeline clientId={client.id} followUps={followUps} />
         </div>
       </div>
 
       {fullClient ? (
-        <div className="mt-4 md:mt-6">
+        <div id="family" className="mt-4 scroll-mt-28 md:mt-6">
           <FamilyOverviewCard
             client={fullClient}
             clients={clients}
@@ -137,7 +157,7 @@ export default function ClientDetailPage() {
           newest send is the first thing visible after Follow-ups, and so
           long bodies have room to expand. Source is fullClient.emailHistory
           (ClientWithStats doesn't carry emailHistory by design). */}
-      <div className="mt-4 md:mt-6">
+      <div id="communication" className="mt-4 scroll-mt-28 md:mt-6">
         <CommunicationLog clientId={client.id} history={fullClient?.emailHistory} />
       </div>
 
