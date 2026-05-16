@@ -267,6 +267,12 @@ export function UpcomingBirthdays() {
           </TabsContent>
 
           <TabsContent value="sent" className="mt-0">
+            <div className="px-5 pb-2 md:px-6">
+              <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                Sent birthdays appear here after the greeting is sent through
+                Triton CRM or recorded as a birthday contact.
+              </p>
+            </div>
             {sentRows.length === 0 ? (
               <EmptyState
                 icon={Mail}

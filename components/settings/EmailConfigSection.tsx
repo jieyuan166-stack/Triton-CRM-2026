@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import {
+  CalendarClock,
   CheckCircle2,
   AlertTriangle,
   Lock,
@@ -24,8 +25,9 @@ import { useSettings } from "@/components/providers/SettingsProvider";
 import { cn } from "@/lib/utils";
 
 export function EmailConfigSection() {
-  const { settings, updateEmailConfig } = useSettings();
+  const { settings, updateEmailConfig, updateWeeklyDigest } = useSettings();
   const { email } = settings;
+  const digest = settings.weeklyDigest;
 
   const [host, setHost] = useState(email.host);
   const [port, setPort] = useState<number>(email.port);
@@ -220,6 +222,90 @@ export function EmailConfigSection() {
               {host}:{port} ({secure ? "SSL" : "STARTTLS"})
             </span>
           </p>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div className="flex gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700 ring-1 ring-amber-100">
+                <CalendarClock className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-triton-text">
+                  Weekly Advisor Digest
+                </p>
+                <p className="mt-0.5 max-w-2xl text-xs leading-relaxed text-triton-muted">
+                  Sends an advisor-only summary of upcoming premiums,
+                  birthdays, and overdue follow-ups. Customer emails are never
+                  sent automatically from this digest.
+                </p>
+              </div>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant={digest.enabled ? "default" : "outline"}
+              className={cn(
+                "h-8 shrink-0",
+                digest.enabled && "bg-amber-600 text-white hover:bg-amber-700"
+              )}
+              onClick={() => {
+                updateWeeklyDigest({ enabled: !digest.enabled });
+                toast.success(
+                  digest.enabled
+                    ? "Weekly digest disabled"
+                    : "Weekly digest enabled"
+                );
+              }}
+            >
+              {digest.enabled ? "Enabled" : "Disabled"}
+            </Button>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="weekly-digest-weekday">Send Day</Label>
+              <Select
+                value={digest.weekday}
+                onValueChange={(weekday) =>
+                  updateWeeklyDigest({
+                    weekday: weekday as typeof digest.weekday,
+                  })
+                }
+              >
+                <SelectTrigger id="weekly-digest-weekday" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="monday">Monday</SelectItem>
+                  <SelectItem value="tuesday">Tuesday</SelectItem>
+                  <SelectItem value="wednesday">Wednesday</SelectItem>
+                  <SelectItem value="thursday">Thursday</SelectItem>
+                  <SelectItem value="friday">Friday</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="weekly-digest-time">Vancouver Time</Label>
+              <Input
+                id="weekly-digest-time"
+                type="time"
+                value={digest.time}
+                onChange={(e) => updateWeeklyDigest({ time: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="weekly-digest-recipient">Recipient</Label>
+              <Input
+                id="weekly-digest-recipient"
+                type="email"
+                value={digest.recipientEmail}
+                onChange={(e) =>
+                  updateWeeklyDigest({ recipientEmail: e.target.value })
+                }
+              />
+            </div>
+          </div>
         </div>
       </div>
 

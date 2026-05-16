@@ -26,6 +26,8 @@ export interface ClientQuery {
   provinces?: string[];
   /** Filter to clients with ANY of these tags (OR semantics). Empty/omitted = all tags. */
   tags?: string[];
+  tagMatchMode?: "any" | "all";
+  needsFollowUpOnly?: boolean;
   sortKey?: ClientSortKey;
   sortDir?: SortDir;
   /** 1-indexed page number. */
@@ -71,6 +73,19 @@ function normalize(s: string | undefined | null): string {
   return (s ?? "").toLowerCase();
 }
 
+function fullClientAddress(client: Client | undefined): string {
+  if (!client) return "";
+  return [
+    client.streetAddress,
+    client.unit,
+    client.city,
+    client.province,
+    client.postalCode,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 function latestContactDate(values: Array<string | undefined>): string | undefined {
   let best: { value: string; time: number } | undefined;
 
@@ -82,6 +97,13 @@ function latestContactDate(values: Array<string | undefined>): string | undefine
   }
 
   return best?.value;
+}
+
+function needsFollowUp(lastContactAt: string | undefined): boolean {
+  if (!lastContactAt) return true;
+  const time = parseCalendarDate(lastContactAt).getTime();
+  if (Number.isNaN(time)) return true;
+  return Date.now() - time > 90 * 24 * 60 * 60 * 1000;
 }
 
 function buildRow(
@@ -148,6 +170,8 @@ export function queryClients(
     search = "",
     provinces = [],
     tags = [],
+    tagMatchMode = "any",
+    needsFollowUpOnly = false,
     sortKey = "name",
     sortDir = "asc",
     page = 1,
@@ -179,6 +203,7 @@ export function queryClients(
         r.email ?? "",
         r.phone ?? "",
         r.province ?? "",
+        fullClientAddress(data.clients.find((client) => client.id === r.id)),
         ...clientPolicies.flatMap((policy) => [
           policy.policyOwnerName,
           policy.policyOwner2Name,
@@ -193,9 +218,13 @@ export function queryClients(
       if (!r.province || !provinces.includes(r.province)) return false;
     }
     if (tags.length > 0) {
-      // OR semantics: include row if any of its tags is in the filter set
-      if (!r.tags.some((t) => tags.includes(t))) return false;
+      const matchesTags =
+        tagMatchMode === "all"
+          ? tags.every((tag) => r.tags.includes(tag as TagValue))
+          : r.tags.some((t) => tags.includes(t));
+      if (!matchesTags) return false;
     }
+    if (needsFollowUpOnly && !needsFollowUp(r.lastContactAt)) return false;
     return true;
   });
 
@@ -246,6 +275,8 @@ export function parseClientQueryParams(params: URLSearchParams): ClientQuery {
     search: params.get("search") ?? undefined,
     provinces: list(params.get("provinces")),
     tags: list(params.get("tags")),
+    tagMatchMode: params.get("tagMatchMode") === "all" ? "all" : "any",
+    needsFollowUpOnly: params.get("needsFollowUp") === "true",
     sortKey,
     sortDir,
     page: num(params.get("page")) ?? 1,

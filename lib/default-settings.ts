@@ -1,4 +1,9 @@
-import type { AdminProfile, AppSettings, EmailConfig } from "@/lib/settings-types";
+import type {
+  AdminProfile,
+  AppSettings,
+  EmailConfig,
+  WeeklyDigestConfig,
+} from "@/lib/settings-types";
 import { DEFAULT_SIGNATURE, DEFAULT_TEMPLATES, LEGACY_DEFAULT_TEMPLATE_COPY } from "@/lib/templates";
 
 export const DEFAULT_PROFILE: AdminProfile = {
@@ -18,9 +23,17 @@ export const DEFAULT_EMAIL: EmailConfig = {
   passwordConfigured: false,
 };
 
+export const DEFAULT_WEEKLY_DIGEST: WeeklyDigestConfig = {
+  enabled: false,
+  weekday: "monday",
+  time: "08:00",
+  recipientEmail: "jieyuan165@gmail.com",
+};
+
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   profile: DEFAULT_PROFILE,
   email: DEFAULT_EMAIL,
+  weeklyDigest: DEFAULT_WEEKLY_DIGEST,
   templates: DEFAULT_TEMPLATES,
   signature: DEFAULT_SIGNATURE,
 };
@@ -121,6 +134,10 @@ export function mergeAppSettings(input: unknown): AppSettings {
   return {
     profile: { ...DEFAULT_APP_SETTINGS.profile, ...(raw.profile ?? {}) },
     email: { ...DEFAULT_APP_SETTINGS.email, ...(raw.email ?? {}) },
+    weeklyDigest: {
+      ...DEFAULT_APP_SETTINGS.weeklyDigest,
+      ...(raw.weeklyDigest ?? {}),
+    },
     templates: mergeEmailTemplates(raw.templates),
     signature: mergeSignature(raw.signature),
   };

@@ -15,7 +15,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Check, ChevronDown, MapPin, Search, Tag, X } from "lucide-react";
+import { Check, ChevronDown, Clock3, MapPin, Search, Tag, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DynamicTagBadge } from "@/components/ui-shared/DynamicTagBadge";
@@ -33,9 +33,14 @@ export interface ClientsToolbarProps {
   onClearProvinces: () => void;
 
   selectedTags: string[];
+  tagMatchMode: "any" | "all";
   tagOptions: string[];
   onToggleTag: (tag: string) => void;
   onClearTags: () => void;
+  onTagMatchModeChange: (mode: "any" | "all") => void;
+
+  needsFollowUpOnly: boolean;
+  onToggleNeedsFollowUp: () => void;
 
   onClearAll: () => void;
 }
@@ -49,14 +54,21 @@ export function ClientsToolbar(props: ClientsToolbarProps) {
     onToggleProvince,
     onClearProvinces,
     selectedTags,
+    tagMatchMode,
     tagOptions,
     onToggleTag,
     onClearTags,
+    onTagMatchModeChange,
+    needsFollowUpOnly,
+    onToggleNeedsFollowUp,
     onClearAll,
   } = props;
 
   const anyFilter =
-    !!search.trim() || selectedProvinces.length > 0 || selectedTags.length > 0;
+    !!search.trim() ||
+    selectedProvinces.length > 0 ||
+    selectedTags.length > 0 ||
+    needsFollowUpOnly;
 
   return (
     <div className="flex flex-col lg:flex-row lg:items-center gap-3 mb-4">
@@ -114,9 +126,25 @@ export function ClientsToolbar(props: ClientsToolbarProps) {
         <TagsFilter
           options={tagOptions}
           selected={selectedTags}
+          matchMode={tagMatchMode}
           onToggle={onToggleTag}
           onClear={onClearTags}
+          onMatchModeChange={onTagMatchModeChange}
         />
+
+        <button
+          type="button"
+          onClick={onToggleNeedsFollowUp}
+          className={cn(
+            "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm transition-colors outline-none",
+            needsFollowUpOnly
+              ? "border-amber-300 bg-amber-50 text-amber-800"
+              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+          )}
+        >
+          <Clock3 className="h-3.5 w-3.5" />
+          Needs follow-up
+        </button>
 
         {anyFilter ? (
           <Button
@@ -296,13 +324,17 @@ function FilterPopover({
 function TagsFilter({
   options,
   selected,
+  matchMode,
   onToggle,
   onClear,
+  onMatchModeChange,
 }: {
   options: string[];
   selected: string[];
+  matchMode: "any" | "all";
   onToggle: (value: string) => void;
   onClear: () => void;
+  onMatchModeChange: (mode: "any" | "all") => void;
 }) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -400,6 +432,32 @@ function TagsFilter({
             <span className="text-[10px] font-number text-slate-400">
               {selected.length}/{options.length}
             </span>
+          </div>
+          <div className="mx-3 mb-2 grid grid-cols-2 rounded-lg bg-slate-50 p-0.5 text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => onMatchModeChange("any")}
+              className={cn(
+                "rounded-md px-2 py-1 transition-colors",
+                matchMode === "any"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-400 hover:text-slate-700"
+              )}
+            >
+              Any
+            </button>
+            <button
+              type="button"
+              onClick={() => onMatchModeChange("all")}
+              className={cn(
+                "rounded-md px-2 py-1 transition-colors",
+                matchMode === "all"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-400 hover:text-slate-700"
+              )}
+            >
+              All
+            </button>
           </div>
 
           {options.length === 0 ? (

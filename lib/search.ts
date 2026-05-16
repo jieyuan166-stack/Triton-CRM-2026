@@ -63,6 +63,10 @@ export function searchAll(
         `${c.lastName} ${c.firstName}`,
         c.email,
         c.phone,
+        c.streetAddress,
+        c.city,
+        c.province,
+        c.postalCode,
         ...clientPolicies.flatMap((p) => [
           p.policyOwnerName,
           p.policyOwner2Name,

@@ -85,8 +85,9 @@ export function ClientReportButton({
       onClick={handleDownload}
       disabled={isGenerating}
       aria-label={label}
+      title="Generate Portfolio Review PDF"
       className={cn(
-        "h-9 rounded-xl border-blue-100 bg-blue-50/70 px-3.5 text-[#002147] shadow-[0_1px_0_rgba(15,23,42,0.03)] transition duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:bg-white hover:text-[#001832] hover:shadow-sm active:translate-y-0 disabled:opacity-70",
+        "h-9 rounded-xl border-blue-100 bg-blue-50/70 px-3.5 font-semibold text-[#002147] shadow-[0_1px_0_rgba(15,23,42,0.03)] transition duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:bg-white hover:text-[#001832] hover:shadow-md focus-visible:ring-2 focus-visible:ring-blue-200 active:translate-y-0 disabled:opacity-70",
         className
       )}
     >

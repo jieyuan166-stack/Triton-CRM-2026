@@ -173,13 +173,16 @@ function MiniRing({
         {data.map((item) => {
           const pct = total > 0 ? (item.value / total) * 100 : 0;
           return (
-            <li key={item.name} className="flex items-center gap-2.5">
+            <li key={item.name || "unknown"} className="grid grid-cols-[0.625rem_minmax(0,1fr)_auto_2.25rem] items-center gap-2.5">
               <span
                 className="h-2.5 w-2.5 shrink-0 rounded-full"
                 style={{ backgroundColor: item.color }}
               />
-              <span className="min-w-0 flex-1 truncate text-xs font-medium text-slate-700">
-                {item.name}
+              <span
+                className="min-w-0 text-xs font-medium leading-snug text-slate-700"
+                title={item.name || "Unspecified"}
+              >
+                {item.name || "Unspecified"}
               </span>
               <span className="font-finance text-xs font-semibold text-slate-900">
                 {formatCurrencyShort(item.value)}

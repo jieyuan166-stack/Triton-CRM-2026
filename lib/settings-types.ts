@@ -23,6 +23,13 @@ export interface EmailConfig {
   passwordConfigured?: boolean;
 }
 
+export interface WeeklyDigestConfig {
+  enabled: boolean;
+  weekday: "monday" | "tuesday" | "wednesday" | "thursday" | "friday";
+  time: string;
+  recipientEmail: string;
+}
+
 /** Legacy JSON snapshot shape. Current production backups are SQLite .db.gz
  *  files, but this type is retained for older imported backup files and for
  *  the DataProvider export boundary. */
@@ -89,6 +96,7 @@ export interface EmailTemplateAttachment {
 export interface AppSettings {
   profile: AdminProfile;
   email: EmailConfig;
+  weeklyDigest: WeeklyDigestConfig;
   templates: EmailTemplate[];
   signature: EmailSignature;
 }

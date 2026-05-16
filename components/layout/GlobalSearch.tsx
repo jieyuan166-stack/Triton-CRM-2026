@@ -166,6 +166,32 @@ export function GlobalSearch() {
       </div>
 
       {/* Results dropdown */}
+      {open && !hasQuery ? (
+        <div className="absolute right-0 z-50 mt-2 w-96 rounded-xl border border-slate-200 bg-white p-4 text-slate-900 shadow-2xl ring-1 ring-black/5">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            Search includes
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {[
+              "Client names",
+              "Policy numbers",
+              "Phone",
+              "Email",
+              "Address",
+              "Carrier",
+              "Insured",
+            ].map((item) => (
+              <span
+                key={item}
+                className="rounded-full bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-100"
+              >
+                {item}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       {open && hasQuery ? (
         <div
           ref={listRef}

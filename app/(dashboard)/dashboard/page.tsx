@@ -64,6 +64,11 @@ export default function DashboardPage() {
           )}`}
           icon={TrendingUp}
           accent="amber"
+          className={
+            metrics.premiumDueCount30d > 0
+              ? "border-amber-200 bg-amber-50/60 shadow-[0_12px_30px_rgba(245,158,11,0.12)]"
+              : undefined
+          }
         />
       </div>
 

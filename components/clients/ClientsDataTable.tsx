@@ -6,7 +6,9 @@ import Link from "next/link";
 import {
   ArrowDown,
   ArrowUp,
+  Building2,
   ChevronsUpDown,
+  Clock3,
   MailX,
   Pencil,
   Send,
@@ -49,7 +51,7 @@ import {
   type RowsPerPage,
   type SortDir,
 } from "@/lib/clients-query";
-import { formatRelative } from "@/lib/date-utils";
+import { formatRelative, parseCalendarDate } from "@/lib/date-utils";
 import { PROVINCE_CODES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
@@ -81,6 +83,41 @@ function provinceBadgeClass(province: string) {
   return PROVINCE_BADGE_CLASS[province] ?? "bg-slate-100 text-slate-700";
 }
 
+function lastContactTone(lastContactAt?: string) {
+  if (!lastContactAt) {
+    return {
+      label: "Never",
+      className: "bg-slate-50 text-slate-400 ring-slate-100",
+      iconClassName: "text-slate-300",
+    };
+  }
+
+  const time = parseCalendarDate(lastContactAt).getTime();
+  const ageDays = Number.isNaN(time)
+    ? 999
+    : Math.floor((Date.now() - time) / (24 * 60 * 60 * 1000));
+
+  if (ageDays >= 180) {
+    return {
+      label: formatRelative(lastContactAt),
+      className: "bg-rose-50 text-rose-700 ring-rose-100",
+      iconClassName: "text-rose-500",
+    };
+  }
+  if (ageDays >= 90) {
+    return {
+      label: formatRelative(lastContactAt),
+      className: "bg-amber-50 text-amber-700 ring-amber-100",
+      iconClassName: "text-amber-500",
+    };
+  }
+  return {
+    label: formatRelative(lastContactAt),
+    className: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+    iconClassName: "text-emerald-500",
+  };
+}
+
 export function ClientsDataTable() {
   const { clients, policies, followUps, deleteClient } = useData();
   const { settings } = useSettings();
@@ -88,6 +125,8 @@ export function ClientsDataTable() {
   const [search, setSearch] = useState("");
   const [provinces, setProvinces] = useState<string[]>([]);
   const [tagsFilter, setTagsFilter] = useState<string[]>([]);
+  const [tagMatchMode, setTagMatchMode] = useState<"any" | "all">("any");
+  const [needsFollowUpOnly, setNeedsFollowUpOnly] = useState(false);
   const [sort, setSort] = useState<SortState>({ key: "name", dir: "asc" });
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState<RowsPerPage>(25);
@@ -147,15 +186,29 @@ export function ClientsDataTable() {
         {
           search,
           provinces,
-          tags: tagsFilter,
-          sortKey: sort.key,
+      tags: tagsFilter,
+      tagMatchMode,
+      needsFollowUpOnly,
+      sortKey: sort.key,
           sortDir: sort.dir,
           page,
           perPage,
         },
         { clients, policies, followUps }
       ),
-    [search, provinces, tagsFilter, sort, page, perPage, clients, policies, followUps]
+    [
+      search,
+      provinces,
+      tagsFilter,
+      tagMatchMode,
+      needsFollowUpOnly,
+      sort,
+      page,
+      perPage,
+      clients,
+      policies,
+      followUps,
+    ]
   );
 
   const selectedClients = useMemo(
@@ -190,6 +243,8 @@ export function ClientsDataTable() {
     setSearch("");
     setProvinces([]);
     setTagsFilter([]);
+    setTagMatchMode("any");
+    setNeedsFollowUpOnly(false);
     setPage(1);
   }
 
@@ -327,10 +382,20 @@ export function ClientsDataTable() {
           setPage(1);
         }}
         selectedTags={tagsFilter}
+        tagMatchMode={tagMatchMode}
         tagOptions={result.facets.tags}
         onToggleTag={toggleTag}
         onClearTags={() => {
           setTagsFilter([]);
+          setPage(1);
+        }}
+        onTagMatchModeChange={(mode) => {
+          setTagMatchMode(mode);
+          setPage(1);
+        }}
+        needsFollowUpOnly={needsFollowUpOnly}
+        onToggleNeedsFollowUp={() => {
+          setNeedsFollowUpOnly((value) => !value);
           setPage(1);
         }}
         onClearAll={clearAll}
@@ -481,7 +546,9 @@ export function ClientsDataTable() {
                   {result.rows.map((r) => {
                     const isChecked = selected.has(r.id);
                     const isVipClient = r.tags.includes("VIP");
+                    const isCorporateClient = r.tags.includes("Corporate");
                     const fullClient = clients.find((c) => c.id === r.id);
+                    const contactTone = lastContactTone(r.lastContactAt);
                     return (
                       <tr
                         key={r.id}
@@ -517,6 +584,12 @@ export function ClientsDataTable() {
                                 isVip={isVipClient}
                                 size="sm"
                               />
+                              {isCorporateClient ? (
+                                <span className="ml-1.5 inline-flex items-center gap-1 rounded-full bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 ring-1 ring-slate-200">
+                                  <Building2 className="h-3 w-3" />
+                                  Corp
+                                </span>
+                              ) : null}
                               {r.email ? (
                                 <p className="text-xs text-slate-500 truncate md:hidden">
                                   {r.email}
@@ -587,15 +660,17 @@ export function ClientsDataTable() {
                           )}
                         </td>
                         <td className="py-2.5 pr-3">
-                          {r.lastContactAt ? (
-                            <span className="text-sm text-slate-700 font-number">
-                              {formatRelative(r.lastContactAt)}
-                            </span>
-                          ) : (
-                            <span className="text-slate-400 text-sm">
-                              Never
-                            </span>
-                          )}
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1",
+                              contactTone.className
+                            )}
+                          >
+                            <Clock3
+                              className={cn("h-3.5 w-3.5", contactTone.iconClassName)}
+                            />
+                            {contactTone.label}
+                          </span>
                         </td>
                         <td className="py-2.5 pr-5 text-right md:pr-6">
                           <div className="inline-flex items-center justify-end gap-0.5">

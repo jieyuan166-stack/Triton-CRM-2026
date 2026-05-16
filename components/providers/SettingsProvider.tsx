@@ -33,6 +33,7 @@ interface SettingsContextValue {
   changePassword(current: string, next: string): Promise<{ ok: boolean; error?: string }>;
   requestPasswordReset(): Promise<{ ok: boolean }>;
   updateEmailConfig(patch: Partial<EmailConfig>): void;
+  updateWeeklyDigest(patch: Partial<AppSettings["weeklyDigest"]>): void;
 
   // templates + signature
   updateTemplate(id: EmailTemplateId, patch: Partial<Omit<EmailTemplate, "id" | "label" | "variables">>): void;
@@ -68,6 +69,7 @@ const SettingsContext = createContext<SettingsContextValue | null>(null);
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState(DEFAULT_APP_SETTINGS.profile);
   const [email, setEmail] = useState<EmailConfig>(DEFAULT_APP_SETTINGS.email);
+  const [weeklyDigest, setWeeklyDigest] = useState(DEFAULT_APP_SETTINGS.weeklyDigest);
   const [templates, setTemplates] = useState<EmailTemplate[]>(DEFAULT_APP_SETTINGS.templates);
   const [signature, setSignature] = useState<EmailSignature>(DEFAULT_APP_SETTINGS.signature);
   const [backups, setBackups] = useState<BackupRecord[]>([]);
@@ -100,6 +102,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           ...d.settings!.email,
           passwordConfigured: prev.passwordConfigured,
         }));
+        setWeeklyDigest(d.settings.weeklyDigest ?? DEFAULT_APP_SETTINGS.weeklyDigest);
         setTemplates(d.settings.templates);
         setSignature(d.settings.signature);
       })
@@ -147,6 +150,17 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       return next;
     });
   }, [persistSettings]);
+
+  const updateWeeklyDigest = useCallback(
+    (patch: Partial<AppSettings["weeklyDigest"]>) => {
+      setWeeklyDigest((prev) => {
+        const next = { ...prev, ...patch };
+        persistSettings({ weeklyDigest: next });
+        return next;
+      });
+    },
+    [persistSettings]
+  );
 
   const requestPasswordReset = useCallback(async () => {
     // Mock: real impl would hit a server endpoint that emails a one-time link.
@@ -219,11 +233,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<SettingsContextValue>(
     () => ({
-      settings: { profile, email, templates, signature },
+      settings: { profile, email, weeklyDigest, templates, signature },
       updateProfile,
       changePassword,
       requestPasswordReset,
       updateEmailConfig,
+      updateWeeklyDigest,
       updateTemplate,
       resetTemplate,
       updateSignature,
@@ -237,12 +252,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     [
       profile,
       email,
+      weeklyDigest,
       templates,
       signature,
       updateProfile,
       changePassword,
       requestPasswordReset,
       updateEmailConfig,
+      updateWeeklyDigest,
       updateTemplate,
       resetTemplate,
       updateSignature,

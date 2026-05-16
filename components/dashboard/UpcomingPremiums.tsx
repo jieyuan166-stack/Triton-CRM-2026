@@ -336,7 +336,7 @@ export function UpcomingPremiums() {
                 title="No premiums due soon"
                 description="Nothing scheduled in the next month."
                 compact
-                className="[&>div]:bg-slate-50 [&>div_svg]:text-slate-300 [&>h4]:text-slate-600 [&>p]:text-slate-400"
+                className="py-5 [&>div]:bg-slate-50 [&>div_svg]:text-slate-300 [&>h4]:text-slate-600 [&>p]:text-slate-400"
               />
             ) : (
               <ul className="divide-y divide-slate-100">
