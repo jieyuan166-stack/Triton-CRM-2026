@@ -6,6 +6,7 @@ import { auditLog } from "@/lib/api-security";
 import { db } from "@/lib/db";
 import { emailDefaults, serverEnv } from "@/lib/env.server";
 import { DEFAULT_APP_SETTINGS, mergeAppSettings } from "@/lib/default-settings";
+import { canSendToEmail } from "@/lib/email-address";
 import { formatCurrency } from "@/lib/format";
 import { applyTemplate, renderEmailBody, renderEmailHtml } from "@/lib/templates";
 import {
@@ -100,6 +101,7 @@ export async function POST(request: Request) {
   const from = fromName ? `${fromName} <${fromEmail}>` : fromEmail;
   const now = new Date();
   const errors: string[] = [];
+  const skippedReasons: string[] = [];
   let sent = 0;
   let skipped = 0;
 
@@ -123,8 +125,9 @@ export async function POST(request: Request) {
       }
 
       for (const client of recipients) {
-        if (!client.email) {
+        if (!canSendToEmail(client.email)) {
           skipped += 1;
+          skippedReasons.push("Premium " + policy.policyNumber + " / " + (fullName(client) || client.id) + ": no deliverable email");
           continue;
         }
         const dedupeKey = premiumReminderDedupeKey({ policyId: policy.id, clientId: client.id, cycleKey, stage });
@@ -212,8 +215,9 @@ export async function POST(request: Request) {
     if (birthdayTpl) {
       const clients = await db.client.findMany({ where: { birthday: { not: null } } });
       for (const client of clients) {
-        if (!client.email) {
+        if (!canSendToEmail(client.email)) {
           skipped += 1;
+          skippedReasons.push("Birthday " + (fullName(client) || client.id) + ": no deliverable email");
           continue;
         }
         const timeZone = PROVINCE_TIMEZONES[client.province ?? ""] ?? "America/Vancouver";
@@ -278,5 +282,11 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, sent, skipped, errors: errors.slice(0, 20) });
+  return NextResponse.json({
+    ok: true,
+    sent,
+    skipped,
+    skippedReasons: skippedReasons.slice(0, 20),
+    errors: errors.slice(0, 20),
+  });
 }
