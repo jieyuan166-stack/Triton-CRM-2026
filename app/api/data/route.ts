@@ -5,7 +5,7 @@ import { auditLog, requireSession, unauthorized } from "@/lib/api-security";
 import { buildClientSlug, ensureUniqueClientSlugs } from "@/lib/client-slug";
 import { parseTagList } from "@/lib/client-tags";
 import { isTagValue, type TagValue } from "@/lib/constants";
-import { removeCommunicationNoteBlocks } from "@/lib/communication-notes";
+import { normalizeClientNotes, removeCommunicationNoteBlocks } from "@/lib/communication-notes";
 import { db } from "@/lib/db";
 import {
   parseInsuredPersonsJson,
@@ -337,7 +337,7 @@ function clientData(input: Partial<Client>, partial = false, userId?: string) {
     province: input.province === undefined ? (partial ? undefined : null) : input.province || null,
     postalCode: nullableString(input.postalCode, partial),
     birthday: input.birthday === undefined ? (partial ? undefined : null) : input.birthday ? toNullDate(input.birthday) : null,
-    notes: nullableString(input.notes, partial),
+    notes: input.notes === undefined ? (partial ? undefined : null) : normalizeClientNotes(input.notes) ?? null,
     manualTags: serializeTagList(input.manualTags, partial),
     hiddenTags: serializeTagList(input.hiddenTags, partial),
     linkedToId: nullableString(input.linkedToId, partial),

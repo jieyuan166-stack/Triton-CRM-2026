@@ -2,15 +2,27 @@
 "use client";
 
 import Image from "next/image";
-import { Menu } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { LogOut, Menu, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlobalSearch } from "@/components/layout/GlobalSearch";
+import { useAuth } from "@/components/providers/AuthProvider";
 
 interface TopNavProps {
   onMenuClick?: () => void;
 }
 
 export function TopNav({ onMenuClick }: TopNavProps) {
+  const { session, signOut } = useAuth();
+  const router = useRouter();
+  const userLabel = session?.user?.name || session?.user?.email || "Signed in";
+  const userEmail = session?.user?.email ?? "";
+
+  async function handleSignOut() {
+    await signOut();
+    router.replace("/login");
+  }
+
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-16 bg-navy flex items-center px-4 md:px-6 gap-4">
       {/* Mobile menu toggle */}
@@ -42,6 +54,26 @@ export function TopNav({ onMenuClick }: TopNavProps) {
       {/* Right cluster: search */}
       <div className="flex items-center gap-2 md:gap-3">
         <GlobalSearch />
+        <div className="hidden min-w-0 items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-white/90 md:flex">
+          <UserCircle className="h-4 w-4 shrink-0 text-white/55" />
+          <div className="min-w-0 leading-tight">
+            <p className="max-w-36 truncate text-xs font-semibold">{userLabel}</p>
+            {userEmail && userEmail !== userLabel ? (
+              <p className="max-w-36 truncate text-[10px] text-white/45">{userEmail}</p>
+            ) : null}
+          </div>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="text-white/70 hover:bg-white/10 hover:text-white"
+          onClick={handleSignOut}
+          aria-label="Sign out"
+          title="Sign out"
+        >
+          <LogOut className="h-4 w-4" />
+        </Button>
       </div>
     </header>
   );

@@ -20,7 +20,7 @@ import {
   ensureClientSlug,
   ensureUniqueClientSlugs,
 } from "@/lib/client-slug";
-import { removeCommunicationNoteBlocks } from "@/lib/communication-notes";
+import { normalizeClientNotes, removeCommunicationNoteBlocks } from "@/lib/communication-notes";
 import { dedupePolicies } from "@/lib/portfolio-metrics";
 import { type BackupSnapshot } from "@/lib/settings-types";
 import { toTitleCaseName } from "@/lib/text-utils";
@@ -482,6 +482,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       }
       if (patch.lastName !== undefined) {
         normalizedPatch.lastName = toTitleCaseName(patch.lastName);
+      }
+      if (patch.notes !== undefined) {
+        normalizedPatch.notes = normalizeClientNotes(patch.notes);
       }
       const updated: Client | null = current
         ? {

@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { UniversalDataCard } from "@/components/ui-shared/UniversalDataCard";
 import { useData } from "@/components/providers/DataProvider";
-import { removeAllCommunicationNoteBlocks } from "@/lib/communication-notes";
+import { normalizeClientNotes, removeAllCommunicationNoteBlocks } from "@/lib/communication-notes";
 import type { Client } from "@/lib/types";
 
 interface ClientNotesCardProps {
@@ -17,27 +17,29 @@ export function ClientNotesCard({ client }: ClientNotesCardProps) {
   const initialNotes = removeAllCommunicationNoteBlocks(client.notes) ?? "";
   const [draft, setDraft] = useState(initialNotes);
   const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
-  const lastSaved = useRef(client.notes ?? "");
+  const lastSaved = useRef(initialNotes);
 
   useEffect(() => {
     const next = removeAllCommunicationNoteBlocks(client.notes) ?? "";
     setDraft(next);
-    lastSaved.current = client.notes ?? "";
+    lastSaved.current = next;
     setStatus("idle");
   }, [client.id, client.notes]);
 
   useEffect(() => {
-    if (draft === lastSaved.current) return;
+    const nextNotes = normalizeClientNotes(draft) ?? "";
+    if (nextNotes === lastSaved.current) return;
     setStatus("saving");
 
     const timer = window.setTimeout(() => {
-      const saved = updateClient(client.id, { notes: draft.trim() || undefined });
+      const saved = updateClient(client.id, { notes: nextNotes || undefined });
       if (!saved) {
         setStatus("idle");
         toast.error("Unable to save client notes.");
         return;
       }
-      lastSaved.current = draft;
+      lastSaved.current = nextNotes;
+      if (draft !== nextNotes) setDraft(nextNotes);
       setStatus("saved");
     }, 700);
 

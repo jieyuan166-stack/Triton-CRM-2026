@@ -5,6 +5,7 @@ import { auditLog, requireSession, unauthorized } from "@/lib/api-security";
 import { parseClientQueryParams, queryClients } from "@/lib/clients-query";
 import { TAG_VALUES } from "@/lib/constants";
 import { parseTagList } from "@/lib/client-tags";
+import { normalizeClientNotes } from "@/lib/communication-notes";
 import { db } from "@/lib/db";
 import { parseInsuredPersonsJson } from "@/lib/policy-parties";
 import { normalizeSearchText, toTitleCaseName } from "@/lib/text-utils";
@@ -252,7 +253,7 @@ export async function POST(request: Request) {
       province: data.province || null,
       postalCode: data.postalCode || null,
       birthday: data.birthday ? new Date(data.birthday) : null,
-      notes: data.notes || null,
+      notes: normalizeClientNotes(data.notes) ?? null,
     },
   });
 

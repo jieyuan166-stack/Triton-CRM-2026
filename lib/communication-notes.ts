@@ -1,5 +1,13 @@
 import type { EmailHistoryEntry } from "./types";
 
+export function normalizeClientNotes(notes: string | null | undefined): string | undefined {
+  if (notes == null) return undefined;
+  const normalized = notes.replace(/\r\n/g, "\n").trim();
+  if (!normalized) return undefined;
+  if (/^\\+$/.test(normalized)) return undefined;
+  return normalized;
+}
+
 function isActionLogBlockForEntry(block: string, entry: EmailHistoryEntry) {
   const subject = entry.subject?.trim();
   const label = entry.templateLabel?.trim();
@@ -22,9 +30,10 @@ export function removeCommunicationNoteBlocks(
   notes: string | undefined,
   entries: EmailHistoryEntry[]
 ): string | undefined {
-  if (!notes?.trim() || entries.length === 0) return notes;
+  const normalizedNotes = normalizeClientNotes(notes);
+  if (!normalizedNotes || entries.length === 0) return normalizedNotes;
 
-  const blocks = notes
+  const blocks = normalizedNotes
     .split(/\n(?:———|---)\n/g)
     .map((block) => block.trim())
     .filter(Boolean);
@@ -39,9 +48,10 @@ export function removeCommunicationNoteBlocks(
 export function removeAllCommunicationNoteBlocks(
   notes: string | undefined
 ): string | undefined {
-  if (!notes?.trim()) return notes;
+  const normalizedNotes = normalizeClientNotes(notes);
+  if (!normalizedNotes) return undefined;
 
-  const blocks = notes
+  const blocks = normalizedNotes
     .split(/\n(?:———|---)\n/g)
     .map((block) => block.trim())
     .filter(Boolean);
