@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ConfirmDialog } from "@/components/ui-shared/ConfirmDialog";
 import { useData } from "@/components/providers/DataProvider";
 import { useSettings } from "@/components/providers/SettingsProvider";
 import type { EmailTemplateAttachment } from "@/lib/settings-types";
@@ -32,6 +33,12 @@ import {
 } from "@/lib/templates";
 
 const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
+
+const PROVINCE_TIMEZONES: Record<string, string> = {
+  BC: "America/Vancouver",
+  AB: "America/Edmonton",
+  ON: "America/Toronto",
+};
 
 interface ComposeAttachment {
   id: string;
@@ -138,6 +145,8 @@ export function EmailPreviewDialog({
   const [selectedTemplate, setSelectedTemplate] = useState<"custom" | "birthday" | "renewal" | "festival">("custom");
   const [selectedPolicyId, setSelectedPolicyId] = useState<string | undefined>(undefined);
   const [sending, setSending] = useState(false);
+  const [birthdayConfirmOpen, setBirthdayConfirmOpen] = useState(false);
+  const [birthdayWarning, setBirthdayWarning] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -150,6 +159,8 @@ export function EmailPreviewDialog({
       setSelectedTemplate(payload.template ?? "custom");
       setSelectedPolicyId(payload.policyId);
       setSending(false);
+      setBirthdayConfirmOpen(false);
+      setBirthdayWarning("");
     }
   }, [open, payload]);
 
@@ -254,6 +265,87 @@ export function EmailPreviewDialog({
     setAttachments((prev) => prev.filter((file) => file.id !== id));
   }
 
+  function localMonthDay(timeZone: string, date = new Date()) {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(date);
+    return {
+      month: parts.find((part) => part.type === "month")?.value ?? "",
+      day: parts.find((part) => part.type === "day")?.value ?? "",
+    };
+  }
+
+  function birthdayMonthDay(value?: string) {
+    if (!value) return "";
+    const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+    if (match) return `${match[2]}-${match[3]}`;
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return "";
+    return parsed.toISOString().slice(5, 10);
+  }
+
+  function isBirthdayToday(clientId?: string) {
+    const client = clients.find((item) => item.id === clientId);
+    if (!client?.birthday) return { ok: false, clientName: client ? `${client.firstName} ${client.lastName}`.trim() : "this client", birthday: "" };
+    const timeZone = PROVINCE_TIMEZONES[client.province ?? ""] ?? "America/Vancouver";
+    const local = localMonthDay(timeZone);
+    return {
+      ok: `${local.month}-${local.day}` === birthdayMonthDay(client.birthday),
+      clientName: `${client.firstName} ${client.lastName}`.trim(),
+      birthday: client.birthday,
+    };
+  }
+
+  function getBirthdayDateWarning() {
+    const birthdayItems = isBatch
+      ? batch.filter((item) => item.template === "birthday")
+      : selectedTemplate === "birthday"
+        ? [{ clientId: activePayload.clientId }]
+        : [];
+    const offDate = birthdayItems
+      .map((item) => isBirthdayToday(item.clientId))
+      .filter((result) => !result.ok);
+    if (offDate.length === 0) return "";
+    const names = offDate
+      .slice(0, 3)
+      .map((item) => item.clientName || "Client")
+      .join(", ");
+    const suffix = offDate.length > 3 ? ` and ${offDate.length - 3} more` : "";
+    return `${names}${suffix} ${offDate.length === 1 ? "does" : "do"} not appear to have a birthday today. Send the birthday greeting anyway?`;
+  }
+
+  function applyReminderStageFallback(message: {
+    subject: string;
+    body: string;
+    template?: "renewal" | "birthday" | "festival" | "custom";
+    reminderStage?: "first" | "second";
+  }) {
+    if (message.template !== "renewal" || !message.reminderStage) {
+      return { subject: message.subject, body: message.body };
+    }
+    const stageLabel = message.reminderStage === "second" ? "Second Reminder" : "First Reminder";
+    return {
+      subject: message.subject.includes(stageLabel)
+        ? message.subject
+        : `${stageLabel} · ${message.subject}`,
+      body: message.body.includes(stageLabel)
+        ? message.body
+        : `${stageLabel}\n\n${message.body}`,
+    };
+  }
+
+  function handleSendClick() {
+    const warning = getBirthdayDateWarning();
+    if (warning) {
+      setBirthdayWarning(warning);
+      setBirthdayConfirmOpen(true);
+      return;
+    }
+    void handleSendDirect();
+  }
+
   /** Direct send via the /api/send-email route. The server reads
    *  SMTP_PASSWORD from env (never shipped to the browser) and relays
    *  through Gmail SMTP. On success we append to the client's
@@ -274,13 +366,14 @@ export function EmailPreviewDialog({
       emphasizedTerms?: string[];
       bcc?: string[];
     }) {
+      const prepared = applyReminderStageFallback(message);
       const bodyWithSignature = renderEmailBody(
-        message.body,
+        prepared.body,
         {},
         settings.signature
       );
       const htmlWithSignature = renderEmailHtml(
-        message.body,
+        prepared.body,
         {},
         settings.signature,
         { emphasizedTerms: message.emphasizedTerms, template: message.template }
@@ -291,7 +384,7 @@ export function EmailPreviewDialog({
         body: JSON.stringify({
           to: message.to.trim(),
           bcc: message.bcc && message.bcc.length > 0 ? message.bcc : undefined,
-          subject: message.subject,
+          subject: prepared.subject,
           body: bodyWithSignature,
           html: htmlWithSignature,
           clientId: message.clientId,
@@ -330,8 +423,8 @@ export function EmailPreviewDialog({
 
       if (clientId) {
         appendEmailHistory(clientId, {
-          subject: message.subject,
-          body: message.body,
+          subject: prepared.subject,
+          body: prepared.body,
           templateLabel,
           policyId: renewalPolicy?.id,
           policyNumber: renewalPolicy?.policyNumber,
@@ -369,7 +462,7 @@ export function EmailPreviewDialog({
         markBirthdayEmailSent(clientId);
       }
 
-      return { clientId, template };
+      return { clientId, template, subject: prepared.subject, body: prepared.body };
     }
 
     try {
@@ -430,8 +523,18 @@ export function EmailPreviewDialog({
       onSent?.({
         via: "smtp",
         to: to.trim(),
-        subject,
-        body,
+        subject: applyReminderStageFallback({
+          subject,
+          body,
+          template: selectedTemplate,
+          reminderStage: activePayload.reminderStage,
+        }).subject,
+        body: applyReminderStageFallback({
+          subject,
+          body,
+          template: selectedTemplate,
+          reminderStage: activePayload.reminderStage,
+        }).body,
         clientId: activePayload.clientId,
       });
       onOpenChange(false);
@@ -701,7 +804,7 @@ export function EmailPreviewDialog({
         <DialogFooter className="mx-0 mb-0 shrink-0 rounded-none rounded-b-xl border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-8px_24px_-20px_rgba(15,23,42,0.35)] backdrop-blur sm:flex-row">
           <Button
             className="bg-navy hover:bg-navy/90 text-white min-w-[140px]"
-            onClick={handleSendDirect}
+            onClick={handleSendClick}
             disabled={
               sending ||
               (isBatch
@@ -724,6 +827,14 @@ export function EmailPreviewDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+      <ConfirmDialog
+        open={birthdayConfirmOpen}
+        onOpenChange={setBirthdayConfirmOpen}
+        title="Birthday is not today"
+        description={birthdayWarning}
+        confirmLabel="Send Anyway"
+        onConfirm={() => void handleSendDirect()}
+      />
     </Dialog>
   );
 }
