@@ -169,6 +169,7 @@ export function BackupsSection() {
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <Button
+              type="button"
               size="sm"
               onClick={handleCreate}
               disabled={creating}
@@ -228,16 +229,19 @@ export function BackupsSection() {
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <Button
+                      type="button"
                       size="sm"
                       variant="ghost"
                       className={`h-8 ${b.important ? "text-amber-500 hover:bg-amber-50 hover:text-amber-600" : "text-slate-300 hover:bg-amber-50 hover:text-amber-500"}`}
                       title={b.important ? "Important backup: protected from auto cleanup" : "Mark backup as important"}
+                      aria-pressed={!!b.important}
                       aria-label={`${b.important ? "Unmark" : "Mark"} ${b.filename} as important`}
                       onClick={() => handleToggleImportant(b)}
                     >
                       <Star className={`h-3.5 w-3.5 ${b.important ? "fill-current" : ""}`} />
                     </Button>
                     <Button
+                      type="button"
                       size="sm"
                       variant="ghost"
                       className="h-8"
@@ -248,6 +252,7 @@ export function BackupsSection() {
                       <Download className="h-3.5 w-3.5" />
                     </Button>
                     <Button
+                      type="button"
                       size="sm"
                       variant="outline"
                       className="h-8"
@@ -263,6 +268,7 @@ export function BackupsSection() {
                       {b.filename.endsWith(".db.gz") ? "Restore & Restart" : "Restore"}
                     </Button>
                     <Button
+                      type="button"
                       size="sm"
                       variant="ghost"
                       className="h-8 text-slate-400 hover:text-accent-red hover:bg-accent-red/10"
@@ -301,10 +307,11 @@ export function BackupsSection() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setConfirmTarget(null)}>
+            <Button type="button" variant="ghost" onClick={() => setConfirmTarget(null)}>
               Cancel
             </Button>
             <Button
+              type="button"
               className="bg-accent-red hover:bg-accent-red/90 text-white"
               onClick={handleRestore}
             >

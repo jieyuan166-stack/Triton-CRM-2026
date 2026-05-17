@@ -226,6 +226,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const deleteBackup = useCallback(
     async (id: string) => {
       const result = await getBackupService().delete(id);
+      if (result.ok) {
+        setBackups((prev) => prev.filter((backup) => backup.id !== id));
+      }
       await refreshBackups();
       return result;
     },
@@ -235,6 +238,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const setBackupImportant = useCallback(
     async (id: string, important: boolean) => {
       const result = await getBackupService().setImportant(id, important);
+      if (result.ok) {
+        setBackups((prev) =>
+          prev.map((backup) =>
+            backup.id === id ? { ...backup, important } : backup
+          )
+        );
+      }
       await refreshBackups();
       return result;
     },
