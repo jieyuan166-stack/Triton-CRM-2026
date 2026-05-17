@@ -99,10 +99,10 @@ export function BackupsSection() {
       return;
     }
     if (r.restartRequired) {
-      toast.success("Restore started. CRM is restarting...", {
+      toast.success("Restore started. CRM is restarting. Please wait about 30 seconds...", {
         description: target.filename,
       });
-      window.setTimeout(() => window.location.reload(), 5000);
+      window.setTimeout(() => window.location.reload(), 35000);
       return;
     }
 
