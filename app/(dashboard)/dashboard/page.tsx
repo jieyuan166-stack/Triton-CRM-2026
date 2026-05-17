@@ -63,22 +63,22 @@ export default function DashboardPage() {
         />
         <KPICard
           label="Premiums Due (30d)"
-          value={metrics.premiumDueCount30d}
+          value={pendingPremiumReminders}
           subValue={
             metrics.premiumDueCount30d === 0
               ? "No policies due in the next 30 days"
               : pendingPremiumReminders === 0
-                ? `${dismissedPremiumReminders > 0 ? "All active reminders cleared" : "All reminders completed"} · Total premium ${formatCurrency(
-                    metrics.premiumDueAmount30d
+                ? `${dismissedPremiumReminders > 0 ? "All active reminders cleared" : "All reminders completed"} · ${metrics.premiumDueCount30d} policies due · Total premium ${formatCurrency(
+                    premiumReminderState.duePremiumAmount
                   )}`
                 : `${pendingPremiumReminders} reminders to send · ${completedPremiumReminders} completed${dismissedPremiumReminders > 0 ? ` · ${dismissedPremiumReminders} dismissed` : ""} · Total premium ${formatCurrency(
-                    metrics.premiumDueAmount30d
+                    premiumReminderState.pendingPremiumAmount
                   )}`
           }
           icon={TrendingUp}
           accent="amber"
           className={
-            metrics.premiumDueCount30d > 0
+            pendingPremiumReminders > 0
               ? "border-amber-200 bg-amber-50/60 shadow-[0_12px_30px_rgba(245,158,11,0.12)]"
               : undefined
           }
