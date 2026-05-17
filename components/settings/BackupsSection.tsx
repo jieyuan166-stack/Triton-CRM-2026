@@ -66,7 +66,7 @@ export function BackupsSection() {
     restoreBackup,
     deleteBackup,
   } = useSettings();
-  const { getSnapshot } = useData();
+  const { getSnapshot, replaceAll } = useData();
   const [creating, setCreating] = useState(false);
   const [restoring, setRestoring] = useState<string | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<BackupRecord | null>(null);
@@ -98,7 +98,20 @@ export function BackupsSection() {
       toast.error("Restore failed", { description: r.error });
       return;
     }
-    toast.success("Data restored successfully! Reloading…", {
+    if (r.restartRequired) {
+      toast.success("Restore started. CRM is restarting...", {
+        description: target.filename,
+      });
+      window.setTimeout(() => window.location.reload(), 5000);
+      return;
+    }
+
+    const replaced = replaceAll(r.data);
+    if (!replaced.ok) {
+      toast.error("Restore failed", { description: replaced.error });
+      return;
+    }
+    toast.success("Data restored successfully! Reloading...", {
       description: target.filename,
     });
     window.setTimeout(() => window.location.reload(), 600);
@@ -210,7 +223,7 @@ export function BackupsSection() {
                       variant="outline"
                       className="h-8"
                       disabled={isRestoring || b.restorable === false}
-                      title={b.restorable === false ? "SQLite backups are file-level backups. Restore from NAS/SSH after stopping the app." : "Restore backup"}
+                      title={b.restorable === false ? "This backup cannot be restored from Settings" : b.filename.endsWith(".db.gz") ? "Restore & restart CRM" : "Restore backup"}
                       onClick={() => setConfirmTarget(b)}
                     >
                       {isRestoring ? (
@@ -218,7 +231,7 @@ export function BackupsSection() {
                       ) : (
                         <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
                       )}
-                      Restore
+                      {b.filename.endsWith(".db.gz") ? "Restore & Restart" : "Restore"}
                     </Button>
                     <Button
                       size="sm"
@@ -252,7 +265,8 @@ export function BackupsSection() {
                 <>
                   <span className="font-number">{confirmTarget.filename}</span>{" "}
                   will overwrite all current data. This is destructive and
-                  cannot be undone — current state should be backed up first.
+                  cannot be undone. Database restores automatically create a
+                  before-restore backup and restart the CRM.
                 </>
               ) : null}
             </DialogDescription>
@@ -265,7 +279,7 @@ export function BackupsSection() {
               className="bg-accent-red hover:bg-accent-red/90 text-white"
               onClick={handleRestore}
             >
-              Confirm Restore
+              {confirmTarget?.filename.endsWith(".db.gz") ? "Restore & Restart" : "Confirm Restore"}
             </Button>
           </DialogFooter>
         </DialogContent>

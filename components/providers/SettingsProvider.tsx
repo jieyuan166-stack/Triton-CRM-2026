@@ -22,7 +22,7 @@ import type {
   EmailTemplate,
   EmailTemplateId,
 } from "@/lib/settings-types";
-import { getBackupService } from "@/lib/backup-service";
+import { getBackupService, type RestoreBackupResult } from "@/lib/backup-service";
 import { DEFAULT_APP_SETTINGS } from "@/lib/default-settings";
 import { DEFAULT_TEMPLATES } from "@/lib/templates";
 
@@ -46,12 +46,7 @@ interface SettingsContextValue {
   createBackup(snapshot: BackupSnapshot): Promise<BackupRecord>;
   /** Restore returns the embedded snapshot on success so the caller can hand
    *  it to DataProvider.replaceAll + persist it for a window.reload. */
-  restoreBackup(
-    id: string
-  ): Promise<
-    | { ok: true; data: BackupSnapshot }
-    | { ok: false; error: string }
-  >;
+  restoreBackup(id: string): Promise<RestoreBackupResult>;
   deleteBackup(id: string): Promise<{ ok: boolean; error?: string }>;
   /** Add a backup record from an uploaded JSON file. The caller has done the
    *  FileReader read; we own JSON parsing + structural validation. */

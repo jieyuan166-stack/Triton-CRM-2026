@@ -16,9 +16,9 @@ RUN corepack enable && corepack prepare pnpm@10.33.4 --activate && pnpm prisma g
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-RUN apk add --no-cache openssl sqlite
-RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
-RUN mkdir -p /app/backups && chown -R nextjs:nodejs /app/backups
+RUN apk add --no-cache openssl sqlite su-exec
+RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001 -G nodejs
+RUN mkdir -p /app/backups /app/prisma/data && chown -R nextjs:nodejs /app/backups /app/prisma/data
 
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
@@ -26,8 +26,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 
-USER nextjs
 EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
-CMD ["sh", "-c", "npx prisma migrate deploy && node server.js"]
+CMD ["sh", "-c", "chown -R nextjs:nodejs /app/backups /app/prisma/data && chmod -R u+rwX,g+rwX /app/backups /app/prisma/data && su-exec nextjs:nodejs sh -c 'npx prisma migrate deploy && node server.js'"]

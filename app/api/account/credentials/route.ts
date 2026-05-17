@@ -10,6 +10,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const schema = z.object({
+  currentPassword: z.string().min(1),
   email: z.string().email().optional(),
   password: z.string().min(12).optional(),
 });
@@ -39,11 +40,30 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ ok: false, error: "No changes provided" }, { status: 400 });
   }
 
-  const data: { email?: string; passwordHash?: string } = {};
-  if (parsed.data.email) data.email = parsed.data.email.toLowerCase();
-  if (parsed.data.password) data.passwordHash = await bcrypt.hash(parsed.data.password, 12);
-
   try {
+    const currentUser = await db.user.findUnique({
+      where: { id: session.user.id },
+      select: { id: true, passwordHash: true },
+    });
+    if (!currentUser) {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    }
+
+    const passwordOk = await bcrypt.compare(
+      parsed.data.currentPassword,
+      currentUser.passwordHash,
+    );
+    if (!passwordOk) {
+      return NextResponse.json(
+        { ok: false, error: "Current password is incorrect" },
+        { status: 403 },
+      );
+    }
+
+    const data: { email?: string; passwordHash?: string } = {};
+    if (parsed.data.email) data.email = parsed.data.email.toLowerCase();
+    if (parsed.data.password) data.passwordHash = await bcrypt.hash(parsed.data.password, 12);
+
     const user = await db.user.update({
       where: { id: session.user.id },
       data,

@@ -23,6 +23,7 @@ export function ProfileSection() {
 
   // Account security: sign-in email + password
   const [signInEmail, setSignInEmail] = useState(loginEmail);
+  const [currentPwd, setCurrentPwd] = useState("");
   const [newPwd, setNewPwd] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
   const [secSaving, setSecSaving] = useState(false);
@@ -58,6 +59,11 @@ export function ProfileSection() {
 
     // Password: only validate when the user is changing it (both fields filled).
     const wantsPasswordChange = newPwd.length > 0 || confirmPwd.length > 0;
+    const wantsEmailChange = trimmedEmail !== loginEmail;
+    if ((wantsEmailChange || wantsPasswordChange) && !currentPwd) {
+      toast.error("Current password is required");
+      return;
+    }
     if (wantsPasswordChange) {
       if (newPwd.length < 12) {
         toast.error("New password must be at least 12 characters");
@@ -71,7 +77,8 @@ export function ProfileSection() {
 
     setSecSaving(true);
     const result = await updateCredentials({
-      email: trimmedEmail !== loginEmail ? trimmedEmail : undefined,
+      currentPassword: currentPwd,
+      email: wantsEmailChange ? trimmedEmail : undefined,
       password: wantsPasswordChange ? newPwd : undefined,
     });
     setSecSaving(false);
@@ -83,20 +90,21 @@ export function ProfileSection() {
       return;
     }
 
+    setCurrentPwd("");
     setNewPwd("");
     setConfirmPwd("");
 
-    if (trimmedEmail !== loginEmail && wantsPasswordChange) {
-      toast.success("Sign-in email and password updated", {
-        description: "Use the new credentials at your next sign-in.",
-      });
-    } else if (trimmedEmail !== loginEmail) {
-      toast.success("Sign-in email updated", {
-        description: `Use ${result.email} at your next sign-in.`,
-      });
-    } else {
-      toast.success("Password updated");
-    }
+    const message =
+      wantsEmailChange && wantsPasswordChange
+        ? "Sign-in email and password updated"
+        : wantsEmailChange
+          ? "Sign-in email updated"
+          : "Password updated";
+    toast.success(message, {
+      description: `Please sign in again${result.email ? ` with ${result.email}` : ""}.`,
+    });
+    await signOut();
+    router.replace("/login");
   }
 
   return (
@@ -198,28 +206,44 @@ export function ProfileSection() {
           <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 mt-3 mb-2">
             Change Password
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="pwd-new">New Password</Label>
+              <Label htmlFor="pwd-current">Current Password</Label>
               <Input
-                id="pwd-new"
+                id="pwd-current"
                 type="password"
-                autoComplete="new-password"
-                placeholder="12+ characters, blank to keep current"
-                value={newPwd}
-                onChange={(e) => setNewPwd(e.target.value)}
+                autoComplete="current-password"
+                placeholder="Required to change sign-in email or password"
+                value={currentPwd}
+                onChange={(e) => setCurrentPwd(e.target.value)}
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="pwd-confirm">Confirm New Password</Label>
-              <Input
-                id="pwd-confirm"
-                type="password"
-                autoComplete="new-password"
-                placeholder="Repeat new password"
-                value={confirmPwd}
-                onChange={(e) => setConfirmPwd(e.target.value)}
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="pwd-new">New Password</Label>
+                <Input
+                  id="pwd-new"
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="12+ characters, blank to keep current"
+                  value={newPwd}
+                  onChange={(e) => setNewPwd(e.target.value)}
+                />
+                <p className="text-[11px] text-triton-muted">
+                  At least 12 characters. Use a mix of letters, numbers, and symbols.
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="pwd-confirm">Confirm New Password</Label>
+                <Input
+                  id="pwd-confirm"
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="Repeat new password"
+                  value={confirmPwd}
+                  onChange={(e) => setConfirmPwd(e.target.value)}
+                />
+              </div>
             </div>
           </div>
         </div>

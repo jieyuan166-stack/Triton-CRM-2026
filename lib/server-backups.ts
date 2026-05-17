@@ -7,17 +7,18 @@ import { promisify } from "util";
 
 import type { BackupRecord, BackupSnapshot } from "@/lib/settings-types";
 import { isValidSnapshot } from "@/lib/backup-service";
+import { db } from "@/lib/db";
 
 const gzipAsync = promisify(gzip);
 const gunzipAsync = promisify(gunzip);
 
 const SNAPSHOT_RE = /^backup_\d{8}T\d{6}\.json\.gz$/;
 const MANUAL_DATABASE_RE = /^backup_\d{8}T\d{6}\.db\.gz$/;
-const DATABASE_RE = /^triton-\d{8}-\d{6}\.db\.gz$/;
+const DATABASE_RE = /^triton-\d{8}-\d{6}(?:-[a-z0-9-]+)?\.db\.gz$/i;
 const BACKUP_TIME_ZONE = "America/Vancouver";
 
 export function getBackupDir() {
-  return process.env.BACKUP_DIR || path.join(process.cwd(), "backups");
+  return process.env.BACKUP_DIR || path.join(/* turbopackIgnore: true */ process.cwd(), "backups");
 }
 
 export function isSafeBackupFilename(filename: string) {
@@ -60,6 +61,17 @@ function kindFor(filename: string): BackupRecord["kind"] {
   return "snapshot";
 }
 
+export function isDatabaseBackup(filename: string) {
+  return filename.endsWith(".db.gz");
+}
+
+function safeBackupReadError(error: unknown): Error {
+  if (error && typeof error === "object" && "code" in error && (error as NodeJS.ErrnoException).code === "EACCES") {
+    return new Error("Backup file is not readable by the app. Please repair backup permissions.");
+  }
+  return error instanceof Error ? error : new Error("Backup file could not be read");
+}
+
 function createdAtFromFilename(filename: string, fallback: Date) {
   const toVancouverIso = (
     y: string,
@@ -88,7 +100,7 @@ function createdAtFromFilename(filename: string, fallback: Date) {
   if (snapshot) {
     return toVancouverIso(snapshot[1], snapshot[2], snapshot[3], snapshot[4], snapshot[5], snapshot[6]);
   }
-  const database = filename.match(/^triton-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})\.db\.gz$/);
+  const database = filename.match(/^triton-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})(?:-[a-z0-9-]+)?\.db\.gz$/i);
   if (database) {
     return toVancouverIso(database[1], database[2], database[3], database[4], database[5], database[6]);
   }
@@ -105,7 +117,7 @@ function sqliteDatabasePath() {
     throw new Error("DATABASE_URL must be a file: SQLite URL for file backups");
   }
   const raw = url.slice("file:".length);
-  return path.isAbsolute(raw) ? raw : path.resolve(process.cwd(), raw);
+  return path.isAbsolute(raw) ? raw : path.resolve(/* turbopackIgnore: true */ process.cwd(), raw);
 }
 
 export async function listBackupFiles(): Promise<BackupRecord[]> {
@@ -123,7 +135,7 @@ export async function listBackupFiles(): Promise<BackupRecord[]> {
           id: entry.name,
           filename: entry.name,
           kind,
-          restorable: !isDb && kind === "snapshot",
+          restorable: isDb || (!isDb && kind === "snapshot"),
           size: stat.size,
           createdAt: createdAtFromFilename(entry.name, stat.mtime),
           contents:
@@ -146,13 +158,38 @@ export async function createSnapshotBackup(snapshot: BackupSnapshot) {
   const body = await fs.readFile(dbPath);
   const compressed = await gzipAsync(body, { level: 9 });
   const file = backupPath(filename);
-  await fs.writeFile(file, compressed, { mode: 0o600 });
+  await fs.writeFile(file, compressed, { mode: 0o660 });
   const stat = await fs.stat(file);
   return {
     id: filename,
     filename,
     kind: "snapshot",
-    restorable: false,
+    restorable: true,
+    size: stat.size,
+    createdAt: createdAtFromFilename(filename, stat.mtime),
+    contents: ["SQLite Database"],
+  } satisfies BackupRecord;
+}
+
+export async function createDatabaseBackup(label?: string) {
+  await ensureBackupDir();
+  const safeLabel = label
+    ? `-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`
+    : "";
+  const filename = `triton-${timestampLabel().replace("T", "-")}${safeLabel}.db.gz`;
+  const dbPath = sqliteDatabasePath();
+  const body = await fs.readFile(dbPath).catch((error) => {
+    throw safeBackupReadError(error);
+  });
+  const compressed = await gzipAsync(body, { level: 9 });
+  const file = backupPath(filename);
+  await fs.writeFile(file, compressed, { mode: 0o660 });
+  const stat = await fs.stat(file);
+  return {
+    id: filename,
+    filename,
+    kind: "database",
+    restorable: true,
     size: stat.size,
     createdAt: createdAtFromFilename(filename, stat.mtime),
     contents: ["SQLite Database"],
@@ -163,7 +200,9 @@ export async function readSnapshotBackup(filename: string): Promise<BackupSnapsh
   if (!filename.endsWith(".json.gz")) {
     throw new Error("Only JSON snapshot backups can be restored from Settings");
   }
-  const compressed = await fs.readFile(backupPath(filename));
+  const compressed = await fs.readFile(backupPath(filename)).catch((error) => {
+    throw safeBackupReadError(error);
+  });
   const raw = await gunzipAsync(compressed);
   const parsed = JSON.parse(raw.toString("utf8"));
   if (!isValidSnapshot(parsed)) {
@@ -172,13 +211,54 @@ export async function readSnapshotBackup(filename: string): Promise<BackupSnapsh
   return parsed;
 }
 
+function assertSqliteDatabase(data: Buffer) {
+  if (data.length < 16 || data.subarray(0, 16).toString("binary") !== "SQLite format 3\u0000") {
+    throw new Error("Backup is not a valid SQLite database");
+  }
+}
+
+async function removeSqliteSidecars(dbPath: string) {
+  await Promise.all([
+    fs.unlink(`${dbPath}-wal`).catch(() => undefined),
+    fs.unlink(`${dbPath}-shm`).catch(() => undefined),
+  ]);
+}
+
+export async function restoreDatabaseBackup(filename: string) {
+  if (!isDatabaseBackup(filename)) {
+    throw new Error("Only SQLite database backups can use database restore");
+  }
+
+  const compressed = await fs.readFile(backupPath(filename)).catch((error) => {
+    throw safeBackupReadError(error);
+  });
+  const restored = await gunzipAsync(compressed);
+  assertSqliteDatabase(restored);
+
+  const beforeRestore = await createDatabaseBackup("before-restore");
+  const dbPath = sqliteDatabasePath();
+  const tempPath = path.join(path.dirname(dbPath), `.triton-restore-${Date.now()}.db`);
+
+  await fs.writeFile(tempPath, restored, { mode: 0o660 });
+  await db.$disconnect().catch(() => undefined);
+  await removeSqliteSidecars(dbPath);
+  await fs.rename(tempPath, dbPath);
+  await fs.chmod(dbPath, 0o660).catch(() => undefined);
+
+  return { restartRequired: true as const, beforeRestore };
+}
+
 export async function deleteBackupFile(filename: string) {
   await fs.unlink(backupPath(filename));
 }
 
 export async function readBackupFile(filename: string) {
   const file = backupPath(filename);
-  const stat = await fs.stat(file);
-  const data = await fs.readFile(file);
+  const stat = await fs.stat(file).catch((error) => {
+    throw safeBackupReadError(error);
+  });
+  const data = await fs.readFile(file).catch((error) => {
+    throw safeBackupReadError(error);
+  });
   return { data, size: stat.size };
 }

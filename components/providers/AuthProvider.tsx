@@ -19,6 +19,7 @@ interface AuthContextValue {
   signIn(email: string, password: string): Promise<{ ok: boolean; error?: string }>;
   signOut(): Promise<void>;
   updateCredentials(patch: {
+    currentPassword: string;
     email?: string;
     password?: string;
   }): Promise<{ ok: boolean; email: string; error?: string }>;
@@ -88,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const updateCredentials = useCallback(
-    async (patch: { email?: string; password?: string }) => {
+    async (patch: { currentPassword: string; email?: string; password?: string }) => {
       const response = await fetch("/api/account/credentials", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },

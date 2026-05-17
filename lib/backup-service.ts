@@ -5,12 +5,15 @@
 
 import type { BackupRecord, BackupSnapshot } from "./settings-types";
 
+export type RestoreBackupResult =
+  | { ok: true; data: BackupSnapshot; restartRequired?: false }
+  | { ok: true; restartRequired: true; beforeRestore?: BackupRecord }
+  | { ok: false; error: string };
+
 export interface BackupService {
   list(): Promise<BackupRecord[]>;
   createNow(snapshot: BackupSnapshot): Promise<BackupRecord>;
-  restore(
-    id: string
-  ): Promise<{ ok: true; data: BackupSnapshot } | { ok: false; error: string }>;
+  restore(id: string): Promise<RestoreBackupResult>;
   delete(id: string): Promise<{ ok: boolean; error?: string }>;
   importFromJson(
     text: string,
@@ -58,9 +61,19 @@ class ApiBackupService implements BackupService {
 
   async restore(id: string) {
     try {
-      const json = await readJson<{ ok: true; data: BackupSnapshot }>(
+      const json = await readJson<
+        | { ok: true; data: BackupSnapshot; restartRequired?: false }
+        | { ok: true; restartRequired: true; beforeRestore?: BackupRecord }
+      >(
         await fetch(`/api/backups/${encodeURIComponent(id)}/restore`, { cache: "no-store" }),
       );
+      if ("restartRequired" in json && json.restartRequired) {
+        return {
+          ok: true as const,
+          restartRequired: true as const,
+          beforeRestore: json.beforeRestore,
+        };
+      }
       return { ok: true as const, data: json.data };
     } catch (error) {
       return { ok: false as const, error: error instanceof Error ? error.message : "Restore failed" };

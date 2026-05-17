@@ -109,6 +109,9 @@ function LoginContent() {
               onChange={(e) => setPassword(e.target.value)}
               required
             />
+            <p className="text-[11px] leading-relaxed text-slate-500">
+              Use your Triton CRM password. Forgot it? Send a reset email.
+            </p>
           </div>
 
           {error ? (
