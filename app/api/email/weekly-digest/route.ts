@@ -12,8 +12,8 @@ import { DEFAULT_APP_SETTINGS, mergeAppSettings } from "@/lib/default-settings";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-async function readSettings() {
-  const row = await db.settings.findUnique({ where: { id: "global" } });
+async function readSettings(userId: string) {
+  const row = await db.settings.findUnique({ where: { userId } });
   if (!row) return DEFAULT_APP_SETTINGS;
   return mergeAppSettings(JSON.parse(row.data));
 }
@@ -26,11 +26,11 @@ function escapeHtml(text: string) {
     .replace(/"/g, "&quot;");
 }
 
-async function buildDigest() {
+async function buildDigest(userId: string) {
   const [clients, policies, followUps] = await Promise.all([
-    db.client.findMany({ orderBy: [{ lastName: "asc" }, { firstName: "asc" }] }),
-    db.policy.findMany({ where: { status: "active" }, orderBy: { premiumDate: "asc" } }),
-    db.followUp.findMany({ orderBy: { date: "asc" } }),
+    db.client.findMany({ where: { userId }, orderBy: [{ lastName: "asc" }, { firstName: "asc" }] }),
+    db.policy.findMany({ where: { userId, status: "active" }, orderBy: { premiumDate: "asc" } }),
+    db.followUp.findMany({ where: { client: { userId } }, orderBy: { date: "asc" } }),
   ]);
   const clientsById = new Map(clients.map((client) => [client.id, client]));
 
@@ -93,7 +93,7 @@ export async function GET() {
   const session = await requireSession();
   if (!session) return unauthorized();
 
-  const digest = await buildDigest();
+  const digest = await buildDigest(session.user.id);
   return NextResponse.json({
     ok: true,
     counts: {
@@ -109,7 +109,7 @@ export async function POST() {
   const session = await requireSession();
   if (!session) return unauthorized();
 
-  const settings = await readSettings();
+  const settings = await readSettings(session.user.id);
   if (!settings.weeklyDigest.enabled) {
     return NextResponse.json({ ok: false, error: "Weekly digest is disabled" }, { status: 400 });
   }
@@ -121,7 +121,7 @@ export async function POST() {
     return NextResponse.json({ ok: false, error: "SMTP_PASSWORD is not configured" }, { status: 503 });
   }
 
-  const digest = await buildDigest();
+  const digest = await buildDigest(session.user.id);
   const transporter = nodemailer.createTransport({
     host: emailDefaults.host,
     port: emailDefaults.port,
@@ -142,7 +142,7 @@ export async function POST() {
   await auditLog({
     action: "send_weekly_digest",
     entityType: "settings",
-    entityId: "global",
+    entityId: session.user.id,
     metadata: { recipient, messageId: info.messageId },
   });
 

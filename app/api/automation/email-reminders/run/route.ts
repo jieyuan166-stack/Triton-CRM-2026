@@ -27,8 +27,8 @@ const PROVINCE_TIMEZONES: Record<string, string> = {
   ON: "America/Toronto",
 };
 
-async function readSettings() {
-  const row = await db.settings.findUnique({ where: { id: "global" } });
+async function readSettings(userId: string) {
+  const row = await db.settings.findUnique({ where: { userId } });
   if (!row) return DEFAULT_APP_SETTINGS;
   return mergeAppSettings(JSON.parse(row.data));
 }
@@ -90,25 +90,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
-  const settings = await readSettings();
-  if (!settings.emailAutomation.premiumRemindersEnabled && !settings.emailAutomation.birthdayGreetingsEnabled) {
-    return NextResponse.json({ ok: true, sent: 0, skipped: 0, errors: [], message: "Customer email automation is disabled" });
-  }
-
-  const transporter = await createTransporter(settings);
-  const fromName = settings.email.fromName || emailDefaults.fromName;
-  const fromEmail = settings.email.fromEmail || emailDefaults.fromEmail || emailDefaults.user;
-  const from = fromName ? `${fromName} <${fromEmail}>` : fromEmail;
+  const users = await db.user.findMany({ select: { id: true, email: true } });
   const now = new Date();
   const errors: string[] = [];
   const skippedReasons: string[] = [];
   let sent = 0;
   let skipped = 0;
 
+  for (const user of users) {
+  const settings = await readSettings(user.id);
+  if (!settings.emailAutomation.premiumRemindersEnabled && !settings.emailAutomation.birthdayGreetingsEnabled) {
+    continue;
+  }
+
+  const transporter = await createTransporter(settings);
+  const fromName = settings.email.fromName || emailDefaults.fromName;
+  const fromEmail = settings.email.fromEmail || emailDefaults.fromEmail || emailDefaults.user;
+  const from = fromName ? `${fromName} <${fromEmail}>` : fromEmail;
+
   if (settings.emailAutomation.premiumRemindersEnabled) {
     const renewalTpl = settings.templates.find((template) => template.id === "renewal");
     const policies = await db.policy.findMany({
-      where: { status: "active", category: "Insurance", premiumDate: { not: null } },
+      where: { userId: user.id, status: "active", category: "Insurance", premiumDate: { not: null } },
       include: { client: true, jointWithClient: true },
     });
 
@@ -213,7 +216,7 @@ export async function POST(request: Request) {
   if (settings.emailAutomation.birthdayGreetingsEnabled) {
     const birthdayTpl = settings.templates.find((template) => template.id === "birthday");
     if (birthdayTpl) {
-      const clients = await db.client.findMany({ where: { birthday: { not: null } } });
+      const clients = await db.client.findMany({ where: { userId: user.id, birthday: { not: null } } });
       for (const client of clients) {
         if (!canSendToEmail(client.email)) {
           skipped += 1;
@@ -280,6 +283,7 @@ export async function POST(request: Request) {
         }
       }
     }
+  }
   }
 
   return NextResponse.json({

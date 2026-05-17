@@ -106,8 +106,8 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   if (!session) return unauthorized();
 
   const { id } = await context.params;
-  const row = await db.client.findUnique({
-    where: { id },
+  const row = await db.client.findFirst({
+    where: { id, userId: session.user.id },
     include: {
       emailHistory: { orderBy: { date: "desc" } },
       policies: { include: { beneficiaries: true } },
@@ -209,6 +209,13 @@ export async function POST(request: NextRequest) {
 
   if (!snapshot.client || !Array.isArray(snapshot.policies)) {
     return NextResponse.json({ error: "Invalid report payload" }, { status: 400 });
+  }
+  const ownedClient = await db.client.findFirst({
+    where: { id: snapshot.client.id, userId: session.user.id },
+    select: { id: true },
+  });
+  if (!ownedClient) {
+    return NextResponse.json({ error: "Client not found" }, { status: 404 });
   }
 
   const buffer = await renderPdf({

@@ -55,6 +55,18 @@ const dataActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("data.replaceAll"), payload: z.object({ snapshot: objectPayloadSchema }) }),
 ]);
 
+async function requireOwnedClient(clientId: string, userId: string) {
+  const client = await db.client.findFirst({ where: { id: clientId, userId }, select: { id: true } });
+  if (!client) throw new Error("Client not found");
+  return client;
+}
+
+async function requireOwnedPolicy(policyId: string, userId: string) {
+  const policy = await db.policy.findFirst({ where: { id: policyId, userId }, select: { id: true, clientId: true } });
+  if (!policy) throw new Error("Policy not found");
+  return policy;
+}
+
 function dateOnly(value: Date | string | null | undefined): string | undefined {
   if (!value) return undefined;
   const d = value instanceof Date ? value : new Date(value);
@@ -256,24 +268,29 @@ function serializeEmailReminderSend(send: {
   };
 }
 
-async function readData(): Promise<DataSnapshot> {
+async function readData(userId: string): Promise<DataSnapshot> {
   const [clients, policies, followUps, relationships, emailReminderSends] = await Promise.all([
     db.client.findMany({
+      where: { userId },
       include: { emailHistory: { orderBy: { date: "desc" } } },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     }),
     db.policy.findMany({
+      where: { userId },
       include: { beneficiaries: true },
       orderBy: { createdAt: "desc" },
     }),
     db.followUp.findMany({
+      where: { client: { userId } },
       include: { createdBy: { select: { name: true } } },
       orderBy: { date: "desc" },
     }),
     db.clientRelationship.findMany({
+      where: { fromClient: { userId }, toClient: { userId } },
       orderBy: { createdAt: "asc" },
     }),
     db.emailReminderSend.findMany({
+      where: { client: { userId } },
       orderBy: { sentAt: "desc" },
     }),
   ]);
@@ -292,7 +309,7 @@ function nullableString(value: string | undefined, partial: boolean) {
   return value || null;
 }
 
-function clientData(input: Partial<Client>, partial = false) {
+function clientData(input: Partial<Client>, partial = false, userId?: string) {
   const firstName =
     input.firstName === undefined ? undefined : toTitleCaseName(input.firstName);
   const lastName =
@@ -308,6 +325,7 @@ function clientData(input: Partial<Client>, partial = false) {
       : undefined);
   return stripUndefined({
     id: input.id,
+    userId,
     slug: generatedSlug,
     firstName,
     lastName,
@@ -330,9 +348,10 @@ function clientData(input: Partial<Client>, partial = false) {
   });
 }
 
-function policyData(input: Partial<Policy>, partial = false) {
+function policyData(input: Partial<Policy>, partial = false, userId?: string) {
   return stripUndefined({
     id: input.id,
+    userId,
     clientId: input.clientId,
     carrier: input.carrier,
     category: input.category,
@@ -393,20 +412,14 @@ async function replaceAll(snapshot: {
   const clientIds = new Set(clients.map((c) => c.id));
 
   await db.$transaction(async (tx) => {
-    await tx.beneficiary.deleteMany();
-    await tx.emailReminderSend.deleteMany();
-    await tx.emailHistory.deleteMany();
-    await tx.followUp.deleteMany();
-    await tx.policy.deleteMany();
-    await tx.clientRelationship.deleteMany();
-    await tx.client.deleteMany();
+    await tx.client.deleteMany({ where: { userId } });
 
     for (const c of clients) {
       await tx.client.create({
         data: clientData({
           ...c,
           linkedToId: undefined,
-        }) as never,
+        }, false, userId) as never,
       });
       for (const entry of c.emailHistory ?? []) {
         await tx.emailHistory.create({
@@ -484,7 +497,7 @@ async function replaceAll(snapshot: {
         ...p,
         isJoint: hasValidJoint,
         jointWithClientId: hasValidJoint ? p.jointWithClientId : undefined,
-      });
+      }, false, userId);
       await tx.policy.create({
         data: {
           ...data,
@@ -540,7 +553,7 @@ export async function GET() {
   const session = await requireSession();
   if (!session) return unauthorized();
 
-  const data = await readData();
+  const data = await readData(session.user.id);
   await auditLog({ action: "read_data", entityType: "crm_data" });
   return NextResponse.json({ ok: true, ...data });
 }
@@ -564,29 +577,35 @@ export async function POST(request: Request) {
     switch (body.action) {
       case "client.create": {
         const client = payload.client as Client;
-        await db.client.create({ data: clientData(client) as never });
+        await db.client.create({ data: clientData(client, false, session.user.id) as never });
         await auditLog({ action: "create_client", entityType: "client", entityId: client.id });
         break;
       }
       case "client.update": {
+        const patch = payload.patch as Partial<Client>;
+        await requireOwnedClient(String(payload.id), session.user.id);
+        if (patch.linkedToId) await requireOwnedClient(patch.linkedToId, session.user.id);
         await db.client.update({
           where: { id: String(payload.id) },
-          data: clientData(payload.patch as Partial<Client>, true) as never,
+          data: clientData(patch, true) as never,
         });
         await auditLog({ action: "update_client", entityType: "client", entityId: String(payload.id) });
         break;
       }
       case "client.delete": {
+        await requireOwnedClient(String(payload.id), session.user.id);
         await db.client.delete({ where: { id: String(payload.id) } });
         await auditLog({ action: "delete_client", entityType: "client", entityId: String(payload.id) });
         break;
       }
       case "clientRelationships.replace": {
         const clientId = String(payload.clientId);
+        await requireOwnedClient(clientId, session.user.id);
         const rows = Array.isArray(payload.relationships)
           ? (payload.relationships as ClientRelationship[])
           : [];
         const liveClients = await db.client.findMany({
+          where: { userId: session.user.id },
           select: { id: true },
         });
         const liveClientIds = new Set(liveClients.map((client) => client.id));
@@ -629,7 +648,11 @@ export async function POST(request: Request) {
       }
       case "policy.create": {
         const policy = payload.policy as Policy;
-        const data = policyData(policy);
+        await requireOwnedClient(policy.clientId, session.user.id);
+        if (policy.jointWithClientId) await requireOwnedClient(policy.jointWithClientId, session.user.id);
+        if (policy.policyOwnerClientId) await requireOwnedClient(policy.policyOwnerClientId, session.user.id);
+        if (policy.policyOwner2ClientId) await requireOwnedClient(policy.policyOwner2ClientId, session.user.id);
+        const data = policyData(policy, false, session.user.id);
         await db.policy.create({
           data: {
             ...data,
@@ -648,7 +671,12 @@ export async function POST(request: Request) {
       }
       case "policy.update": {
         const id = String(payload.id);
+        await requireOwnedPolicy(id, session.user.id);
         const patch = payload.patch as Partial<Policy> & { beneficiaries?: Beneficiary[] };
+        if (patch.clientId) await requireOwnedClient(patch.clientId, session.user.id);
+        if (patch.jointWithClientId) await requireOwnedClient(patch.jointWithClientId, session.user.id);
+        if (patch.policyOwnerClientId) await requireOwnedClient(patch.policyOwnerClientId, session.user.id);
+        if (patch.policyOwner2ClientId) await requireOwnedClient(patch.policyOwner2ClientId, session.user.id);
         await db.policy.update({ where: { id }, data: policyData(patch, true) as never });
         if (Array.isArray(patch.beneficiaries)) {
           await db.beneficiary.deleteMany({ where: { policyId: id } });
@@ -666,12 +694,14 @@ export async function POST(request: Request) {
         break;
       }
       case "policy.delete": {
+        await requireOwnedPolicy(String(payload.id), session.user.id);
         await db.policy.delete({ where: { id: String(payload.id) } });
         await auditLog({ action: "delete_policy", entityType: "policy", entityId: String(payload.id) });
         break;
       }
       case "followup.create": {
         const f = payload.followUp as FollowUp;
+        await requireOwnedClient(f.clientId, session.user.id);
         await db.followUp.create({
           data: {
             id: f.id,
@@ -688,6 +718,11 @@ export async function POST(request: Request) {
         break;
       }
       case "followup.delete": {
+        const followUp = await db.followUp.findFirst({
+          where: { id: String(payload.id), client: { userId: session.user.id } },
+          select: { id: true },
+        });
+        if (!followUp) throw new Error("Follow-up not found");
         await db.followUp.delete({ where: { id: String(payload.id) } });
         await auditLog({ action: "delete_followup", entityType: "followup", entityId: String(payload.id) });
         break;
@@ -695,6 +730,8 @@ export async function POST(request: Request) {
       case "emailHistory.append": {
         const entry = payload.entry as EmailHistoryEntry;
         const clientId = String(payload.clientId);
+        await requireOwnedClient(clientId, session.user.id);
+        if (entry.policyId) await requireOwnedPolicy(entry.policyId, session.user.id);
         await db.emailHistory.create({
           data: {
             id: entry.id,
@@ -719,6 +756,7 @@ export async function POST(request: Request) {
       }
       case "emailHistory.update": {
         const clientId = String(payload.clientId);
+        await requireOwnedClient(clientId, session.user.id);
         const entryId = String(payload.entryId);
         const patch = payload.patch as Partial<EmailHistoryEntry> & {
           policyId?: string | null;
@@ -743,6 +781,7 @@ export async function POST(request: Request) {
           data.communicationType = patch.communicationType ?? null;
         }
         if (Object.prototype.hasOwnProperty.call(patch, "policyId")) {
+          if (patch.policyId) await requireOwnedPolicy(patch.policyId, session.user.id);
           data.policyId = patch.policyId ?? null;
         }
         if (Object.prototype.hasOwnProperty.call(patch, "policyNumber")) {
@@ -768,6 +807,7 @@ export async function POST(request: Request) {
       }
       case "emailHistory.delete": {
         const clientId = String(payload.clientId);
+        await requireOwnedClient(clientId, session.user.id);
         const entryIds = Array.isArray(payload.entryIds)
           ? payload.entryIds.map((id) => String(id)).filter(Boolean)
           : [];
@@ -789,7 +829,7 @@ export async function POST(request: Request) {
               communicationType: true,
             },
           }),
-          db.client.findUnique({ where: { id: clientId }, select: { notes: true } }),
+          db.client.findFirst({ where: { id: clientId, userId: session.user.id }, select: { notes: true } }),
         ]);
         await db.emailHistory.deleteMany({
           where: {
@@ -827,6 +867,8 @@ export async function POST(request: Request) {
       }
       case "emailReminderSend.record": {
         const send = payload.reminderSend as EmailReminderSend;
+        await requireOwnedClient(send.clientId, session.user.id);
+        if (send.policyId) await requireOwnedPolicy(send.policyId, session.user.id);
         await db.emailReminderSend.create({
           data: {
             id: send.id,
@@ -855,6 +897,7 @@ export async function POST(request: Request) {
         break;
       }
       case "policy.markRenewalEmailSent": {
+        await requireOwnedPolicy(String(payload.policyId), session.user.id);
         await db.policy.update({
           where: { id: String(payload.policyId) },
           data: { lastRenewalEmailAt: toDate(payload.at) ?? new Date() },
@@ -863,6 +906,7 @@ export async function POST(request: Request) {
         break;
       }
       case "client.markBirthdayEmailSent": {
+        await requireOwnedClient(String(payload.clientId), session.user.id);
         await db.client.update({
           where: { id: String(payload.clientId) },
           data: { lastBirthdayEmailAt: toDate(payload.at) ?? new Date() },
@@ -872,8 +916,9 @@ export async function POST(request: Request) {
       }
       case "client.prependNote": {
         const id = String(payload.clientId);
+        await requireOwnedClient(id, session.user.id);
         const block = String(payload.block ?? "");
-        const client = await db.client.findUnique({ where: { id }, select: { notes: true } });
+        const client = await db.client.findFirst({ where: { id, userId: session.user.id }, select: { notes: true } });
         const existing = (client?.notes ?? "").trim();
         await db.client.update({
           where: { id },

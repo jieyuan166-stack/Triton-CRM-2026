@@ -13,20 +13,25 @@ async function main() {
 
   const passwordHash = await bcrypt.hash(password, 12);
 
-  await db.user.upsert({
-    where: { email },
-    update: {
-      name: "Jeffrey Y",
-      role: "admin",
-      passwordHash,
-    },
-    create: {
-      email,
-      name: "Jeffrey Y",
-      role: "admin",
-      passwordHash,
-    },
-  });
+  const existing = await db.user.findUnique({ where: { email } });
+  if (existing) {
+    await db.user.update({
+      where: { email },
+      data: {
+        name: existing.name || "Triton CRM User",
+        passwordHash,
+      },
+    });
+  } else {
+    await db.user.create({
+      data: {
+        email,
+        name: email === "admin@tritonwealth.ca" ? "Admin" : "Triton CRM User",
+        role: email === "admin@tritonwealth.ca" ? "admin" : "advisor",
+        passwordHash,
+      },
+    });
+  }
 
   console.log(`Seeded admin user: ${email}`);
 }

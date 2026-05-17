@@ -59,8 +59,8 @@ const settingsPatchSchema = z.object({
   }).optional(),
 }).strict();
 
-async function readSettings() {
-  const row = await db.settings.findUnique({ where: { id: "global" } });
+async function readSettings(userId: string) {
+  const row = await db.settings.findUnique({ where: { userId } });
   if (!row) return DEFAULT_APP_SETTINGS;
   try {
     return mergeAppSettings(JSON.parse(row.data));
@@ -73,8 +73,8 @@ export async function GET() {
   const session = await requireSession();
   if (!session) return unauthorized();
 
-  const settings = await readSettings();
-  await auditLog({ action: "read_settings", entityType: "settings", entityId: "global" });
+  const settings = await readSettings(session.user.id);
+  await auditLog({ action: "read_settings", entityType: "settings", entityId: session.user.id });
   return NextResponse.json({ ok: true, settings });
 }
 
@@ -91,18 +91,18 @@ export async function PATCH(request: Request) {
     );
   }
 
-  const current = await readSettings();
+  const current = await readSettings(session.user.id);
   const next = mergeAppSettings({
     ...current,
     ...parsed.data,
   });
 
   await db.settings.upsert({
-    where: { id: "global" },
+    where: { userId: session.user.id },
     update: { data: JSON.stringify(next) },
-    create: { id: "global", data: JSON.stringify(next) },
+    create: { userId: session.user.id, data: JSON.stringify(next) },
   });
 
-  await auditLog({ action: "update_settings", entityType: "settings", entityId: "global" });
+  await auditLog({ action: "update_settings", entityType: "settings", entityId: session.user.id });
   return NextResponse.json({ ok: true, settings: next });
 }

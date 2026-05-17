@@ -30,8 +30,8 @@ function policySearchWhere(token: string): Prisma.PolicyWhereInput {
   };
 }
 
-function buildClientWhere(query: ReturnType<typeof parseClientQueryParams>): Prisma.ClientWhereInput {
-  const and: Prisma.ClientWhereInput[] = [];
+function buildClientWhere(query: ReturnType<typeof parseClientQueryParams>, userId: string): Prisma.ClientWhereInput {
+  const and: Prisma.ClientWhereInput[] = [{ userId }];
 
   if (query.provinces?.length) {
     and.push({ province: { in: query.provinces } });
@@ -159,7 +159,7 @@ export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const query = parseClientQueryParams(url.searchParams);
-    const where = buildClientWhere(query);
+    const where = buildClientWhere(query, session.user.id);
 
     const [clientRows, provinceFacetRows] = await Promise.all([
       db.client.findMany({
@@ -241,6 +241,7 @@ export async function POST(request: Request) {
 
   const createdRow = await db.client.create({
     data: {
+      userId: session.user.id,
       firstName,
       lastName,
       email: emailLower,
