@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { auditLog, requireSession, unauthorized } from "@/lib/api-security";
+import { db } from "@/lib/db";
 import { createDatabaseBackup, createSnapshotBackup, listBackupFiles, setBackupImportant } from "@/lib/server-backups";
+import type { BackupSnapshot } from "@/lib/settings-types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,22 +17,15 @@ export async function GET() {
   return NextResponse.json({ backups });
 }
 
-export async function POST(request: Request) {
+export async function POST() {
   const session = await requireSession();
   if (!session) return unauthorized();
-
-  let snapshot: unknown;
-  try {
-    snapshot = await request.json();
-  } catch {
-    return NextResponse.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
-  }
 
   try {
     const record =
       session.user.role === "admin"
         ? await createDatabaseBackup("manual")
-        : await createSnapshotBackup(snapshot as never, session.user);
+        : await createSnapshotBackup(await buildUserSnapshot(session.user.id), session.user);
     await auditLog({
       action: "create_backup",
       entityType: "backup",
@@ -44,6 +39,51 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+}
+
+async function buildUserSnapshot(userId: string): Promise<BackupSnapshot> {
+  const [clients, policies, followUps, relationships, emailReminderSends, settings] =
+    await Promise.all([
+      db.client.findMany({
+        where: { userId },
+        include: { emailHistory: true },
+        orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+      }),
+      db.policy.findMany({
+        where: { userId },
+        include: { beneficiaries: true },
+        orderBy: [{ carrier: "asc" }, { policyNumber: "asc" }],
+      }),
+      db.followUp.findMany({
+        where: { client: { userId } },
+        orderBy: { date: "asc" },
+      }),
+      db.clientRelationship.findMany({
+        where: {
+          fromClient: { userId },
+          toClient: { userId },
+        },
+        orderBy: { createdAt: "asc" },
+      }),
+      db.emailReminderSend.findMany({
+        where: { client: { userId } },
+        orderBy: { sentAt: "asc" },
+      }),
+      db.settings.findUnique({ where: { userId } }),
+    ]);
+
+  return {
+    version: 1,
+    scope: "user",
+    ownerUserId: userId,
+    capturedAt: new Date().toISOString(),
+    clients,
+    policies,
+    followUps,
+    relationships,
+    emailReminderSends,
+    settings: settings ? JSON.parse(settings.data) : undefined,
+  };
 }
 
 export async function PATCH(request: Request) {
