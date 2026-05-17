@@ -73,22 +73,14 @@ docker logs -f triton-crm
 
 ## 4. SQLite backup
 
-Create `/etc/cron.daily/triton-backup`:
+Install the weekly backup job in the NAS user crontab:
 
 ```bash
-#!/bin/sh
-DATE=$(date +%Y%m%d)
-BACKUP_DIR=/volume1/docker/triton-crm/backups
-mkdir -p "$BACKUP_DIR"
-docker exec triton-crm sqlite3 /app/prisma/data/triton.db ".backup /tmp/triton.db"
-docker cp triton-crm:/tmp/triton.db "$BACKUP_DIR/triton-$DATE.db"
-gzip "$BACKUP_DIR/triton-$DATE.db"
-find "$BACKUP_DIR" -name "triton-*.db.gz" -mtime +30 -delete
+CRON_TZ=America/Vancouver
+0 2 * * 0 /bin/sh /volume1/docker/triton-crm/scripts/backup-sqlite.sh >> /volume1/docker/triton-crm/backup.log 2>&1
 ```
 
-```bash
-chmod +x /etc/cron.daily/triton-backup
-```
+The script keeps only the latest 10 `.db.gz` backups.
 
 ## 5. Restore drill
 
