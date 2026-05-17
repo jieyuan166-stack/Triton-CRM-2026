@@ -33,7 +33,7 @@ if [ "$CURRENT_HASH" = "$LAST_HASH" ] &&
   exit 0
 fi
 
-docker exec "$CONTAINER_NAME" sh -lc "sqlite3 '$DB_PATH' '.backup /tmp/triton-backup.db' && gzip -c /tmp/triton-backup.db > '$TARGET_IN_CONTAINER' && sha256sum '$TARGET_IN_CONTAINER' > '$TARGET_IN_CONTAINER.sha256' && chmod 660 '$TARGET_IN_CONTAINER' '$TARGET_IN_CONTAINER.sha256'"
+docker exec "$CONTAINER_NAME" sh -lc "sqlite3 '$DB_PATH' '.backup /tmp/triton-backup.db' && gzip -c /tmp/triton-backup.db > '$TARGET_IN_CONTAINER' && sha256sum '$TARGET_IN_CONTAINER' > '$TARGET_IN_CONTAINER.sha256' && chown nextjs:nodejs '$TARGET_IN_CONTAINER' '$TARGET_IN_CONTAINER.sha256' && chmod 660 '$TARGET_IN_CONTAINER' '$TARGET_IN_CONTAINER.sha256'"
 docker exec "$CONTAINER_NAME" sh -lc "printf '%s' '$CURRENT_HASH' > '$HASH_FILE_IN_CONTAINER'"
 
 docker exec "$CONTAINER_NAME" sh -lc "cd /app/backups && node - <<'NODE'
@@ -54,7 +54,7 @@ for (const file of files) {
   if (keptUnstarred > keep) {
     fs.unlinkSync(file.name);
     try {
-      fs.unlinkSync(`${file.name}.sha256`);
+      fs.unlinkSync(file.name + '.sha256');
     } catch {}
   }
 }
