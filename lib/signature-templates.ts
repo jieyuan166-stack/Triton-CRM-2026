@@ -58,14 +58,18 @@ function advisorContact(advisor?: SignatureTemplateAdvisor) {
   const email = advisor?.email?.trim() || "advisor@example.com";
   const name = advisor?.name?.trim() || (email.includes("@") ? email.split("@")[0] : "Advisor");
   const isJeffrey = email.toLowerCase() === "jieyuan165@gmail.com" || /jeffrey\s+yuan/i.test(name);
+  const isClaire = email.toLowerCase() === "claireq6886@gmail.com" || /claire\s+q/i.test(name);
+  const phone = isJeffrey ? "778-837-6688" : isClaire ? "604-345-5188" : "";
   return {
     name: escapeHtml(name),
     email: escapeHtml(email),
-    phoneLine: isJeffrey
+    showCredentialBadges: isJeffrey,
+    phoneLine: phone
       ? `<div style="margin-bottom: 3px;">
-        <span style="white-space: nowrap;">Cell: <a href="tel:+17788376688" style="color: ${ACCENT}; text-decoration: none;">778-837-6688</a></span>
+        <span style="white-space: nowrap;">Cell: <a href="tel:+1${phone.replace(/\D/g, "")}" style="color: ${ACCENT}; text-decoration: none;">${phone}</a></span>
+        ${isJeffrey ? `
         <span style="padding: 0 8px; color: ${BORDER};">|</span>
-        <span style="white-space: nowrap;">Fax: 604-261-2193</span>
+        <span style="white-space: nowrap;">Fax: 604-261-2193</span>` : ""}
       </div>`
       : "",
   };
@@ -79,7 +83,7 @@ function minimalistTemplate(advisor?: SignatureTemplateAdvisor) {
   <div style="font-size: 14px; line-height: 1.5;">
     <div style="font-weight: 700; font-size: 15px; color: ${NAVY};">${contact.name}</div>
     <div style="font-weight: 400; font-size: 12px; color: ${MUTED}; margin-top: 1px;">Independent Broker</div>
-    ${credentialBadges}
+    ${contact.showCredentialBadges ? credentialBadges : ""}
     <div style="margin-top: 6px; color: ${MUTED}; font-size: 12px;">
       <div style="margin-bottom: 3px;">#1200-1200 W. 73rd Ave. Vancouver, BC V6P 6G5</div>
       ${contact.phoneLine}
@@ -112,7 +116,7 @@ function corporateTemplate(advisor?: SignatureTemplateAdvisor) {
     <td style="vertical-align: top; padding-left: 16px;">
       <div style="font-weight: 700; font-size: 15px; color: ${NAVY};">${contact.name}</div>
       <div style="color: ${MUTED}; font-size: 12px; margin-top: 2px;">Independent Broker</div>
-      ${credentialBadges}
+      ${contact.showCredentialBadges ? credentialBadges : ""}
       <div style="color: ${NAVY}; font-size: 12px; margin-top: 6px; font-weight: 600;">Triton Wealth Management Corporation</div>
       <div style="color: ${MUTED}; font-size: 12px; margin-top: 3px;">#1200-1200 W. 73rd Ave. Vancouver, BC V6P 6G5</div>
       <div style="margin-top: 6px; color: ${MUTED}; font-size: 12px;">
