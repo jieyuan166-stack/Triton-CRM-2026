@@ -1,5 +1,14 @@
 import type { NextConfig } from "next";
 
+const scriptSrc = [
+  "'self'",
+  "'unsafe-inline'",
+  ...(process.env.NODE_ENV === "development" ? ["'unsafe-eval'"] : []),
+  "https://maps.googleapis.com",
+  "https://maps.gstatic.com",
+  "https://static.cloudflareinsights.com",
+].join(" ");
+
 const nextConfig: NextConfig = {
   output: "standalone",
   async headers() {
@@ -19,7 +28,7 @@ const nextConfig: NextConfig = {
         key: "Content-Security-Policy",
         value: [
           "default-src 'self'",
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://maps.googleapis.com https://maps.gstatic.com https://static.cloudflareinsights.com",
+          `script-src ${scriptSrc}`,
           "style-src 'self' 'unsafe-inline'",
           "img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com",
           "font-src 'self' data:",

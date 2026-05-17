@@ -1,5 +1,6 @@
 import "server-only";
 
+import { createHash } from "crypto";
 import { promises as fs } from "fs";
 import path from "path";
 import { gzip, gunzip } from "zlib";
@@ -21,7 +22,7 @@ const BACKUP_FLAGS_FILENAME = ".backup-flags.json";
 type BackupFlags = Record<string, { important?: boolean }>;
 
 export function getBackupDir() {
-  return process.env.BACKUP_DIR || path.join(/* turbopackIgnore: true */ process.cwd(), "backups");
+  return process.env.BACKUP_DIR || path.join(/*turbopackIgnore: true*/ process.cwd(), "backups");
 }
 
 export function isSafeBackupFilename(filename: string) {
@@ -57,6 +58,45 @@ export function backupPath(filename: string) {
     throw new Error("Invalid backup filename");
   }
   return path.join(getBackupDir(), filename);
+}
+
+function backupChecksumPath(filename: string) {
+  return `${backupPath(filename)}.sha256`;
+}
+
+function sha256Hex(data: Buffer) {
+  return createHash("sha256").update(data).digest("hex");
+}
+
+async function writeBackupChecksum(filename: string, data: Buffer) {
+  const checksumFile = backupChecksumPath(filename);
+  await fs.writeFile(checksumFile, `${sha256Hex(data)}  ${filename}\n`, { mode: 0o660 });
+  await fs.chmod(checksumFile, 0o660).catch(() => undefined);
+}
+
+async function verifyBackupChecksum(filename: string, data: Buffer) {
+  const checksumFile = backupChecksumPath(filename);
+  let expected: string | undefined;
+
+  try {
+    const raw = await fs.readFile(checksumFile, "utf8");
+    expected = raw.trim().split(/\s+/)[0]?.toLowerCase();
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      console.warn(`[backups] checksum sidecar missing for ${filename}; allowing legacy restore`);
+      return;
+    }
+    throw safeBackupReadError(error);
+  }
+
+  if (!expected || !/^[a-f0-9]{64}$/.test(expected)) {
+    throw new Error("Backup checksum file is invalid");
+  }
+
+  const actual = sha256Hex(data);
+  if (actual !== expected) {
+    throw new Error("Backup checksum verification failed");
+  }
 }
 
 async function ensureBackupDir() {
@@ -171,7 +211,7 @@ function sqliteDatabasePath() {
     throw new Error("DATABASE_URL must be a file: SQLite URL for file backups");
   }
   const raw = url.slice("file:".length);
-  return path.isAbsolute(raw) ? raw : path.resolve(/* turbopackIgnore: true */ process.cwd(), raw);
+  return path.isAbsolute(raw) ? raw : path.resolve(/*turbopackIgnore: true*/ process.cwd(), raw);
 }
 
 export async function listBackupFiles(): Promise<BackupRecord[]> {
@@ -222,6 +262,7 @@ export async function createSnapshotBackup(snapshot: BackupSnapshot) {
   const compressed = await gzipAsync(body, { level: 9 });
   const file = backupPath(filename);
   await fs.writeFile(file, compressed, { mode: 0o660 });
+  await writeBackupChecksum(filename, compressed);
   const stat = await fs.stat(file);
   return {
     id: filename,
@@ -247,6 +288,7 @@ export async function createDatabaseBackup(label?: string) {
   const compressed = await gzipAsync(body, { level: 9 });
   const file = backupPath(filename);
   await fs.writeFile(file, compressed, { mode: 0o660 });
+  await writeBackupChecksum(filename, compressed);
   const stat = await fs.stat(file);
   return {
     id: filename,
@@ -295,6 +337,7 @@ export async function restoreDatabaseBackup(filename: string) {
   const compressed = await fs.readFile(backupPath(filename)).catch((error) => {
     throw safeBackupReadError(error);
   });
+  await verifyBackupChecksum(filename, compressed);
   const restored = await gunzipAsync(compressed);
   assertSqliteDatabase(restored);
 
@@ -312,6 +355,7 @@ export async function restoreDatabaseBackup(filename: string) {
 
 export async function deleteBackupFile(filename: string) {
   await fs.unlink(backupPath(filename));
+  await fs.unlink(backupChecksumPath(filename)).catch(() => undefined);
   const flags = await readBackupFlags();
   if (flags[filename]) {
     delete flags[filename];
