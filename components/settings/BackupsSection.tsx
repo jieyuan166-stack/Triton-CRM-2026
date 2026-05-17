@@ -48,6 +48,23 @@ function fmtTimestamp(iso: string): string {
   return `${formatDate(iso)} · ${time}`;
 }
 
+function backupDisplayName(backup: BackupRecord, isAdmin: boolean): string {
+  const date = fmtTimestamp(backup.createdAt);
+  if (backup.kind === "database") {
+    if (backup.filename.includes("-stable")) return `Stable Database Backup · ${date}`;
+    if (backup.filename.includes("-manual")) return `Manual Database Backup · ${date}`;
+    return `Database Backup · ${date}`;
+  }
+  const owner = isAdmin && (backup.ownerName || backup.ownerEmail)
+    ? `${backup.ownerName || backup.ownerEmail} · `
+    : "";
+  return `${owner}My Backup · ${date}`;
+}
+
+function backupTechnicalName(backup: BackupRecord): string {
+  return backup.filename;
+}
+
 function backupTone(kind: BackupRecord["kind"]) {
   return kind === "database"
     ? {
@@ -95,7 +112,7 @@ export function BackupsSection() {
         ...snapshot,
         settings,
       });
-      toast.success("Backup created", { description: rec.filename });
+      toast.success("Backup created", { description: backupDisplayName(rec, isAdmin) });
     } catch (e) {
       toast.error("Backup failed", {
         description: (e as Error).message,
@@ -132,7 +149,7 @@ export function BackupsSection() {
     }
     if (r.restartRequired) {
       toast.success("Restore started. CRM is restarting. Please wait about 30 seconds...", {
-        description: target.filename,
+        description: backupDisplayName(target, isAdmin),
       });
       window.setTimeout(() => window.location.reload(), 35000);
       return;
@@ -151,7 +168,7 @@ export function BackupsSection() {
       }).catch(() => undefined);
     }
     toast.success("Data restored successfully! Reloading...", {
-      description: target.filename,
+      description: backupDisplayName(target, isAdmin),
     });
     window.setTimeout(() => window.location.reload(), 600);
   }
@@ -166,7 +183,7 @@ export function BackupsSection() {
       return;
     }
     setDeleteTarget(null);
-    toast.success("Backup deleted", { description: target.filename });
+    toast.success("Backup deleted", { description: backupDisplayName(target, isAdmin) });
   }
 
   async function handleToggleImportant(b: BackupRecord) {
@@ -179,7 +196,7 @@ export function BackupsSection() {
         return;
       }
       toast.success(next ? "Backup marked important" : "Backup unmarked", {
-        description: b.filename,
+        description: backupDisplayName(b, isAdmin),
       });
     } catch (error) {
       toast.error("Could not update backup marker", {
@@ -274,8 +291,8 @@ export function BackupsSection() {
                     <Archive className="h-4 w-4" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-number font-medium text-triton-text truncate">
-                      {b.filename}
+                    <p className="text-sm font-semibold text-triton-text truncate">
+                      {backupDisplayName(b, isAdmin)}
                     </p>
                     <div className="flex items-center gap-3 text-xs text-triton-muted mt-0.5">
                       <span className="inline-flex items-center gap-1">
@@ -300,6 +317,9 @@ export function BackupsSection() {
                         </span>
                       ) : null}
                     </div>
+                    <p className="mt-1 max-w-full truncate font-number text-[10px] text-slate-400">
+                      File: {backupTechnicalName(b)}
+                    </p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <Button
@@ -309,7 +329,7 @@ export function BackupsSection() {
                       className={`h-8 ${b.important ? "text-amber-500 hover:bg-amber-50 hover:text-amber-600" : "text-slate-300 hover:bg-amber-50 hover:text-amber-500"}`}
                       title={b.important ? "Important backup: protected from auto cleanup" : "Mark backup as important"}
                       aria-pressed={!!b.important}
-                      aria-label={`${b.important ? "Unmark" : "Mark"} ${b.filename} as important`}
+                      aria-label={`${b.important ? "Unmark" : "Mark"} ${backupDisplayName(b, isAdmin)} as important`}
                       onClick={() => handleToggleImportant(b)}
                     >
                       <Star className={`h-3.5 w-3.5 ${b.important ? "fill-current" : ""}`} />
@@ -320,7 +340,7 @@ export function BackupsSection() {
                       variant="ghost"
                       className="h-8"
                       title="Download backup"
-                      aria-label={`Download ${b.filename}`}
+                      aria-label={`Download ${backupDisplayName(b, isAdmin)}`}
                       onClick={() => handleDownload(b)}
                     >
                       <Download className="h-3.5 w-3.5" />
@@ -355,7 +375,7 @@ export function BackupsSection() {
                       variant="ghost"
                       className="h-8 text-slate-400 hover:text-accent-red hover:bg-accent-red/10"
                       title="Delete backup"
-                      aria-label={`Delete ${b.filename}`}
+                      aria-label={`Delete ${backupDisplayName(b, isAdmin)}`}
                       disabled={isRestoring}
                       onClick={() => setDeleteTarget(b)}
                     >
@@ -374,28 +394,35 @@ export function BackupsSection() {
         open={!!confirmTarget}
         onOpenChange={(o) => !o && setConfirmTarget(null)}
       >
-        <DialogContent>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Restore from this backup?</DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="space-y-3 text-left">
               {confirmTarget ? (
                 <>
-                  <span className="font-number">{confirmTarget.filename}</span>{" "}
-                  {confirmTarget.kind === "database"
-                    ? "will replace the full CRM database and restart the app."
-                    : "will replace your current CRM data and settings only."}{" "}
-                  This is destructive and cannot be undone.
+                  <span className="block font-medium text-slate-800">
+                    {backupDisplayName(confirmTarget, isAdmin)}
+                  </span>
+                  <span className="block break-all rounded-md bg-slate-50 p-2 font-number text-[11px] text-slate-500">
+                    {backupTechnicalName(confirmTarget)}
+                  </span>
+                  <span className="block">
+                    {confirmTarget.kind === "database"
+                      ? "This will replace the full CRM database and restart the app."
+                      : "This will replace your current CRM data and settings only."}{" "}
+                    This is destructive and cannot be undone.
+                  </span>
                 </>
               ) : null}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => setConfirmTarget(null)}>
+          <DialogFooter className="sm:flex-row sm:items-center">
+            <Button type="button" variant="ghost" onClick={() => setConfirmTarget(null)} className="sm:w-auto">
               Cancel
             </Button>
             <Button
               type="button"
-              className="bg-accent-red hover:bg-accent-red/90 text-white"
+              className="bg-accent-red hover:bg-accent-red/90 text-white sm:w-auto whitespace-nowrap"
               onClick={handleRestore}
             >
               {confirmTarget?.filename.endsWith(".db.gz") ? "Restore & Restart" : "Confirm Restore"}
@@ -416,7 +443,10 @@ export function BackupsSection() {
           deleteTarget ? (
             <>
               Are you sure you want to delete{" "}
-              <span className="font-number">{deleteTarget.filename}</span>?
+              <span className="font-medium text-slate-800">{backupDisplayName(deleteTarget, isAdmin)}</span>?
+              <span className="mt-2 block break-all rounded-md bg-slate-50 p-2 font-number text-[11px] text-slate-500">
+                {backupTechnicalName(deleteTarget)}
+              </span>
               {deleteTarget.important ? " This backup is marked important." : ""} This
               action cannot be undone.
             </>
