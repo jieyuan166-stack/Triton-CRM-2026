@@ -202,6 +202,36 @@ async function ownerMetadataForFilename(filename: string) {
   return owners[filename];
 }
 
+async function pruneUserSnapshotBackups(ownerUserId: string, keep = 10) {
+  const entries = await fs.readdir(getBackupDir(), { withFileTypes: true });
+  const flags = await readBackupFlags();
+  const candidates = (
+    await Promise.all(
+      entries.map(async (entry) => {
+        if (!entry.isFile() || !isSafeBackupFilename(entry.name) || kindFor(entry.name) !== "user-snapshot") {
+          return null;
+        }
+        const owner = await ownerMetadataForFilename(entry.name);
+        if (owner?.ownerUserId !== ownerUserId) return null;
+        const stat = await fs.stat(backupPath(entry.name));
+        return { filename: entry.name, mtimeMs: stat.mtimeMs };
+      })
+    )
+  )
+    .filter((item): item is { filename: string; mtimeMs: number } => !!item)
+    .sort((a, b) => b.mtimeMs - a.mtimeMs);
+
+  let keptUnstarred = 0;
+  for (const item of candidates) {
+    if (flags[item.filename]?.important) continue;
+    keptUnstarred += 1;
+    if (keptUnstarred > keep) {
+      await fs.unlink(backupPath(item.filename)).catch(() => undefined);
+      await fs.unlink(backupChecksumPath(item.filename)).catch(() => undefined);
+    }
+  }
+}
+
 async function canAccessBackup(filename: string, user: BackupAccessUser) {
   if (user.role === "admin") return true;
   if (isDatabaseBackup(filename)) return false;
@@ -411,6 +441,9 @@ export async function createSnapshotBackup(snapshot: BackupSnapshot, user: Backu
   };
   await writeBackupOwners(owners);
   const stat = await fs.stat(file);
+  await pruneUserSnapshotBackups(ownerUserId).catch((error) => {
+    console.warn("[backups] user snapshot cleanup failed", { ownerUserId, error });
+  });
   return {
     id: filename,
     filename,
