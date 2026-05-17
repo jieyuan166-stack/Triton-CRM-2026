@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { buildClientReportFilename } from "@/lib/client-report";
 import { CARRIER_LOGOS } from "@/lib/carrier-logos";
-import { isTagValue, type TagValue } from "@/lib/constants";
+import { parseTagList } from "@/lib/client-tags";
 import { renderClientReportPdf } from "@/lib/client-report-pdf";
 import { parseInsuredPersonsJson } from "@/lib/policy-parties";
 import type { Carrier, Client, Policy } from "@/lib/types";
@@ -28,18 +28,6 @@ type ReportSnapshot = {
     investmentAum?: number;
   };
 };
-
-function parseTagList(value: string | null | undefined): TagValue[] | undefined {
-  if (!value) return undefined;
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    if (!Array.isArray(parsed)) return undefined;
-    const tags = parsed.filter(isTagValue);
-    return tags.length > 0 ? tags : undefined;
-  } catch {
-    return undefined;
-  }
-}
 
 async function fileToDataUri(candidate: string) {
   const buffer = await readFile(candidate);

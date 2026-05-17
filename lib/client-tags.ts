@@ -29,6 +29,18 @@ function isValidEmail(email: string | null | undefined): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email ?? "");
 }
 
+export function parseTagList(value: string | null | undefined): TagValue[] | undefined {
+  if (!value) return undefined;
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!Array.isArray(parsed)) return undefined;
+    const tags = parsed.filter(isTagValue);
+    return tags.length > 0 ? tags : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function getMissingInformationReasons(client: Client): string[] {
   const reasons: string[] = [];
 

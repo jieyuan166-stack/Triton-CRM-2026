@@ -22,7 +22,6 @@ import {
 } from "@/lib/client-slug";
 import { removeCommunicationNoteBlocks } from "@/lib/communication-notes";
 import { dedupePolicies } from "@/lib/portfolio-metrics";
-import { seedClients, seedFollowUps, seedPolicies } from "@/lib/mock-data";
 import { type BackupSnapshot } from "@/lib/settings-types";
 import { toTitleCaseName } from "@/lib/text-utils";
 import type {
@@ -290,9 +289,9 @@ function readInitialData(): {
   emailReminderSends: EmailReminderSend[];
 } {
   return {
-    clients: ensureUniqueClientSlugs(seedClients.map((client) => ensureClientSlug(client))),
-    policies: prunePolicyJointReferences(pruneOrphans(seedPolicies, seedClients), seedClients),
-    followUps: pruneOrphans(seedFollowUps, seedClients),
+    clients: ensureUniqueClientSlugs([]),
+    policies: [],
+    followUps: [],
     relationships: [],
     emailReminderSends: [],
   };
@@ -318,7 +317,7 @@ function persistInBackground(action: string, payload: Record<string, unknown>) {
 
 export function DataProvider({ children }: { children: ReactNode }) {
   // One-time orphan sweep on the seed data: any seed policy / follow-up that
-  // points at a client id no longer present in seedClients gets dropped here.
+  // points at a client id no longer present in loaded clients gets dropped here.
   // This makes the invariant "no policy without a parent client" true from
   // the very first render, instead of relying on cascade-on-delete alone.
   const [initialData] = useState(readInitialData);

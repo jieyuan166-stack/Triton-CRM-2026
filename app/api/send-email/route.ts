@@ -13,10 +13,7 @@
 // client component by mistake — Next.js will fail the build instead of
 // shipping the SMTP credentials to the browser.
 //
-// A second route at /api/email/send (older path) does the same job for
-// internal callers that already wired against it. Both share the same env
-// helpers in `lib/env.server.ts`. When the Step-10 server-action layer
-// lands we'll consolidate to one path.
+// The older /api/email/send path is now a 308 compatibility redirect to this route.
 
 import "server-only";
 import { NextResponse } from "next/server";

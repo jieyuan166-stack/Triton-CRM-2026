@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { auditLog, requireSession, unauthorized } from "@/lib/api-security";
 import { parseClientQueryParams, queryClients } from "@/lib/clients-query";
-import { isTagValue, type TagValue } from "@/lib/constants";
+import { parseTagList } from "@/lib/client-tags";
 import { db } from "@/lib/db";
 import { parseInsuredPersonsJson } from "@/lib/policy-parties";
 import { toTitleCaseName } from "@/lib/text-utils";
@@ -11,18 +11,6 @@ import type { Client, FollowUp, Policy } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function parseTagList(value: string | null | undefined): TagValue[] | undefined {
-  if (!value) return undefined;
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    if (!Array.isArray(parsed)) return undefined;
-    const tags = parsed.filter(isTagValue);
-    return tags.length > 0 ? tags : undefined;
-  } catch {
-    return undefined;
-  }
-}
 
 export async function GET(request: Request) {
   const session = await requireSession();

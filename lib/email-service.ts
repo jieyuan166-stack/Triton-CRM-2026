@@ -75,7 +75,7 @@ export class MailtoEmailService implements EmailService {
   }
 }
 
-// === SmtpEmailService — relays through /api/email/send ===
+// === SmtpEmailService — relays through /api/send-email ===
 // The browser never sees SMTP credentials; the server action reads
 // SMTP_PASSWORD from the env at the moment of sending.
 
@@ -85,7 +85,7 @@ export class SmtpEmailService implements EmailService {
 
   async send(req: SendEmailRequest): Promise<SendEmailResult> {
     try {
-      const res = await fetch("/api/email/send", {
+      const res = await fetch("/api/send-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { auditLog, requireSession, unauthorized } from "@/lib/api-security";
 import { buildClientSlug, ensureUniqueClientSlugs } from "@/lib/client-slug";
+import { parseTagList } from "@/lib/client-tags";
 import { isTagValue, type TagValue } from "@/lib/constants";
 import { removeCommunicationNoteBlocks } from "@/lib/communication-notes";
 import { db } from "@/lib/db";
@@ -59,18 +60,6 @@ function stripUndefined<T extends Record<string, unknown>>(input: T): T {
   return Object.fromEntries(
     Object.entries(input).filter(([, value]) => value !== undefined)
   ) as T;
-}
-
-function parseTagList(value: string | null | undefined): TagValue[] | undefined {
-  if (!value) return undefined;
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    if (!Array.isArray(parsed)) return undefined;
-    const tags = parsed.filter(isTagValue);
-    return tags.length > 0 ? tags : undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 function serializeTagList(value: TagValue[] | undefined, partial: boolean) {
