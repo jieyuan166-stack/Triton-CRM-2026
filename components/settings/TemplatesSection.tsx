@@ -16,6 +16,7 @@ import {
   SIGNATURE_TEMPLATES,
   htmlToPlainText,
 } from "@/lib/signature-templates";
+import { plainTextToEmailHtml } from "@/lib/templates";
 import type { EmailTemplate, EmailTemplateAttachment, EmailTemplateId } from "@/lib/settings-types";
 
 export function TemplatesSection() {
@@ -355,9 +356,10 @@ function TemplateEditor({
         </div>
         <div className="px-3 py-2.5 space-y-1.5 text-xs">
           <p className="font-semibold text-slate-700">{previewSubject(subject)}</p>
-          <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">
-            {previewBody(body)}
-          </p>
+          <div
+            className="text-slate-700 leading-relaxed [&_img]:mt-2 [&_img]:max-w-full [&_img]:rounded-lg [&_img]:border [&_img]:border-slate-100"
+            dangerouslySetInnerHTML={{ __html: plainTextToEmailHtml(previewBody(body)) }}
+          />
         </div>
       </div>
     </div>

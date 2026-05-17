@@ -12,6 +12,17 @@ import {
 } from "./signature-templates";
 import type { EmailSignature, EmailTemplate } from "./settings-types";
 
+export const BIRTHDAY_CARD_TOKEN = "[Birthday Card]";
+export const BIRTHDAY_CARD_IMAGE_URL = "https://crm.tritonwealth.ca/email/birthday-greeting.png";
+
+function birthdayCardImageHtml(): string {
+  return [
+    '<div style="margin: 18px 0 12px;">',
+    `<img src="${BIRTHDAY_CARD_IMAGE_URL}" alt="Happy Birthday from Triton Wealth" style="display:block;width:70%;max-width:504px;min-width:280px;height:auto;border:0;border-radius:12px;" />`,
+    "</div>",
+  ].join("");
+}
+
 export const LEGACY_DEFAULT_TEMPLATE_COPY: Record<string, { subject: string; body: string }> = {
   birthday: {
     subject: "Happy Birthday from Triton Wealth!",
@@ -36,7 +47,7 @@ export const DEFAULT_TEMPLATES: EmailTemplate[] = [
     label: "Birthday",
     subject: "Happy Birthday from Jeffrey Yuan",
     body:
-      "Dear [Client Name],\n\nWishing you a very happy birthday from Jeffrey Yuan.\n\nMay the year ahead bring you good health, happiness, success, and continued prosperity. We truly appreciate your trust and support, and we look forward to continuing to serve you in the years ahead.\n\nEnjoy your special day!\n\nWarm regards,\n\n尊敬的 [Client Name]，\n\nJeffrey Yuan 诚挚祝您生日快乐！\n\n愿您在新的一岁里身体健康、万事顺遂、幸福美满、事业兴旺。感谢您一直以来的信任与支持，我们也期待在未来继续为您提供专业服务。\n\n祝您度过一个愉快而难忘的生日！\n\n诚挚问候",
+      `Dear [Client Name],\n\nWishing you a very happy birthday from Jeffrey Yuan.\n\nMay the year ahead bring you good health, happiness, success, and continued prosperity. We truly appreciate your trust and support, and we look forward to continuing to serve you in the years ahead.\n\nEnjoy your special day!\n\nWarm regards,\n\n尊敬的 [Client Name]，\n\nJeffrey Yuan 诚挚祝您生日快乐！\n\n愿您在新的一岁里身体健康、万事顺遂、幸福美满、事业兴旺。感谢您一直以来的信任与支持，我们也期待在未来继续为您提供专业服务。\n\n祝您度过一个愉快而难忘的生日！\n\n诚挚问候\n\n${BIRTHDAY_CARD_TOKEN}`,
     attachments: [],
     variables: ["[Client Name]", "[Date]"],
   },
@@ -120,6 +131,7 @@ export function escapeHtml(text: string): string {
 
 export function plainTextToEmailHtml(text: string): string {
   return escapeHtml(text)
+    .replace(new RegExp(escapeRegExp(BIRTHDAY_CARD_TOKEN), "g"), birthdayCardImageHtml())
     .replace(/&lt;sub&gt;/gi, '<sub style="font-size: 11px; color: #64748B;">')
     .replace(/&lt;\/sub&gt;/gi, "</sub>")
     .replace(/\r\n/g, "\n")

@@ -24,6 +24,8 @@ import {
   plainTextToEmailHtml,
   renderEmailBody,
   renderEmailHtml,
+  BIRTHDAY_CARD_IMAGE_URL,
+  BIRTHDAY_CARD_TOKEN,
 } from "@/lib/templates";
 
 const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
@@ -474,6 +476,19 @@ export function EmailPreviewDialog({
               onChange={(e) => setBody(e.target.value)}
               readOnly={isBatch}
             />
+            {body.includes(BIRTHDAY_CARD_TOKEN) ? (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                  Birthday card preview
+                </p>
+                <div
+                  role="img"
+                  aria-label="Happy Birthday from Triton Wealth"
+                  className="aspect-[4/5] w-full max-w-[504px] rounded-lg border border-slate-100 bg-cover bg-center"
+                  style={{ backgroundImage: `url("${BIRTHDAY_CARD_IMAGE_URL}")` }}
+                />
+              </div>
+            ) : null}
             {signatureHtml ? (
               <div className="rounded-lg border border-slate-200 bg-slate-50">
                 <div className="border-b border-slate-200 px-3 py-2">
