@@ -20,14 +20,18 @@ export async function auditLog(input: {
   entityId?: string;
   metadata?: Record<string, unknown>;
 }) {
-  const session = await auth();
-  await db.auditLog.create({
-    data: {
-      userId: session?.user?.id || undefined,
-      action: input.action,
-      entityType: input.entityType,
-      entityId: input.entityId,
-      metadata: input.metadata ? JSON.stringify(input.metadata) : undefined,
-    },
-  });
+  try {
+    const session = await auth();
+    await db.auditLog.create({
+      data: {
+        userId: session?.user?.id || undefined,
+        action: input.action,
+        entityType: input.entityType,
+        entityId: input.entityId,
+        metadata: input.metadata ? JSON.stringify(input.metadata) : undefined,
+      },
+    });
+  } catch (error) {
+    console.warn("[audit] write failed", { action: input.action, entityType: input.entityType, entityId: input.entityId, error });
+  }
 }

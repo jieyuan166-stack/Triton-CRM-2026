@@ -6,7 +6,7 @@ import { readSnapshotBackup, restoreDatabaseBackup } from "@/lib/server-backups"
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET(
+export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -40,3 +40,10 @@ export async function GET(
     );
   }
 }
+export function GET() {
+  return NextResponse.json(
+    { ok: false, error: "Use POST to restore backups" },
+    { status: 405, headers: { Allow: "POST" } },
+  );
+}
+

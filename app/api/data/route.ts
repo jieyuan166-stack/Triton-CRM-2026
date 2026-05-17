@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
 import { auditLog, requireSession, unauthorized } from "@/lib/api-security";
 import { buildClientSlug, ensureUniqueClientSlugs } from "@/lib/client-slug";
@@ -31,6 +32,28 @@ type DataSnapshot = {
   relationships: ClientRelationship[];
   emailReminderSends: EmailReminderSend[];
 };
+
+const idSchema = z.string().min(1);
+const objectPayloadSchema = z.object({}).passthrough();
+const dataActionSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("client.create"), payload: z.object({ client: objectPayloadSchema.extend({ id: idSchema }) }) }),
+  z.object({ action: z.literal("client.update"), payload: z.object({ id: idSchema, patch: objectPayloadSchema }) }),
+  z.object({ action: z.literal("client.delete"), payload: z.object({ id: idSchema }) }),
+  z.object({ action: z.literal("clientRelationships.replace"), payload: z.object({ clientId: idSchema, relationships: z.array(objectPayloadSchema).default([]) }) }),
+  z.object({ action: z.literal("policy.create"), payload: z.object({ policy: objectPayloadSchema.extend({ id: idSchema }) }) }),
+  z.object({ action: z.literal("policy.update"), payload: z.object({ id: idSchema, patch: objectPayloadSchema }) }),
+  z.object({ action: z.literal("policy.delete"), payload: z.object({ id: idSchema }) }),
+  z.object({ action: z.literal("followup.create"), payload: z.object({ followUp: objectPayloadSchema.extend({ id: idSchema }) }) }),
+  z.object({ action: z.literal("followup.delete"), payload: z.object({ id: idSchema }) }),
+  z.object({ action: z.literal("emailHistory.append"), payload: z.object({ clientId: idSchema, entry: objectPayloadSchema.extend({ id: idSchema }) }) }),
+  z.object({ action: z.literal("emailHistory.update"), payload: z.object({ clientId: idSchema, entryId: idSchema, patch: objectPayloadSchema }) }),
+  z.object({ action: z.literal("emailHistory.delete"), payload: z.object({ clientId: idSchema, entryIds: z.array(idSchema).min(1) }) }),
+  z.object({ action: z.literal("emailReminderSend.record"), payload: z.object({ reminderSend: objectPayloadSchema.extend({ dedupeKey: idSchema, clientId: idSchema, type: z.enum(["premium", "birthday"]), cycleKey: idSchema }) }) }),
+  z.object({ action: z.literal("policy.markRenewalEmailSent"), payload: z.object({ policyId: idSchema, at: z.string().optional() }) }),
+  z.object({ action: z.literal("client.markBirthdayEmailSent"), payload: z.object({ clientId: idSchema, at: z.string().optional() }) }),
+  z.object({ action: z.literal("client.prependNote"), payload: z.object({ clientId: idSchema, block: z.string() }) }),
+  z.object({ action: z.literal("data.replaceAll"), payload: z.object({ snapshot: objectPayloadSchema }) }),
+]);
 
 function dateOnly(value: Date | string | null | undefined): string | undefined {
   if (!value) return undefined;
@@ -510,7 +533,7 @@ async function replaceAll(snapshot: {
         },
       });
     }
-  });
+  }, { maxWait: 5_000, timeout: 30_000 });
 }
 
 export async function GET() {
@@ -526,16 +549,18 @@ export async function POST(request: Request) {
   const session = await requireSession();
   if (!session) return unauthorized();
 
-  const body = (await request.json().catch(() => null)) as {
-    action?: string;
-    payload?: Record<string, unknown>;
-  } | null;
-  if (!body?.action) {
-    return NextResponse.json({ ok: false, error: "Missing action" }, { status: 400 });
+  const rawBody = await request.json().catch(() => null);
+  const parsedBody = dataActionSchema.safeParse(rawBody);
+  if (!parsedBody.success) {
+    return NextResponse.json(
+      { ok: false, error: "Invalid data action payload", issues: parsedBody.error.flatten() },
+      { status: 400 },
+    );
   }
 
   try {
-    const payload = body.payload ?? {};
+    const body = parsedBody.data as { action: string; payload: Record<string, unknown> };
+    const payload = body.payload;
     switch (body.action) {
       case "client.create": {
         const client = payload.client as Client;

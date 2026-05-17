@@ -66,7 +66,7 @@ class ApiBackupService implements BackupService {
         | { ok: true; data: BackupSnapshot; restartRequired?: false }
         | { ok: true; restartRequired: true; beforeRestore?: BackupRecord }
       >(
-        await fetch(`/api/backups/${encodeURIComponent(id)}/restore`, { cache: "no-store" }),
+        await fetch(`/api/backups/${encodeURIComponent(id)}/restore`, { method: "POST", cache: "no-store" }),
       );
       if ("restartRequired" in json && json.restartRequired) {
         return {

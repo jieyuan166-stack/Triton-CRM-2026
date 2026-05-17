@@ -12,6 +12,7 @@ import { db } from "@/lib/db";
 const gzipAsync = promisify(gzip);
 const gunzipAsync = promisify(gunzip);
 
+const SAFE_BACKUP_BASENAME_RE = /^[^\\/]+$/;
 const SNAPSHOT_RE = /^backup_\d{8}T\d{6}\.json\.gz$/;
 const MANUAL_DATABASE_RE = /^backup_\d{8}T\d{6}\.db\.gz$/;
 const DATABASE_RE = /^triton-\d{8}-\d{6}(?:-[a-z0-9-]+)?\.db\.gz$/i;
@@ -24,7 +25,11 @@ export function getBackupDir() {
 }
 
 export function isSafeBackupFilename(filename: string) {
-  return SNAPSHOT_RE.test(filename) || MANUAL_DATABASE_RE.test(filename) || DATABASE_RE.test(filename);
+  return (
+    SAFE_BACKUP_BASENAME_RE.test(filename) &&
+    path.basename(filename) === filename &&
+    (SNAPSHOT_RE.test(filename) || MANUAL_DATABASE_RE.test(filename) || DATABASE_RE.test(filename))
+  );
 }
 
 export function timestampLabel(date = new Date()) {
