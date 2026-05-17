@@ -22,8 +22,10 @@ export async function GET(
         entityType: "backup",
         entityId: id,
         metadata: { kind: "database", beforeRestore: result.beforeRestore.filename },
+      }).catch((auditError) => {
+        console.warn("[backup restore] audit log failed after database restore:", auditError);
       });
-      setTimeout(() => process.exit(0), 750).unref();
+      setTimeout(() => process.exit(0), 5000).unref();
       return NextResponse.json({ ok: true, ...result });
     }
 
@@ -31,6 +33,7 @@ export async function GET(
     await auditLog({ action: "restore_backup", entityType: "backup", entityId: id });
     return NextResponse.json({ ok: true, data });
   } catch (error) {
+    console.error("[backup restore] failed:", error);
     return NextResponse.json(
       { ok: false, error: error instanceof Error ? error.message : "Restore failed" },
       { status: 400 },

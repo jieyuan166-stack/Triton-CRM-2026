@@ -137,7 +137,7 @@ export async function listBackupFiles(): Promise<BackupRecord[]> {
           kind,
           restorable: isDb || (!isDb && kind === "snapshot"),
           size: stat.size,
-          createdAt: createdAtFromFilename(entry.name, stat.mtime),
+          createdAt: stat.mtime.toISOString(),
           contents:
             isDb ? ["SQLite Database"] : ["Clients", "Policies", "Follow Ups"],
         } satisfies BackupRecord;
