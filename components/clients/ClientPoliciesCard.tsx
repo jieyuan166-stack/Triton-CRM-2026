@@ -6,29 +6,25 @@ import { ChevronDown, ExternalLink, FileText, Plus, Search, StickyNote } from "l
 import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  ActivityEntryDialog,
+  type ActivityEntryPatch,
+} from "@/components/clients/ActivityEntryDialog";
 import { useData } from "@/components/providers/DataProvider";
 import { WidgetCard } from "@/components/ui-shared/WidgetCard";
 import { EmptyState } from "@/components/ui-shared/EmptyState";
 import { PolicyDataCard } from "@/components/ui-shared/PolicyDataCard";
 import { CarrierLogoBadge } from "@/components/ui-shared/CarrierLogoBadge";
 import { StatusBadge } from "@/components/ui-shared/StatusBadge";
-import {
-  MANUAL_COMMUNICATION_TYPES,
-  type ManualCommunicationType,
-} from "@/lib/communication-log";
 import { formatDate, formatMonthDay } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/format";
-import type { Policy } from "@/lib/types";
+import type { EmailHistoryEntry, Policy } from "@/lib/types";
 import { CARRIERS, PAYMENT_FREQUENCY_LABELS } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -63,14 +59,14 @@ function clusterByCarrier(items: Policy[]) {
 }
 
 export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardProps) {
-  const { appendEmailHistory, getClient } = useData();
+  const { appendEmailHistory, updateEmailHistory, getClient } = useData();
   const [expandedList, setExpandedList] = useState(false);
   const [query, setQuery] = useState("");
   const [expandedPolicyIds, setExpandedPolicyIds] = useState<Set<string>>(new Set());
   const [activityPolicyId, setActivityPolicyId] = useState<string | null>(null);
-  const [activityType, setActivityType] = useState<ManualCommunicationType>("Note");
-  const [activitySummary, setActivitySummary] = useState("");
-  const [activityDetails, setActivityDetails] = useState("");
+  const [entryDialog, setEntryDialog] = useState<
+    { mode: "create"; policyId: string } | { mode: "edit"; entry: EmailHistoryEntry } | null
+  >(null);
   const client = getClient(clientId);
   const history = useMemo(() => client?.emailHistory ?? [], [client?.emailHistory]);
 
@@ -149,35 +145,36 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
 
   function resetPolicyActivity() {
     setActivityPolicyId(null);
-    setActivityType("Note");
-    setActivitySummary("");
-    setActivityDetails("");
+    setEntryDialog(null);
   }
 
-  function handlePolicyActivitySubmit(event: React.FormEvent) {
-    event.preventDefault();
-    if (!activityPolicy) return;
-    const summary = activitySummary.trim();
-    if (!summary) return;
-    const policyLabel = `${activityPolicy.carrier} ${activityPolicy.productName || activityPolicy.productType}`.trim();
+  function handlePolicyActivitySave(patch: ActivityEntryPatch) {
+    if (entryDialog?.mode === "edit") {
+      const updated = updateEmailHistory(clientId, entryDialog.entry.id, patch);
+      if (!updated) {
+        toast.error("Could not update policy activity.");
+        return false;
+      }
+      toast.success("Policy activity updated");
+      return true;
+    }
     const saved = appendEmailHistory(clientId, {
-      subject: summary,
-      body: activityDetails.trim(),
-      templateLabel: activityType,
-      policyId: activityPolicy.id,
-      policyNumber: activityPolicy.policyNumber,
-      policyLabel,
-      communicationType: activityType,
+      subject: patch.subject ?? "",
+      body: patch.body ?? "",
+      templateLabel: patch.templateLabel,
+      policyId: patch.policyId ?? undefined,
+      policyNumber: patch.policyNumber ?? undefined,
+      policyLabel: patch.policyLabel ?? undefined,
+      communicationType: patch.communicationType,
     });
     if (!saved) {
       toast.error("Could not save policy note.");
-      return;
+      return false;
     }
     toast.success("Policy activity added", {
-      description: `#${activityPolicy.policyNumber}`,
+      description: patch.policyNumber ? `#${patch.policyNumber}` : undefined,
     });
-    setActivitySummary("");
-    setActivityDetails("");
+    return true;
   }
 
   return (
@@ -280,9 +277,20 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
                   <p className="text-xs font-medium text-slate-800">
                     {entry.templateLabel || entry.communicationType || "Activity"}: {entry.subject}
                   </p>
-                  <p className="mt-1 text-[11px] text-slate-400">
-                    {formatDate(entry.date)}
-                  </p>
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    <p className="text-[11px] text-slate-400">
+                      {formatDate(entry.date)}
+                    </p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-[11px] text-slate-400 hover:text-[#002147]"
+                      onClick={() => setEntryDialog({ mode: "edit", entry })}
+                    >
+                      Edit
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -291,55 +299,36 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
               No policy activity yet.
             </div>
           )}
-
-          <form onSubmit={handlePolicyActivitySubmit} className="space-y-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="policy-activity-type" className="label-caps">Type</Label>
-              <Select value={activityType} onValueChange={(value) => setActivityType(value as ManualCommunicationType)}>
-                <SelectTrigger id="policy-activity-type" className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {MANUAL_COMMUNICATION_TYPES.map((type) => (
-                    <SelectItem key={type} value={type}>{type}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="policy-activity-summary" className="label-caps">
-                Summary <span className="text-accent-red">*</span>
-              </Label>
-              <Input
-                id="policy-activity-summary"
-                value={activitySummary}
-                onChange={(event) => setActivitySummary(event.target.value)}
-                placeholder="e.g. Discussed premium payment"
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="policy-activity-details" className="label-caps">Details</Label>
-              <Textarea
-                id="policy-activity-details"
-                value={activityDetails}
-                onChange={(event) => setActivityDetails(event.target.value)}
-                placeholder="Optional details..."
-                rows={3}
-                className="resize-none"
-              />
-            </div>
-            <DialogFooter className="-mx-4">
-              <Button type="button" variant="ghost" onClick={resetPolicyActivity}>
-                Close
+          {activityPolicy ? (
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                className="bg-navy text-white hover:bg-navy/90"
+                onClick={() => setEntryDialog({ mode: "create", policyId: activityPolicy.id })}
+              >
+                Add Activity
               </Button>
-              <Button type="submit" className="bg-navy text-white hover:bg-navy/90" disabled={!activitySummary.trim()}>
-                Save Activity
-              </Button>
-            </DialogFooter>
-          </form>
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
+      <ActivityEntryDialog
+        open={!!entryDialog}
+        onOpenChange={(open) => {
+          if (!open) setEntryDialog(null);
+        }}
+        mode={entryDialog?.mode ?? "create"}
+        policies={policies}
+        entry={entryDialog?.mode === "edit" ? entryDialog.entry : undefined}
+        defaultPolicyId={
+          entryDialog?.mode === "create"
+            ? entryDialog.policyId
+            : activityPolicy?.id
+        }
+        defaultType="Note"
+        onSave={handlePolicyActivitySave}
+        title={entryDialog?.mode === "edit" ? "Edit Policy Activity" : "Add Policy Activity"}
+      />
     </WidgetCard>
   );
 }

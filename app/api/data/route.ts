@@ -703,6 +703,55 @@ export async function POST(request: Request) {
         await auditLog({ action: "send_email", entityType: "client", entityId: clientId });
         break;
       }
+      case "emailHistory.update": {
+        const clientId = String(payload.clientId);
+        const entryId = String(payload.entryId);
+        const patch = payload.patch as Partial<EmailHistoryEntry> & {
+          policyId?: string | null;
+          policyNumber?: string | null;
+          policyLabel?: string | null;
+        };
+        const data: {
+          subject?: string;
+          body?: string;
+          templateLabel?: string | null;
+          policyId?: string | null;
+          policyNumber?: string | null;
+          policyLabel?: string | null;
+          communicationType?: string | null;
+        } = {};
+        if (typeof patch.subject === "string") data.subject = patch.subject;
+        if (typeof patch.body === "string") data.body = patch.body;
+        if (Object.prototype.hasOwnProperty.call(patch, "templateLabel")) {
+          data.templateLabel = patch.templateLabel ?? null;
+        }
+        if (Object.prototype.hasOwnProperty.call(patch, "communicationType")) {
+          data.communicationType = patch.communicationType ?? null;
+        }
+        if (Object.prototype.hasOwnProperty.call(patch, "policyId")) {
+          data.policyId = patch.policyId ?? null;
+        }
+        if (Object.prototype.hasOwnProperty.call(patch, "policyNumber")) {
+          data.policyNumber = patch.policyNumber ?? null;
+        }
+        if (Object.prototype.hasOwnProperty.call(patch, "policyLabel")) {
+          data.policyLabel = patch.policyLabel ?? null;
+        }
+        if (Object.keys(data).length === 0) {
+          return NextResponse.json({ ok: false, error: "No email history fields provided" }, { status: 400 });
+        }
+        await db.emailHistory.updateMany({
+          where: { id: entryId, clientId },
+          data,
+        });
+        await auditLog({
+          action: "update_email_history",
+          entityType: "client",
+          entityId: clientId,
+          metadata: { entryId },
+        });
+        break;
+      }
       case "emailHistory.delete": {
         const clientId = String(payload.clientId);
         const entryIds = Array.isArray(payload.entryIds)

@@ -7,6 +7,7 @@ import {
   Mail,
   MessageCircle,
   MessageSquare,
+  Pencil,
   Phone,
   Plus,
   StickyNote,
@@ -16,24 +17,17 @@ import {
 import { toast } from "sonner";
 import { useData } from "@/components/providers/DataProvider";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { ConfirmDialog } from "@/components/ui-shared/ConfirmDialog";
+import {
+  ActivityEntryDialog,
+  type ActivityEntryPatch,
+} from "@/components/clients/ActivityEntryDialog";
 import {
   EmailHistoryPreviewDialog,
   type EmailHistoryPreview,
 } from "@/components/dashboard/EmailHistoryPreviewDialog";
 import {
   isManualCommunicationLabel,
-  MANUAL_COMMUNICATION_TYPES,
   type ManualCommunicationType,
 } from "@/lib/communication-log";
 import { formatDate } from "@/lib/date-utils";
@@ -62,6 +56,7 @@ interface ActivityItem {
   muted: boolean;
   preview: EmailHistoryPreview;
   rawId: string;
+  rawEntry?: EmailHistoryEntry;
 }
 
 const FILTERS: Array<{ value: ActivityFilter; label: string }> = [
@@ -127,16 +122,21 @@ export function ActivityTimeline({
   followUps,
   history,
 }: ActivityTimelineProps) {
-  const { appendEmailHistory, deleteEmailHistory, deleteFollowUp, getClient } =
-    useData();
+  const {
+    appendEmailHistory,
+    updateEmailHistory,
+    deleteEmailHistory,
+    deleteFollowUp,
+    getClient,
+    getPoliciesByClient,
+  } = useData();
   const [filter, setFilter] = useState<ActivityFilter>("all");
-  const [adding, setAdding] = useState(false);
-  const [manualType, setManualType] =
-    useState<ManualCommunicationType>("Phone Call");
-  const [manualSummary, setManualSummary] = useState("");
-  const [manualDetails, setManualDetails] = useState("");
+  const [entryDialog, setEntryDialog] = useState<
+    { mode: "create" } | { mode: "edit"; entry: EmailHistoryEntry } | null
+  >(null);
   const [preview, setPreview] = useState<EmailHistoryPreview | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ActivityItem | null>(null);
+  const policies = getPoliciesByClient(clientId);
 
   const items = useMemo<ActivityItem[]>(() => {
     const followUpItems = followUps.map((followUp) => {
@@ -204,6 +204,7 @@ export function ActivityTimeline({
           body: entry.body,
           templateLabel: entry.templateLabel,
         },
+        rawEntry: entry,
       };
     });
 
@@ -215,28 +216,31 @@ export function ActivityTimeline({
   const filteredItems =
     filter === "all" ? items : items.filter((item) => item.tab === filter);
 
-  function resetManualForm() {
-    setAdding(false);
-    setManualType("Phone Call");
-    setManualSummary("");
-    setManualDetails("");
-  }
-
-  function handleManualSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    const summary = manualSummary.trim();
-    if (!summary) return;
+  function handleEntrySave(patch: ActivityEntryPatch) {
+    if (entryDialog?.mode === "edit") {
+      const updated = updateEmailHistory(clientId, entryDialog.entry.id, patch);
+      if (!updated) {
+        toast.error("Unable to update activity.");
+        return false;
+      }
+      toast.success("Activity updated");
+      return true;
+    }
     const saved = appendEmailHistory(clientId, {
-      subject: summary,
-      body: manualDetails.trim(),
-      templateLabel: manualType,
+      subject: patch.subject ?? "",
+      body: patch.body ?? "",
+      templateLabel: patch.templateLabel,
+      communicationType: patch.communicationType,
+      policyId: patch.policyId ?? undefined,
+      policyNumber: patch.policyNumber ?? undefined,
+      policyLabel: patch.policyLabel ?? undefined,
     });
     if (!saved) {
       toast.error("Unable to save activity.");
-      return;
+      return false;
     }
-    toast.success("Activity added", { description: manualType });
-    resetManualForm();
+    toast.success("Activity added", { description: patch.templateLabel ?? "Activity" });
+    return true;
   }
 
   function confirmDelete() {
@@ -275,10 +279,10 @@ export function ActivityTimeline({
               size="sm"
               variant="outline"
               className="h-8 shrink-0"
-              onClick={() => setAdding((value) => !value)}
+              onClick={() => setEntryDialog({ mode: "create" })}
             >
               <Plus className="mr-1.5 h-3.5 w-3.5" />
-              {adding ? "Close" : "Add"}
+              Add
             </Button>
           </div>
 
@@ -300,77 +304,6 @@ export function ActivityTimeline({
             ))}
           </div>
         </div>
-
-        {adding ? (
-          <form
-            onSubmit={handleManualSubmit}
-            className="m-4 rounded-xl border border-slate-100 bg-slate-50/70 p-4"
-          >
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="activity-type" className="label-caps">
-                  Type
-                </Label>
-                <Select
-                  value={manualType}
-                  onValueChange={(value) =>
-                    setManualType(value as ManualCommunicationType)
-                  }
-                >
-                  <SelectTrigger id="activity-type" className="h-9 bg-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MANUAL_COMMUNICATION_TYPES.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="activity-summary" className="label-caps">
-                  Summary <span className="text-accent-red">*</span>
-                </Label>
-                <Input
-                  id="activity-summary"
-                  value={manualSummary}
-                  onChange={(event) => setManualSummary(event.target.value)}
-                  placeholder="e.g. Discussed policy review"
-                  className="h-9 bg-white"
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="activity-details" className="label-caps">
-                  Details
-                </Label>
-                <Textarea
-                  id="activity-details"
-                  value={manualDetails}
-                  onChange={(event) => setManualDetails(event.target.value)}
-                  placeholder="Optional details..."
-                  rows={3}
-                  className="resize-none bg-white"
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" size="sm" variant="ghost" onClick={resetManualForm}>
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  size="sm"
-                  className="bg-navy text-white hover:bg-navy/90"
-                  disabled={!manualSummary.trim()}
-                >
-                  Save
-                </Button>
-              </div>
-            </div>
-          </form>
-        ) : null}
 
         {filteredItems.length === 0 ? (
           <div className="px-5 pb-5 pt-4">
@@ -437,6 +370,17 @@ export function ActivityTimeline({
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
+                        {item.rawEntry ? (
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            className="h-7 w-7 shrink-0 text-slate-300 opacity-0 transition-opacity hover:bg-blue-50 hover:text-blue-700 group-hover:opacity-100"
+                            aria-label={`Edit ${item.title}`}
+                            onClick={() => setEntryDialog({ mode: "edit", entry: item.rawEntry! })}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        ) : null}
                       </div>
                       <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-400">
                         <span className="inline-flex items-center gap-1">
@@ -460,6 +404,18 @@ export function ActivityTimeline({
           if (!open) setPreview(null);
         }}
         email={preview}
+      />
+
+      <ActivityEntryDialog
+        open={!!entryDialog}
+        onOpenChange={(open) => {
+          if (!open) setEntryDialog(null);
+        }}
+        mode={entryDialog?.mode ?? "create"}
+        policies={policies}
+        entry={entryDialog?.mode === "edit" ? entryDialog.entry : undefined}
+        defaultType="Note"
+        onSave={handleEntrySave}
       />
 
       <ConfirmDialog

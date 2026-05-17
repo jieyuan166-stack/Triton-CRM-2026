@@ -98,6 +98,15 @@ interface DataContextValue {
     entry: Omit<EmailHistoryEntry, "id" | "date"> &
       Partial<Pick<EmailHistoryEntry, "id" | "date">>
   ): EmailHistoryEntry | null;
+  updateEmailHistory(
+    clientId: string,
+    entryId: string,
+    patch: Partial<Omit<EmailHistoryEntry, "id" | "date" | "policyId" | "policyNumber" | "policyLabel">> & {
+      policyId?: string | null;
+      policyNumber?: string | null;
+      policyLabel?: string | null;
+    }
+  ): EmailHistoryEntry | null;
   /** Delete one or more sent-email history entries for a client. Returns
    *  the number removed from local state. */
   deleteEmailHistory(clientId: string, entryIds: string[]): number;
@@ -732,6 +741,51 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return removed;
     }, []);
 
+  const updateEmailHistory: DataContextValue["updateEmailHistory"] =
+    useCallback((clientId, entryId, patch) => {
+      let updated: EmailHistoryEntry | null = null;
+      setClients((prev) =>
+        prev.map((c) => {
+          if (c.id !== clientId) return c;
+          const nextHistory = (c.emailHistory ?? []).map((entry) => {
+            if (entry.id !== entryId) return entry;
+            const nextEntry: EmailHistoryEntry = {
+              ...entry,
+              subject: patch.subject ?? entry.subject,
+              body: patch.body ?? entry.body,
+              templateLabel:
+                Object.prototype.hasOwnProperty.call(patch, "templateLabel")
+                  ? patch.templateLabel
+                  : entry.templateLabel,
+              communicationType:
+                Object.prototype.hasOwnProperty.call(patch, "communicationType")
+                  ? patch.communicationType
+                  : entry.communicationType,
+              policyId:
+                Object.prototype.hasOwnProperty.call(patch, "policyId")
+                  ? patch.policyId ?? undefined
+                  : entry.policyId,
+              policyNumber:
+                Object.prototype.hasOwnProperty.call(patch, "policyNumber")
+                  ? patch.policyNumber ?? undefined
+                  : entry.policyNumber,
+              policyLabel:
+                Object.prototype.hasOwnProperty.call(patch, "policyLabel")
+                  ? patch.policyLabel ?? undefined
+                  : entry.policyLabel,
+            };
+            updated = nextEntry;
+            return nextEntry;
+          });
+          return { ...c, emailHistory: nextHistory };
+        })
+      );
+      if (updated) {
+        persistInBackground("emailHistory.update", { clientId, entryId, patch });
+      }
+      return updated;
+    }, []);
+
   const recordEmailReminderSend: DataContextValue["recordEmailReminderSend"] =
     useCallback((input) => {
       if (!clients.some((client) => client.id === input.clientId)) return null;
@@ -923,6 +977,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       createFollowUp,
       deleteFollowUp,
       appendEmailHistory,
+      updateEmailHistory,
       deleteEmailHistory,
       recordEmailReminderSend,
       markRenewalEmailSent,
@@ -958,6 +1013,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       createFollowUp,
       deleteFollowUp,
       appendEmailHistory,
+      updateEmailHistory,
       deleteEmailHistory,
       recordEmailReminderSend,
       markRenewalEmailSent,
