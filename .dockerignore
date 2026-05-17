@@ -8,3 +8,5 @@ coverage
 *.log
 Dockerfile
 docker-compose.yml
+
+backups
