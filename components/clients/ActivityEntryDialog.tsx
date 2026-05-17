@@ -19,7 +19,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  MANUAL_COMMUNICATION_TYPES,
+  parseCommunicationTypes,
+  serializeCommunicationTypes,
+} from "@/lib/communication-log";
 import type { EmailHistoryEntry, Policy } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 export type ActivityEntryPatch = Partial<
   Pick<
@@ -50,6 +56,23 @@ function policyLabel(policy: Policy): string {
   return `${policy.carrier} ${policy.productName || policy.productType}`.trim();
 }
 
+function policyDisplayName(policy: Policy): string {
+  const product = policy.productName || policy.productType || "Policy";
+  return `${product} · ${policy.carrier} · #${policy.policyNumber || "N/A"}`;
+}
+
+function splitKnownAndCustom(label: string) {
+  const parts = parseCommunicationTypes(label);
+  const known = parts.filter((item) =>
+    MANUAL_COMMUNICATION_TYPES.includes(item as (typeof MANUAL_COMMUNICATION_TYPES)[number])
+  );
+  const custom = parts.filter(
+    (item) =>
+      !MANUAL_COMMUNICATION_TYPES.includes(item as (typeof MANUAL_COMMUNICATION_TYPES)[number])
+  );
+  return { known, custom: custom.join(" + ") };
+}
+
 function resolveInitialPolicyId(
   policies: Policy[],
   entry: EmailHistoryEntry | undefined,
@@ -78,14 +101,18 @@ export function ActivityEntryDialog({
   title,
   onSave,
 }: ActivityEntryDialogProps) {
-  const [typeLabel, setTypeLabel] = useState(defaultType);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [customType, setCustomType] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [selectedPolicyId, setSelectedPolicyId] = useState(NO_POLICY_VALUE);
 
   useEffect(() => {
     if (!open) return;
-    setTypeLabel(entry?.templateLabel || entry?.communicationType || defaultType);
+    const initialType = entry?.templateLabel || entry?.communicationType || defaultType;
+    const split = splitKnownAndCustom(initialType);
+    setSelectedTypes(split.known.length > 0 ? split.known : []);
+    setCustomType(split.custom);
     setSubject(entry?.subject ?? "");
     setBody(entry?.body ?? "");
     setSelectedPolicyId(resolveInitialPolicyId(policies, entry, defaultPolicyId));
@@ -100,12 +127,14 @@ export function ActivityEntryDialog({
     event.preventDefault();
     const cleanSubject = subject.trim();
     if (!cleanSubject) return;
+    const typeLabel =
+      serializeCommunicationTypes([...selectedTypes, customType]) || defaultType;
 
     const patch: ActivityEntryPatch = {
       subject: cleanSubject,
       body: body.trim(),
-      templateLabel: typeLabel.trim() || defaultType,
-      communicationType: typeLabel.trim() || defaultType,
+      templateLabel: typeLabel,
+      communicationType: typeLabel,
       policyId: selectedPolicy ? selectedPolicy.id : null,
       policyNumber: selectedPolicy ? selectedPolicy.policyNumber : null,
       policyLabel: selectedPolicy ? policyLabel(selectedPolicy) : null,
@@ -126,14 +155,40 @@ export function ActivityEntryDialog({
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="space-y-1.5">
-            <Label htmlFor="activity-entry-type" className="label-caps">
+            <Label className="label-caps">
               Type / Label
             </Label>
+            <div className="flex flex-wrap gap-2">
+              {MANUAL_COMMUNICATION_TYPES.map((type) => {
+                const selected = selectedTypes.includes(type);
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() =>
+                      setSelectedTypes((current) =>
+                        selected
+                          ? current.filter((item) => item !== type)
+                          : [...current, type]
+                      )
+                    }
+                    className={cn(
+                      "rounded-full border px-3 py-1.5 text-xs font-medium transition",
+                      selected
+                        ? "border-navy bg-navy text-white shadow-sm"
+                        : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700"
+                    )}
+                  >
+                    {type}
+                  </button>
+                );
+              })}
+            </div>
             <Input
               id="activity-entry-type"
-              value={typeLabel}
-              onChange={(event) => setTypeLabel(event.target.value)}
-              placeholder="e.g. Phone Call, Renewal Reminder"
+              value={customType}
+              onChange={(event) => setCustomType(event.target.value)}
+              placeholder="Custom label, e.g. Renewal Reminder"
             />
           </div>
 
@@ -152,7 +207,7 @@ export function ActivityEntryDialog({
                 <SelectItem value={NO_POLICY_VALUE}>No policy target</SelectItem>
                 {policies.map((policy) => (
                   <SelectItem key={policy.id} value={policy.id}>
-                    {policy.carrier} · {policy.productName || policy.productType} · #{policy.policyNumber}
+                    {policyDisplayName(policy)}
                   </SelectItem>
                 ))}
               </SelectContent>

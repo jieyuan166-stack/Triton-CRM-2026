@@ -265,8 +265,8 @@ export function BackupsSection() {
                 <>
                   <span className="font-number">{confirmTarget.filename}</span>{" "}
                   will overwrite all current data. This is destructive and
-                  cannot be undone. Database restores automatically create a
-                  before-restore backup and restart the CRM.
+                  cannot be undone. Database restores restart the CRM after
+                  the selected backup is applied.
                 </>
               ) : null}
             </DialogDescription>

@@ -24,6 +24,7 @@ import { CarrierLogoBadge } from "@/components/ui-shared/CarrierLogoBadge";
 import { StatusBadge } from "@/components/ui-shared/StatusBadge";
 import { formatDate, formatMonthDay } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/format";
+import { parseCommunicationTypes } from "@/lib/communication-log";
 import type { EmailHistoryEntry, Policy } from "@/lib/types";
 import { CARRIERS, PAYMENT_FREQUENCY_LABELS } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -274,8 +275,18 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
             <div className="max-h-40 space-y-2 overflow-y-auto rounded-lg border border-slate-100 bg-slate-50/70 p-3">
               {activityEntries.slice(0, 5).map((entry) => (
                 <div key={entry.id} className="rounded-md bg-white px-3 py-2 ring-1 ring-slate-100">
-                  <p className="text-xs font-medium text-slate-800">
-                    {entry.templateLabel || entry.communicationType || "Activity"}: {entry.subject}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {parseCommunicationTypes(entry.templateLabel || entry.communicationType).map((type) => (
+                      <span
+                        key={type}
+                        className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500"
+                      >
+                        {type}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-xs font-medium text-slate-800">
+                    {entry.subject || "Activity"}
                   </p>
                   <div className="mt-1 flex items-center justify-between gap-2">
                     <p className="text-[11px] text-slate-400">

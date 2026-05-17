@@ -9,7 +9,7 @@ import {
   renderToBuffer,
 } from "@react-pdf/renderer";
 
-import type { Carrier, Client, Policy } from "@/lib/types";
+import type { Carrier, Client, EmailHistoryEntry, Policy } from "@/lib/types";
 import { formatDate as formatCalendarDate } from "@/lib/date-utils";
 import { formatCurrency as formatMoney } from "@/lib/format";
 
@@ -228,6 +228,17 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: 700,
   },
+  communicationPolicy: {
+    color: "#64748B",
+    fontSize: 8,
+    marginTop: 2,
+  },
+  communicationBody: {
+    color: "#334155",
+    fontSize: 8,
+    marginTop: 4,
+    lineHeight: 1.35,
+  },
   partyLine: {
     color: "#64748B",
     fontSize: 7,
@@ -269,6 +280,53 @@ function formatDateTime(value?: string) {
     hour12: false,
   });
   return `${day} ${time}`;
+}
+
+function stripHtml(value: string) {
+  return value
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function compactText(value: string | undefined, maxLength = 260) {
+  const clean = stripHtml(value ?? "");
+  if (clean.length <= maxLength) return clean;
+  return `${clean.slice(0, maxLength - 1).trim()}…`;
+}
+
+function communicationTitle(entry: EmailHistoryEntry) {
+  const label = entry.templateLabel || entry.communicationType || "Activity";
+  return `${label}: ${entry.subject || "No summary"}`;
+}
+
+function communicationPolicyContext(
+  entry: EmailHistoryEntry,
+  policies: Policy[]
+) {
+  const policy =
+    (entry.policyId && policies.find((item) => item.id === entry.policyId)) ||
+    (entry.policyNumber &&
+      policies.find((item) => item.policyNumber === entry.policyNumber));
+  if (policy) {
+    return `${policy.carrier} · ${policy.productName || policy.productType} · #${policy.policyNumber}`;
+  }
+  if (entry.policyLabel || entry.policyNumber) {
+    return [entry.policyLabel, entry.policyNumber ? `#${entry.policyNumber}` : ""]
+      .filter(Boolean)
+      .join(" · ");
+  }
+  return "";
 }
 
 function buildAddress(client: Client) {
@@ -489,10 +547,18 @@ function ReportDocument({
                 <View key={entry.id} style={styles.communicationRow}>
                   <Text style={styles.communicationDate}>{formatDateTime(entry.date)}</Text>
                   <Text style={styles.communicationSubject}>
-                    {entry.templateLabel
-                      ? `Sent "${entry.templateLabel}" Email`
-                      : entry.subject || "Sent email"}
+                    {communicationTitle(entry)}
                   </Text>
+                  {communicationPolicyContext(entry, policies) ? (
+                    <Text style={styles.communicationPolicy}>
+                      {communicationPolicyContext(entry, policies)}
+                    </Text>
+                  ) : null}
+                  {compactText(entry.body) ? (
+                    <Text style={styles.communicationBody}>
+                      {compactText(entry.body)}
+                    </Text>
+                  ) : null}
                 </View>
               ))
             )}

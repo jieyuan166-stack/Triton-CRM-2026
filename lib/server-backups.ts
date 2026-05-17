@@ -235,7 +235,6 @@ export async function restoreDatabaseBackup(filename: string) {
   const restored = await gunzipAsync(compressed);
   assertSqliteDatabase(restored);
 
-  const beforeRestore = await createDatabaseBackup("before-restore");
   const dbPath = sqliteDatabasePath();
   const tempPath = path.join(path.dirname(dbPath), `.triton-restore-${Date.now()}.db`);
 
@@ -245,7 +244,7 @@ export async function restoreDatabaseBackup(filename: string) {
   await fs.rename(tempPath, dbPath);
   await fs.chmod(dbPath, 0o660).catch(() => undefined);
 
-  return { restartRequired: true as const, beforeRestore };
+  return { restartRequired: true as const };
 }
 
 export async function deleteBackupFile(filename: string) {

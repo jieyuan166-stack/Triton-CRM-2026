@@ -21,7 +21,7 @@ export async function GET(
         action: "restore_backup",
         entityType: "backup",
         entityId: id,
-        metadata: { kind: "database", beforeRestore: result.beforeRestore.filename },
+        metadata: { kind: "database" },
       }).catch((auditError) => {
         console.warn("[backup restore] audit log failed after database restore:", auditError);
       });

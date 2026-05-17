@@ -28,6 +28,7 @@ import {
 } from "@/components/dashboard/EmailHistoryPreviewDialog";
 import {
   isManualCommunicationLabel,
+  parseCommunicationTypes,
   type ManualCommunicationType,
 } from "@/lib/communication-log";
 import { formatDate } from "@/lib/date-utils";
@@ -68,6 +69,7 @@ const FILTERS: Array<{ value: ActivityFilter; label: string }> = [
 const MANUAL_ICON: Record<ManualCommunicationType, React.ElementType> = {
   "Phone Call": Phone,
   Meeting: Users,
+  "Zoom Meeting": Users,
   WeChat: MessageCircle,
   "Text Message": MessageSquare,
   Note: StickyNote,
@@ -388,6 +390,19 @@ export function ActivityTimeline({
                           {formatTimestamp(item.date)}
                         </span>
                         {item.subtitle ? <span>{item.subtitle}</span> : null}
+                        {item.rawEntry
+                          ? parseCommunicationTypes(
+                              item.rawEntry.templateLabel ||
+                                item.rawEntry.communicationType
+                            ).map((type) => (
+                              <span
+                                key={type}
+                                className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500"
+                              >
+                                {type}
+                              </span>
+                            ))
+                          : null}
                       </div>
                     </div>
                   </div>
