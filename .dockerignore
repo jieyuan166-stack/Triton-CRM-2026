@@ -9,4 +9,4 @@ coverage
 Dockerfile
 docker-compose.yml
 
-backups
+/backups
