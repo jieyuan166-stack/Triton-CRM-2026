@@ -2,14 +2,30 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ChevronDown, ExternalLink, FileText, Plus, Search } from "lucide-react";
+import { ChevronDown, ExternalLink, FileText, Plus, Search, StickyNote } from "lucide-react";
+import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useData } from "@/components/providers/DataProvider";
 import { WidgetCard } from "@/components/ui-shared/WidgetCard";
 import { EmptyState } from "@/components/ui-shared/EmptyState";
 import { PolicyDataCard } from "@/components/ui-shared/PolicyDataCard";
 import { CarrierLogoBadge } from "@/components/ui-shared/CarrierLogoBadge";
 import { StatusBadge } from "@/components/ui-shared/StatusBadge";
+import {
+  MANUAL_COMMUNICATION_TYPES,
+  type ManualCommunicationType,
+} from "@/lib/communication-log";
 import { formatDate, formatMonthDay } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/format";
 import type { Policy } from "@/lib/types";
@@ -47,9 +63,16 @@ function clusterByCarrier(items: Policy[]) {
 }
 
 export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardProps) {
+  const { appendEmailHistory, getClient } = useData();
   const [expandedList, setExpandedList] = useState(false);
   const [query, setQuery] = useState("");
   const [expandedPolicyIds, setExpandedPolicyIds] = useState<Set<string>>(new Set());
+  const [activityPolicyId, setActivityPolicyId] = useState<string | null>(null);
+  const [activityType, setActivityType] = useState<ManualCommunicationType>("Note");
+  const [activitySummary, setActivitySummary] = useState("");
+  const [activityDetails, setActivityDetails] = useState("");
+  const client = getClient(clientId);
+  const history = useMemo(() => client?.emailHistory ?? [], [client?.emailHistory]);
 
   const filteredPolicies = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -97,6 +120,64 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
       else next.add(id);
       return next;
     });
+  }
+
+  const activityPolicy = activityPolicyId
+    ? policies.find((policy) => policy.id === activityPolicyId)
+    : undefined;
+  const activityEntries = activityPolicy
+    ? history
+        .filter(
+          (entry) =>
+            entry.policyId === activityPolicy.id ||
+            (!!activityPolicy.policyNumber && entry.policyNumber === activityPolicy.policyNumber)
+        )
+        .sort((a, b) => (a.date > b.date ? -1 : 1))
+    : [];
+  const activityCountByPolicyId = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const policy of policies) {
+      const count = history.filter(
+        (entry) =>
+          entry.policyId === policy.id ||
+          (!!policy.policyNumber && entry.policyNumber === policy.policyNumber)
+      ).length;
+      if (count > 0) counts.set(policy.id, count);
+    }
+    return counts;
+  }, [history, policies]);
+
+  function resetPolicyActivity() {
+    setActivityPolicyId(null);
+    setActivityType("Note");
+    setActivitySummary("");
+    setActivityDetails("");
+  }
+
+  function handlePolicyActivitySubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!activityPolicy) return;
+    const summary = activitySummary.trim();
+    if (!summary) return;
+    const policyLabel = `${activityPolicy.carrier} ${activityPolicy.productName || activityPolicy.productType}`.trim();
+    const saved = appendEmailHistory(clientId, {
+      subject: summary,
+      body: activityDetails.trim(),
+      templateLabel: activityType,
+      policyId: activityPolicy.id,
+      policyNumber: activityPolicy.policyNumber,
+      policyLabel,
+      communicationType: activityType,
+    });
+    if (!saved) {
+      toast.error("Could not save policy note.");
+      return;
+    }
+    toast.success("Policy activity added", {
+      description: `#${activityPolicy.policyNumber}`,
+    });
+    setActivitySummary("");
+    setActivityDetails("");
   }
 
   return (
@@ -149,8 +230,10 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
                         policy={p}
                         expanded={expandedPolicyIds.has(p.id)}
                         currentViewClientId={clientId}
+                        activityCount={activityCountByPolicyId.get(p.id) ?? 0}
                         className={style.row}
                         onToggle={() => togglePolicyDetails(p.id)}
+                        onOpenActivity={() => setActivityPolicyId(p.id)}
                       />
                     </li>
                 ))}
@@ -179,6 +262,84 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
           ) : null}
         </div>
       )}
+      <Dialog open={!!activityPolicyId} onOpenChange={(open) => !open && resetPolicyActivity()}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Policy Activity</DialogTitle>
+            <p className="text-xs text-slate-500">
+              {activityPolicy
+                ? `${activityPolicy.carrier} · ${activityPolicy.productName || activityPolicy.productType} · #${activityPolicy.policyNumber}`
+                : ""}
+            </p>
+          </DialogHeader>
+
+          {activityEntries.length > 0 ? (
+            <div className="max-h-40 space-y-2 overflow-y-auto rounded-lg border border-slate-100 bg-slate-50/70 p-3">
+              {activityEntries.slice(0, 5).map((entry) => (
+                <div key={entry.id} className="rounded-md bg-white px-3 py-2 ring-1 ring-slate-100">
+                  <p className="text-xs font-medium text-slate-800">
+                    {entry.templateLabel || entry.communicationType || "Activity"}: {entry.subject}
+                  </p>
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    {formatDate(entry.date)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed border-slate-200 px-4 py-5 text-center text-sm text-slate-400">
+              No policy activity yet.
+            </div>
+          )}
+
+          <form onSubmit={handlePolicyActivitySubmit} className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="policy-activity-type" className="label-caps">Type</Label>
+              <Select value={activityType} onValueChange={(value) => setActivityType(value as ManualCommunicationType)}>
+                <SelectTrigger id="policy-activity-type" className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MANUAL_COMMUNICATION_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>{type}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="policy-activity-summary" className="label-caps">
+                Summary <span className="text-accent-red">*</span>
+              </Label>
+              <Input
+                id="policy-activity-summary"
+                value={activitySummary}
+                onChange={(event) => setActivitySummary(event.target.value)}
+                placeholder="e.g. Discussed premium payment"
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="policy-activity-details" className="label-caps">Details</Label>
+              <Textarea
+                id="policy-activity-details"
+                value={activityDetails}
+                onChange={(event) => setActivityDetails(event.target.value)}
+                placeholder="Optional details..."
+                rows={3}
+                className="resize-none"
+              />
+            </div>
+            <DialogFooter className="-mx-4">
+              <Button type="button" variant="ghost" onClick={resetPolicyActivity}>
+                Close
+              </Button>
+              <Button type="submit" className="bg-navy text-white hover:bg-navy/90" disabled={!activitySummary.trim()}>
+                Save Activity
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </WidgetCard>
   );
 }
@@ -187,14 +348,18 @@ function CompactPolicyRow({
   policy,
   expanded,
   currentViewClientId,
+  activityCount,
   className,
   onToggle,
+  onOpenActivity,
 }: {
   policy: Policy;
   expanded: boolean;
   currentViewClientId: string;
+  activityCount: number;
   className?: string;
   onToggle: () => void;
+  onOpenActivity: () => void;
 }) {
   const primaryAmountLabel =
     policy.category === "Investment" ? "Initial Amount" : "Death Benefit";
@@ -210,7 +375,7 @@ function CompactPolicyRow({
 
   return (
     <div className={cn("transition-colors", className)}>
-      <div className="grid grid-cols-1 gap-3 px-5 py-3 lg:grid-cols-[minmax(0,1fr)_9.5rem_9.5rem_8rem_2.25rem] lg:items-center lg:gap-4 md:px-6">
+      <div className="grid grid-cols-1 gap-3 px-5 py-3 lg:grid-cols-[minmax(0,1fr)_9.5rem_9.5rem_8rem_4.75rem] lg:items-center lg:gap-4 md:px-6">
         <button
           type="button"
           onClick={onToggle}
@@ -246,7 +411,25 @@ function CompactPolicyRow({
           ) : null}
         </div>
         <Metric label={dateLabel} value={dateValue} />
-        <div className="flex justify-start lg:justify-end">
+        <div className="flex justify-start gap-1 lg:justify-end">
+          <button
+            type="button"
+            className={cn(
+              buttonVariants({ variant: "ghost", size: "icon-sm" }),
+              activityCount > 0
+                ? "relative text-purple-600 hover:text-purple-700"
+                : "text-slate-400 hover:text-purple-600"
+            )}
+            aria-label={`Open activity for policy ${policy.policyNumber}`}
+            onClick={onOpenActivity}
+          >
+            <StickyNote className="h-3.5 w-3.5" />
+            {activityCount > 0 ? (
+              <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-purple-100 px-1 text-[9px] font-semibold text-purple-700 ring-1 ring-white">
+                {activityCount}
+              </span>
+            ) : null}
+          </button>
           <Link
             href={`/policies/${policy.id}`}
             className={cn(
@@ -266,6 +449,19 @@ function CompactPolicyRow({
             policy={policy}
             href={`/policies/${policy.id}`}
             currentViewClientId={currentViewClientId}
+            actions={
+              <button
+                type="button"
+                className={cn(
+                  buttonVariants({ variant: "ghost", size: "icon-sm" }),
+                  activityCount > 0 ? "text-purple-600" : "text-slate-400"
+                )}
+                aria-label={`Open activity for policy ${policy.policyNumber}`}
+                onClick={onOpenActivity}
+              >
+                <StickyNote className="h-3.5 w-3.5" />
+              </button>
+            }
             className="rounded-xl border border-slate-100 bg-white shadow-none"
           />
         </div>

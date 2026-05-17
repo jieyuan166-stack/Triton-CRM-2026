@@ -171,6 +171,10 @@ export async function POST(request: Request) {
                 subject: rendered.subject,
                 body: rendered.body,
                 templateLabel: `Renewal Reminder · ${stageLabel} · ${policy.carrier} · #${policy.policyNumber}`,
+                policyId: policy.id,
+                policyNumber: policy.policyNumber,
+                policyLabel: `${policy.carrier} ${policy.productName || policy.productType}`.trim(),
+                communicationType: "Renewal Reminder",
               },
             }),
             db.emailReminderSend.create({

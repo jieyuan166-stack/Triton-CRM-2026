@@ -150,7 +150,7 @@ export interface EmailReminderSend {
   type: EmailReminderType;
   stage?: EmailReminderStage;
   cycleKey: string;
-  source?: "auto" | "manual" | "manual_resend";
+  source?: "auto" | "manual" | "manual_resend" | "dismissed";
   messageId?: string;
   sentAt: string;
   createdAt: string;
@@ -167,6 +167,11 @@ export interface EmailHistoryEntry {
    *  entries written before this field existed — CommunicationLog falls
    *  back to "Email" when absent. */
   templateLabel?: string;
+  /** Optional policy context for manual activity notes or policy-specific emails. */
+  policyId?: string;
+  policyNumber?: string;
+  policyLabel?: string;
+  communicationType?: string;
 }
 
 export interface Client {

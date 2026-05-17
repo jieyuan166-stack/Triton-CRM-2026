@@ -149,8 +149,13 @@ model EmailHistory {
   subject       String
   body          String
   templateLabel String?
+  policyId      String?
+  policyNumber  String?
+  policyLabel   String?
+  communicationType String?
 
   @@index([clientId, date])
+  @@index([policyId, date])
 }
 
 model EmailReminderSend {

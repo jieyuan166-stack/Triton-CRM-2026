@@ -106,13 +106,16 @@ function formatTimestamp(iso: string): string {
 }
 
 function historyDescription(entry: EmailHistoryEntry): string {
+  const policyPrefix = entry.policyNumber
+    ? `Policy #${entry.policyNumber}${entry.policyLabel ? ` · ${entry.policyLabel}` : ""} — `
+    : "";
   if (isManualCommunicationLabel(entry.templateLabel)) {
     return entry.subject?.trim()
-      ? `${entry.templateLabel}: ${entry.subject.trim()}`
+      ? `${entry.templateLabel}: ${policyPrefix}${entry.subject.trim()}`
       : entry.templateLabel;
   }
-  if (entry.templateLabel) return `Sent "${entry.templateLabel}" Email`;
-  return entry.subject?.trim() ? `Sent email - ${entry.subject.trim()}` : "Sent email";
+  if (entry.templateLabel) return `${policyPrefix}Sent "${entry.templateLabel}" Email`;
+  return entry.subject?.trim() ? `${policyPrefix}Sent email - ${entry.subject.trim()}` : "Sent email";
 }
 
 function followUpTimestamp(followUp: FollowUp): string {
@@ -181,8 +184,12 @@ export function ActivityTimeline({
         subtitle: isManual
           ? isExternalEmail
             ? "External email"
-            : "Manual log"
-          : "System email",
+            : entry.policyNumber
+              ? `Manual log · #${entry.policyNumber}`
+              : "Manual log"
+          : entry.policyNumber
+            ? `System email · #${entry.policyNumber}`
+            : "System email",
         body: entry.body,
         icon: Icon,
         accentClassName:

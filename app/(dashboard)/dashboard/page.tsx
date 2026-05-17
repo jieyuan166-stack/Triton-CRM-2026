@@ -23,8 +23,9 @@ export default function DashboardPage() {
 
   const metrics = calculatePortfolioMetrics(policies);
   const premiumReminderState = buildPremiumReminderState({ policies, clients, emailReminderSends });
-  const pendingPremiumReminders = premiumReminderState.pendingPolicies.length;
-  const completedPremiumReminders = premiumReminderState.completedPolicies.length;
+  const pendingPremiumReminders = premiumReminderState.pendingRows.length;
+  const completedPremiumReminders = premiumReminderState.completedRows.length;
+  const dismissedPremiumReminders = premiumReminderState.dismissedRows.length;
 
   return (
     <>
@@ -67,10 +68,10 @@ export default function DashboardPage() {
             metrics.premiumDueCount30d === 0
               ? "No policies due in the next 30 days"
               : pendingPremiumReminders === 0
-                ? `All reminders completed · Total premium ${formatCurrency(
+                ? `${dismissedPremiumReminders > 0 ? "All active reminders cleared" : "All reminders completed"} · Total premium ${formatCurrency(
                     metrics.premiumDueAmount30d
                   )}`
-                : `${pendingPremiumReminders} reminders to send · ${completedPremiumReminders} completed · Total premium ${formatCurrency(
+                : `${pendingPremiumReminders} reminders to send · ${completedPremiumReminders} completed${dismissedPremiumReminders > 0 ? ` · ${dismissedPremiumReminders} dismissed` : ""} · Total premium ${formatCurrency(
                     metrics.premiumDueAmount30d
                   )}`
           }

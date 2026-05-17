@@ -31,6 +31,7 @@ export type PremiumReminderState = {
   completedPolicies: Policy[];
   pendingRows: PremiumReminderRecipientRow[];
   completedRows: PremiumReminderCompletedRow[];
+  dismissedRows: PremiumReminderRecipientRow[];
   duePremiumAmount: number;
   pendingPremiumAmount: number;
   completedPremiumAmount: number;
@@ -137,7 +138,12 @@ export function buildPremiumReminderState({
 }): PremiumReminderState {
   const sentByKey = new Map(
     emailReminderSends
-      .filter((send) => send.type === "premium")
+      .filter((send) => send.type === "premium" && send.source !== "dismissed")
+      .map((send) => [send.dedupeKey, send])
+  );
+  const dismissedByKey = new Map(
+    emailReminderSends
+      .filter((send) => send.type === "premium" && send.source === "dismissed")
       .map((send) => [send.dedupeKey, send])
   );
 
@@ -166,6 +172,7 @@ export function buildPremiumReminderState({
 
   const pendingRows: PremiumReminderRecipientRow[] = [];
   const completedRows: PremiumReminderCompletedRow[] = [];
+  const dismissedRows: PremiumReminderRecipientRow[] = [];
 
   for (const row of rows) {
     const recipientRows = buildRecipientRows(
@@ -183,6 +190,8 @@ export function buildPremiumReminderState({
           completedAt: sent.sentAt,
           reminderSend: sent,
         });
+      } else if (dismissedByKey.has(recipientRow.dedupeKey)) {
+        dismissedRows.push(recipientRow);
       } else {
         pendingRows.push(recipientRow);
       }
@@ -199,6 +208,7 @@ export function buildPremiumReminderState({
     completedPolicies: duePolicies.filter((policy) => completedPolicyIds.has(policy.id)),
     pendingRows,
     completedRows,
+    dismissedRows,
     duePremiumAmount: duePolicies.reduce((sum, policy) => sum + (policy.premium || 0), 0),
     pendingPremiumAmount: Array.from(pendingPolicyIds).reduce((sum, id) => {
       const policy = duePolicies.find((item) => item.id === id);

@@ -39,7 +39,7 @@ import { cn } from "@/lib/utils";
 const WINDOW_DAYS = PREMIUM_REMINDER_WINDOW_DAYS;
 
 export function UpcomingPremiums() {
-  const { policies, clients, emailReminderSends, deleteClient } = useData();
+  const { policies, clients, emailReminderSends, recordEmailReminderSend } = useData();
   const { settings } = useSettings();
   const renewalTpl = settings.templates.find((t) => t.id === "renewal") ?? { subject: "", body: "", attachments: [] };
 
@@ -79,7 +79,7 @@ export function UpcomingPremiums() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [payload, setPayload] = useState<EmailPreviewPayload | null>(null);
   const [sentPreview, setSentPreview] = useState<EmailHistoryPreview | null>(null);
-  const [deletingClientId, setDeletingClientId] = useState<string | null>(null);
+  const [dismissingReminderId, setDismissingReminderId] = useState<string | null>(null);
 
   const allIds = upcomingRows.map((r) => r.id);
   const allChecked = allIds.length > 0 && allIds.every((id) => selected.has(id));
@@ -181,26 +181,37 @@ export function UpcomingPremiums() {
 
   function clearSelection() { setSelected(new Set()); }
 
-  const deletingClient = deletingClientId
-    ? clients.find((client) => client.id === deletingClientId)
+  const dismissingReminder = dismissingReminderId
+    ? upcomingRows.find((row) => row.id === dismissingReminderId)
+    : null;
+  const dismissingClient = dismissingReminder
+    ? clients.find((client) => client.id === dismissingReminder.clientId)
     : null;
 
-  function handleDeleteClient() {
-    if (!deletingClient) return;
-    const name = `${deletingClient.firstName} ${deletingClient.lastName}`.trim();
-    const ok = deleteClient(deletingClient.id);
-    if (!ok) {
-      toast.error("Could not delete client");
+  function handleDismissReminder() {
+    if (!dismissingReminder) return;
+    const saved = recordEmailReminderSend({
+      dedupeKey: dismissingReminder.dedupeKey,
+      policyId: dismissingReminder.policy.id,
+      clientId: dismissingReminder.clientId,
+      type: "premium",
+      stage: dismissingReminder.stage,
+      cycleKey: dismissingReminder.cycleKey,
+      source: "dismissed",
+      sentAt: new Date().toISOString(),
+    });
+    if (!saved) {
+      toast.error("Could not remove reminder");
       return;
     }
     setSelected((prev) => {
       const next = new Set(prev);
-      upcomingRows
-        .filter((row) => row.clientId === deletingClient.id)
-        .forEach((row) => next.delete(row.id));
+      next.delete(dismissingReminder.id);
       return next;
     });
-    toast.success("Client deleted", { description: name });
+    toast.success("Reminder removed", {
+      description: `${dismissingReminder.stageLabel} · #${dismissingReminder.policy.policyNumber}`,
+    });
   }
 
   return (
@@ -260,12 +271,14 @@ export function UpcomingPremiums() {
                 icon={CalendarClock}
                 title={
                   premiumReminderState.duePolicies.length > 0
-                    ? "All premium reminders completed"
+                    ? premiumReminderState.dismissedRows.length > 0
+                      ? "All active reminders cleared"
+                      : "All premium reminders completed"
                     : "No premiums due soon"
                 }
                 description={
                   premiumReminderState.duePolicies.length > 0
-                    ? `${premiumReminderState.duePolicies.length} policies are due in the next ${WINDOW_DAYS} days and all have been contacted.`
+                    ? `${premiumReminderState.duePolicies.length} policies are due in the next ${WINDOW_DAYS} days. ${premiumReminderState.completedRows.length} completed${premiumReminderState.dismissedRows.length > 0 ? ` · ${premiumReminderState.dismissedRows.length} dismissed` : ""}.`
                     : "Nothing scheduled in the next month."
                 }
                 compact
@@ -327,8 +340,8 @@ export function UpcomingPremiums() {
                             {client ? (
                               <button
                                 type="button"
-                                aria-label={`Delete ${clientName}`}
-                                onClick={() => setDeletingClientId(client.id)}
+                                aria-label={`Remove reminder for ${clientName}`}
+                                onClick={() => setDismissingReminderId(row.id)}
                                 className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-300 transition-colors hover:bg-accent-red/10 hover:text-accent-red"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -433,24 +446,24 @@ export function UpcomingPremiums() {
         email={sentPreview}
       />
       <ConfirmDialog
-        open={!!deletingClientId}
+        open={!!dismissingReminderId}
         onOpenChange={(open) => {
-          if (!open) setDeletingClientId(null);
+          if (!open) setDismissingReminderId(null);
         }}
-        title="Are you absolutely sure?"
+        title="Remove this reminder?"
         description={
           <>
-            This action cannot be undone. This will permanently delete{" "}
+            This only removes the current email reminder from Upcoming. It will not delete{" "}
             <span className="font-semibold">
-              {deletingClient
-                ? `${deletingClient.firstName} ${deletingClient.lastName}`
+              {dismissingClient
+                ? `${dismissingClient.firstName} ${dismissingClient.lastName}`
                 : "this client"}
             </span>{" "}
-            and all associated policies, follow-ups, relationships, and client data.
+            or policy #{dismissingReminder?.policy.policyNumber}.
           </>
         }
-        confirmLabel="Delete"
-        onConfirm={handleDeleteClient}
+        confirmLabel="Remove Reminder"
+        onConfirm={handleDismissReminder}
       />
     </>
   );

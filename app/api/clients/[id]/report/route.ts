@@ -155,6 +155,10 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       subject: entry.subject,
       body: entry.body,
       templateLabel: entry.templateLabel ?? undefined,
+      policyId: entry.policyId ?? undefined,
+      policyNumber: entry.policyNumber ?? undefined,
+      policyLabel: entry.policyLabel ?? undefined,
+      communicationType: entry.communicationType ?? undefined,
     })),
     createdAt: row.createdAt.toISOString(),
   };

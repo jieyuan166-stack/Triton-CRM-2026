@@ -687,6 +687,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         subject: entry.subject,
         body: entry.body,
         templateLabel: entry.templateLabel,
+        policyId: entry.policyId,
+        policyNumber: entry.policyNumber,
+        policyLabel: entry.policyLabel,
+        communicationType: entry.communicationType,
       };
       setClients((prev) =>
         prev.map((c) => {

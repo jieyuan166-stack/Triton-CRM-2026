@@ -18,7 +18,7 @@ export const BIRTHDAY_CARD_IMAGE_URL = "https://crm.tritonwealth.ca/email/birthd
 export function birthdayCardImageHtml(): string {
   return [
     '<div style="margin: 18px 0 12px;">',
-    `<img src="${BIRTHDAY_CARD_IMAGE_URL}" alt="Happy Birthday from Triton Wealth" style="display:block;width:70%;max-width:504px;min-width:280px;height:auto;border:0;border-radius:12px;" />`,
+    `<img src="${BIRTHDAY_CARD_IMAGE_URL}" alt="Happy Birthday from Triton Wealth" style="display:block;width:100%;max-width:720px;height:auto;border:0;border-radius:12px;" />`,
     "</div>",
   ].join("");
 }
@@ -47,7 +47,7 @@ export const DEFAULT_TEMPLATES: EmailTemplate[] = [
     label: "Birthday",
     subject: "Happy Birthday from Jeffrey Yuan",
     body:
-      `Dear [Client Name],\n\nWishing you a very happy birthday from Jeffrey Yuan.\n\nMay the year ahead bring you good health, happiness, success, and continued prosperity. We truly appreciate your trust and support, and we look forward to continuing to serve you in the years ahead.\n\nEnjoy your special day!\n\nWarm regards,\n\n尊敬的 [Client Name]，\n\nJeffrey Yuan 诚挚祝您生日快乐！\n\n愿您在新的一岁里身体健康、万事顺遂、幸福美满、事业兴旺。感谢您一直以来的信任与支持，我们也期待在未来继续为您提供专业服务。\n\n祝您度过一个愉快而难忘的生日！\n\n诚挚问候\n\n${BIRTHDAY_CARD_TOKEN}`,
+      "Dear [Client Name],\n\nWishing you a very happy birthday from Jeffrey Yuan.\n\nMay the year ahead bring you good health, happiness, success, and continued prosperity. We truly appreciate your trust and support, and we look forward to continuing to serve you in the years ahead.\n\nEnjoy your special day!\n\nWarm regards,\n\n尊敬的 [Client Name]，\n\nJeffrey Yuan 诚挚祝您生日快乐！\n\n愿您在新的一岁里身体健康、万事顺遂、幸福美满、事业兴旺。感谢您一直以来的信任与支持，我们也期待在未来继续为您提供专业服务。\n\n祝您度过一个愉快而难忘的生日！\n\n诚挚问候",
     attachments: [],
     variables: ["[Client Name]", "[Date]"],
   },
@@ -140,6 +140,13 @@ export function plainTextToEmailHtml(text: string): string {
     .replace(/\n/g, "<br />");
 }
 
+export function removeBirthdayCardToken(text: string): string {
+  return text
+    .replace(new RegExp(`\\n{0,2}${escapeRegExp(BIRTHDAY_CARD_TOKEN)}\\n{0,2}`, "g"), "\n\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trimEnd();
+}
+
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -169,7 +176,8 @@ export function renderEmailHtml(
   signature?: EmailSignature,
   options?: { emphasizedTerms?: string[]; template?: "birthday" | "renewal" | "festival" | "custom" }
 ): string {
-  const filled = applyTemplate(body, vars);
+  const rawFilled = applyTemplate(body, vars);
+  const filled = options?.template === "birthday" ? removeBirthdayCardToken(rawFilled) : rawFilled;
   const bodyHtml = emphasizeHtmlTerms(
     plainTextToEmailHtml(filled),
     options?.emphasizedTerms

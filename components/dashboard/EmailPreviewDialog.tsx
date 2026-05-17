@@ -331,6 +331,19 @@ export function EmailPreviewDialog({
           subject: message.subject,
           body: message.body,
           templateLabel,
+          policyId: renewalPolicy?.id,
+          policyNumber: renewalPolicy?.policyNumber,
+          policyLabel: renewalPolicy
+            ? `${renewalPolicy.carrier} ${renewalPolicy.productName || renewalPolicy.productType}`.trim()
+            : undefined,
+          communicationType:
+            template === "renewal"
+              ? "Renewal Reminder"
+              : template === "birthday"
+                ? "Birthday Greeting"
+                : template === "festival"
+                  ? "Festival Greeting"
+                  : "Email",
         });
 
       }
@@ -599,7 +612,7 @@ export function EmailPreviewDialog({
                 <div
                   role="img"
                   aria-label="Happy Birthday from Triton Wealth"
-                  className="aspect-[4/5] w-full max-w-[504px] rounded-lg border border-slate-100 bg-cover bg-center"
+                  className="aspect-[4/5] w-full max-w-[720px] rounded-lg border border-slate-100 bg-cover bg-center"
                   style={{ backgroundImage: `url("${BIRTHDAY_CARD_IMAGE_URL}")` }}
                 />
               </div>

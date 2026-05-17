@@ -16,7 +16,7 @@ import {
   SIGNATURE_TEMPLATES,
   htmlToPlainText,
 } from "@/lib/signature-templates";
-import { birthdayCardImageHtml, plainTextToEmailHtml } from "@/lib/templates";
+import { birthdayCardImageHtml, plainTextToEmailHtml, removeBirthdayCardToken } from "@/lib/templates";
 import type { EmailTemplate, EmailTemplateAttachment, EmailTemplateId } from "@/lib/settings-types";
 
 export function TemplatesSection() {
@@ -358,7 +358,14 @@ function TemplateEditor({
           <p className="font-semibold text-slate-700">{previewSubject(subject)}</p>
           <div
             className="text-slate-700 leading-relaxed [&_img]:mt-2 [&_img]:max-w-full [&_img]:rounded-lg [&_img]:border [&_img]:border-slate-100"
-            dangerouslySetInnerHTML={{ __html: plainTextToEmailHtml(previewBody(body)) + (template.id === "birthday" ? birthdayCardImageHtml() : "") }}
+            dangerouslySetInnerHTML={{
+              __html:
+                plainTextToEmailHtml(
+                  template.id === "birthday"
+                    ? removeBirthdayCardToken(previewBody(body))
+                    : previewBody(body)
+                ) + (template.id === "birthday" ? birthdayCardImageHtml() : ""),
+            }}
           />
         </div>
       </div>

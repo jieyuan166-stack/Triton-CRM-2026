@@ -87,6 +87,10 @@ function serializeClient(
       subject: string;
       body: string;
       templateLabel: string | null;
+      policyId: string | null;
+      policyNumber: string | null;
+      policyLabel: string | null;
+      communicationType: string | null;
     }>;
   }
 ): Client {
@@ -114,6 +118,10 @@ function serializeClient(
       subject: entry.subject,
       body: entry.body,
       templateLabel: entry.templateLabel ?? undefined,
+      policyId: entry.policyId ?? undefined,
+      policyNumber: entry.policyNumber ?? undefined,
+      policyLabel: entry.policyLabel ?? undefined,
+      communicationType: entry.communicationType ?? undefined,
     })),
     lastBirthdayEmailAt: iso(c.lastBirthdayEmailAt),
     lastContactedAt: iso(c.lastContactedAt),
@@ -398,6 +406,10 @@ async function replaceAll(snapshot: {
             subject: entry.subject,
             body: entry.body,
             templateLabel: entry.templateLabel ?? null,
+            policyId: entry.policyId ?? null,
+            policyNumber: entry.policyNumber ?? null,
+            policyLabel: entry.policyLabel ?? null,
+            communicationType: entry.communicationType ?? null,
           },
         });
       }
@@ -678,6 +690,10 @@ export async function POST(request: Request) {
             subject: entry.subject,
             body: entry.body,
             templateLabel: entry.templateLabel ?? null,
+            policyId: entry.policyId ?? null,
+            policyNumber: entry.policyNumber ?? null,
+            policyLabel: entry.policyLabel ?? null,
+            communicationType: entry.communicationType ?? null,
           },
         });
         await db.client.update({
@@ -704,6 +720,10 @@ export async function POST(request: Request) {
               subject: true,
               body: true,
               templateLabel: true,
+              policyId: true,
+              policyNumber: true,
+              policyLabel: true,
+              communicationType: true,
             },
           }),
           db.client.findUnique({ where: { id: clientId }, select: { notes: true } }),
@@ -722,6 +742,10 @@ export async function POST(request: Request) {
             subject: entry.subject,
             body: entry.body,
             templateLabel: entry.templateLabel ?? undefined,
+            policyId: entry.policyId ?? undefined,
+            policyNumber: entry.policyNumber ?? undefined,
+            policyLabel: entry.policyLabel ?? undefined,
+            communicationType: entry.communicationType ?? undefined,
           }))
         );
         if (nextNotes !== client?.notes) {
