@@ -3,7 +3,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarClock, Mail, RotateCcw, Send, Trash2 } from "lucide-react";
+import { CalendarClock, Mail, MailX, RotateCcw, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useData } from "@/components/providers/DataProvider";
@@ -28,6 +28,7 @@ import { CARRIER_COLORS } from "@/lib/carrier-colors";
 import { clientPath } from "@/lib/client-slug";
 import { calculateClientTags } from "@/lib/client-tags";
 import { formatDate, formatRelative } from "@/lib/date-utils";
+import { canSendToEmail, isPlaceholderEmail } from "@/lib/email-address";
 import { formatCurrency } from "@/lib/format";
 import { applyTemplate } from "@/lib/templates";
 import {
@@ -80,10 +81,18 @@ export function UpcomingPremiums() {
   const [payload, setPayload] = useState<EmailPreviewPayload | null>(null);
   const [sentPreview, setSentPreview] = useState<EmailHistoryPreview | null>(null);
   const [dismissingReminderId, setDismissingReminderId] = useState<string | null>(null);
+  const [bulkRemoveOpen, setBulkRemoveOpen] = useState(false);
 
   const allIds = upcomingRows.map((r) => r.id);
   const allChecked = allIds.length > 0 && allIds.every((id) => selected.has(id));
   const someChecked = selected.size > 0 && !allChecked;
+  const selectedRows = Array.from(selected)
+    .map((id) => upcomingRows.find((row) => row.id === id))
+    .filter((row): row is NonNullable<typeof row> => !!row);
+  const selectedEmailCount = selectedRows.filter((row) => {
+    const client = clients.find((item) => item.id === row.clientId);
+    return canSendToEmail(client?.email);
+  }).length;
 
   function toggleAll(checked: boolean) {
     if (checked) setSelected(new Set(allIds));
@@ -103,7 +112,7 @@ export function UpcomingPremiums() {
     if (!row) return;
     const p = row.policy;
     const client = clients.find((c) => c.id === row.clientId);
-    if (!client?.email) return;
+    if (!client || !canSendToEmail(client.email)) return;
     const clientName = `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim() || "client";
     const premiumAmount = formatCurrency(p.premium ?? 0);
     const faceAmount = formatCurrency(p.sumAssured ?? 0);
@@ -133,7 +142,7 @@ export function UpcomingPremiums() {
       .map((row) => {
         const p = row.policy;
         const client = clients.find((c) => c.id === row.clientId);
-        if (!client?.email) return null;
+        if (!client || !canSendToEmail(client.email)) return null;
         const clientName =
           `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim() ||
           "client";
@@ -214,6 +223,33 @@ export function UpcomingPremiums() {
     });
   }
 
+  function handleBulkRemove() {
+    if (selectedRows.length === 0) return;
+    let removed = 0;
+    for (const row of selectedRows) {
+      const saved = recordEmailReminderSend({
+        dedupeKey: row.dedupeKey,
+        policyId: row.policy.id,
+        clientId: row.clientId,
+        type: "premium",
+        stage: row.stage,
+        cycleKey: row.cycleKey,
+        source: "dismissed",
+        sentAt: new Date().toISOString(),
+      });
+      if (saved) removed += 1;
+    }
+    setSelected(new Set());
+    setBulkRemoveOpen(false);
+    if (removed === 0) {
+      toast.error("Could not remove selected reminders");
+      return;
+    }
+    toast.success("Selected reminders removed", {
+      description: `${removed} reminder${removed === 1 ? "" : "s"} cleared from Upcoming.`,
+    });
+  }
+
   return (
     <>
       <WidgetCard
@@ -228,9 +264,21 @@ export function UpcomingPremiums() {
         }
         action={
           activeTab === "upcoming" && selected.size > 0 ? (
-            <Button size="sm" className="h-8 bg-navy hover:bg-navy/90 text-white" onClick={openBulk}>
-              <Send className="h-3.5 w-3.5 mr-1.5" />Send Bulk ({selected.size})
-            </Button>
+            <div className="flex flex-wrap justify-end gap-2">
+              {selectedEmailCount > 0 ? (
+                <Button size="sm" className="h-8 bg-navy hover:bg-navy/90 text-white" onClick={openBulk}>
+                  <Send className="h-3.5 w-3.5 mr-1.5" />Send Bulk ({selectedEmailCount})
+                </Button>
+              ) : null}
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 border-rose-100 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                onClick={() => setBulkRemoveOpen(true)}
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-1.5" />Remove Selected ({selected.size})
+              </Button>
+            </div>
           ) : null
         }
         >
@@ -290,7 +338,8 @@ export function UpcomingPremiums() {
                   const p = row.policy;
                   const client = clients.find((c) => c.id === row.clientId);
                   const clientName = client ? `${client.firstName} ${client.lastName}` : "—";
-                  const canEmail = !!client?.email;
+                  const canEmail = canSendToEmail(client?.email);
+                  const hasPlaceholderEmail = isPlaceholderEmail(client?.email);
                   const isChecked = selected.has(row.id);
                   return (
                     <li
@@ -300,7 +349,7 @@ export function UpcomingPremiums() {
                         isChecked ? "bg-accent-blue/5" : "hover:bg-slate-50/80"
                       )}
                     >
-                      <Checkbox aria-label={`Select ${clientName}`} checked={isChecked} onCheckedChange={(c) => toggleOne(row.id, c === true)} disabled={!canEmail} />
+                      <Checkbox aria-label={`Select ${clientName}`} checked={isChecked} onCheckedChange={(c) => toggleOne(row.id, c === true)} />
                       <UniversalDataCard
                         accentColor={CARRIER_COLORS[p.carrier]}
                         className="flex-1 rounded-lg border border-slate-100 bg-white/70 p-3 shadow-none"
@@ -335,7 +384,13 @@ export function UpcomingPremiums() {
                                 <Mail className="h-4 w-4" />
                               </button>
                             ) : (
-                              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-200"><Mail className="h-4 w-4" /></span>
+                              <span
+                                title={hasPlaceholderEmail ? "No real email on file" : "No email on file"}
+                                className="inline-flex h-7 shrink-0 items-center justify-center gap-1 rounded-lg bg-slate-50 px-2 text-[10px] font-semibold uppercase tracking-wider text-slate-300 ring-1 ring-slate-100"
+                              >
+                                <MailX className="h-3.5 w-3.5" />
+                                No Email
+                              </span>
                             )}
                             {client ? (
                               <button
@@ -415,7 +470,7 @@ export function UpcomingPremiums() {
                             >
                               <Mail className="h-4 w-4" />
                             </button>
-                            {client?.email ? (
+                            {canSendToEmail(client?.email) ? (
                               <button
                                 type="button"
                                 aria-label={`Re-send reminder to ${clientName}`}
@@ -464,6 +519,20 @@ export function UpcomingPremiums() {
         }
         confirmLabel="Remove Reminder"
         onConfirm={handleDismissReminder}
+      />
+      <ConfirmDialog
+        open={bulkRemoveOpen}
+        onOpenChange={setBulkRemoveOpen}
+        title="Remove selected reminders?"
+        description={
+          <>
+            This clears <span className="font-semibold">{selected.size}</span>{" "}
+            selected email reminder{selected.size === 1 ? "" : "s"} from
+            Upcoming. It will not delete any clients or policies.
+          </>
+        }
+        confirmLabel="Remove Selected"
+        onConfirm={handleBulkRemove}
       />
     </>
   );

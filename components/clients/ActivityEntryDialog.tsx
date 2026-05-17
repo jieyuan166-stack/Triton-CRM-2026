@@ -199,18 +199,28 @@ export function ActivityEntryDialog({
               value={selectedPolicyId}
               onValueChange={(value) => setSelectedPolicyId(value ?? NO_POLICY_VALUE)}
             >
-              <SelectTrigger id="activity-entry-policy" className="w-full">
+              <SelectTrigger id="activity-entry-policy" className="w-full max-w-full">
                 <span className="min-w-0 flex-1 truncate text-left">
                   {selectedPolicy
                     ? policyDisplayName(selectedPolicy)
                     : "No policy target"}
                 </span>
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent
+                align="start"
+                sideOffset={8}
+                className="w-[var(--anchor-width)] max-w-[min(34rem,calc(100vw-2rem))]"
+              >
                 <SelectItem value={NO_POLICY_VALUE}>No policy target</SelectItem>
                 {policies.map((policy) => (
-                  <SelectItem key={policy.id} value={policy.id}>
+                  <SelectItem
+                    key={policy.id}
+                    value={policy.id}
+                    className="items-start whitespace-normal"
+                  >
+                    <span className="min-w-0 whitespace-normal break-words leading-snug">
                     {policyDisplayName(policy)}
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>
