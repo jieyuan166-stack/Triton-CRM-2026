@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { auditLog, requireSession, unauthorized } from "@/lib/api-security";
-import { isDatabaseBackup, readSnapshotBackup, restoreDatabaseBackup } from "@/lib/server-backups";
+import { readSnapshotBackup, restoreDatabaseBackup } from "@/lib/server-backups";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,7 +15,7 @@ export async function GET(
 
   const { id } = await params;
   try {
-    if (isDatabaseBackup(id)) {
+    if (!id.toLowerCase().endsWith(".json.gz")) {
       const result = await restoreDatabaseBackup(id);
       await auditLog({
         action: "restore_backup",
