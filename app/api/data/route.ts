@@ -937,8 +937,12 @@ export async function POST(request: Request) {
     }
     return NextResponse.json({ ok: true });
   } catch (error) {
+    console.error("[api/data] action failed", {
+      userId: session.user.id,
+      error,
+    });
     return NextResponse.json(
-      { ok: false, error: error instanceof Error ? error.message : "Data action failed" },
+      { ok: false, error: "Data action failed" },
       { status: 400 },
     );
   }

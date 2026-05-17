@@ -1,5 +1,6 @@
 import "server-only";
 
+import { execFile } from "child_process";
 import { createHash } from "crypto";
 import { promises as fs } from "fs";
 import path from "path";
@@ -12,6 +13,7 @@ import { db } from "@/lib/db";
 
 const gzipAsync = promisify(gzip);
 const gunzipAsync = promisify(gunzip);
+const execFileAsync = promisify(execFile);
 
 const SAFE_BACKUP_BASENAME_RE = /^[^\\/]+$/;
 const SNAPSHOT_RE = /^backup_\d{8}T\d{6}\.json\.gz$/;
@@ -466,9 +468,19 @@ export async function createDatabaseBackup(label?: string) {
     : "";
   const filename = `triton-${timestampLabel().replace("T", "-")}${safeLabel}.db.gz`;
   const dbPath = sqliteDatabasePath();
-  const body = await fs.readFile(dbPath).catch((error) => {
-    throw safeBackupReadError(error);
-  });
+  const tempPath = path.join("/tmp", `triton-online-backup-${process.pid}-${Date.now()}.db`);
+  let body: Buffer;
+  try {
+    await execFileAsync("sqlite3", [dbPath, `.backup ${tempPath}`]);
+    body = await fs.readFile(tempPath);
+  } catch (error) {
+    console.warn("[backups] sqlite online backup failed; falling back to direct DB read", error);
+    body = await fs.readFile(dbPath).catch((readError) => {
+      throw safeBackupReadError(readError);
+    });
+  } finally {
+    await fs.unlink(tempPath).catch(() => undefined);
+  }
   const compressed = await gzipAsync(body, { level: 9 });
   const file = backupPath(filename);
   await fs.writeFile(file, compressed, { mode: 0o660 });
