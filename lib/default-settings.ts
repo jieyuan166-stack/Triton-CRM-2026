@@ -7,6 +7,12 @@ import type {
 } from "@/lib/settings-types";
 import { DEFAULT_SIGNATURE, DEFAULT_TEMPLATES, LEGACY_DEFAULT_TEMPLATE_COPY } from "@/lib/templates";
 
+export type SettingsUser = {
+  id: string;
+  email?: string | null;
+  name?: string | null;
+};
+
 export const DEFAULT_PROFILE: AdminProfile = {
   id: "user_admin",
   name: "Jeffrey Y",
@@ -46,9 +52,57 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
 };
 
 
-function mergeEmailTemplates(input: unknown): AppSettings["templates"] {
-  if (!Array.isArray(input) || input.length === 0) return DEFAULT_APP_SETTINGS.templates;
-  return DEFAULT_TEMPLATES.map((defaultTemplate) => {
+function genericTemplatesForUser(user: SettingsUser): AppSettings["templates"] {
+  const advisorName = user.name?.trim() || "your advisor";
+  return DEFAULT_TEMPLATES.map((template) => ({
+    ...template,
+    subject: template.subject.replaceAll("Jeffrey Yuan", advisorName),
+    body: template.body
+      .replaceAll("Jeffrey Yuan", advisorName)
+      .replaceAll("continued trust in Jeffrey Yuan", "continued trust")
+      .replaceAll("对 Jeffrey Yuan 的信任与支持", "对我们的信任与支持"),
+  }));
+}
+
+export function buildDefaultSettingsForUser(user: SettingsUser): AppSettings {
+  const email = user.email?.trim() || "";
+  const name = user.name?.trim() || (email ? email.split("@")[0] : "Advisor");
+
+  if (email.toLowerCase() === "jieyuan165@gmail.com") {
+    return DEFAULT_APP_SETTINGS;
+  }
+
+  return {
+    profile: {
+      id: user.id,
+      name,
+      email,
+      passwordUpdatedAt: undefined,
+    },
+    email: {
+      ...DEFAULT_EMAIL,
+      user: "",
+      fromName: name,
+      fromEmail: email,
+      passwordConfigured: false,
+    },
+    weeklyDigest: {
+      ...DEFAULT_WEEKLY_DIGEST,
+      recipientEmail: email,
+    },
+    emailAutomation: DEFAULT_EMAIL_AUTOMATION,
+    templates: genericTemplatesForUser(user),
+    signature: {
+      enabled: false,
+      text: "",
+      html: "",
+    },
+  };
+}
+
+function mergeEmailTemplates(input: unknown, defaults: AppSettings): AppSettings["templates"] {
+  if (!Array.isArray(input) || input.length === 0) return defaults.templates;
+  return defaults.templates.map((defaultTemplate) => {
     const saved = input.find(
       (template): template is Partial<(typeof DEFAULT_TEMPLATES)[number]> & { id: string } =>
         !!template && typeof template === "object" && (template as { id?: unknown }).id === defaultTemplate.id
@@ -139,12 +193,12 @@ function mergeEmailTemplates(input: unknown): AppSettings["templates"] {
   });
 }
 
-function mergeSignature(input: unknown): AppSettings["signature"] {
+function mergeSignature(input: unknown, defaults: AppSettings): AppSettings["signature"] {
   const raw =
     input && typeof input === "object"
       ? (input as Partial<AppSettings["signature"]>)
       : {};
-  const merged = { ...DEFAULT_APP_SETTINGS.signature, ...raw };
+  const merged = { ...defaults.signature, ...raw };
 
   // Upgrade the previous default signature layout in-place. It used inline
   // contact spans, which let mobile email clients split "Email:" and the
@@ -163,27 +217,27 @@ function mergeSignature(input: unknown): AppSettings["signature"] {
     ) &&
     raw.html.includes("jieyuan165@gmail.com")
   ) {
-    return DEFAULT_APP_SETTINGS.signature;
+    return defaults.signature;
   }
 
   return merged;
 }
 
-export function mergeAppSettings(input: unknown): AppSettings {
-  if (!input || typeof input !== "object") return DEFAULT_APP_SETTINGS;
+export function mergeAppSettings(input: unknown, defaults: AppSettings = DEFAULT_APP_SETTINGS): AppSettings {
+  if (!input || typeof input !== "object") return defaults;
   const raw = input as Partial<AppSettings>;
   return {
-    profile: { ...DEFAULT_APP_SETTINGS.profile, ...(raw.profile ?? {}) },
-    email: { ...DEFAULT_APP_SETTINGS.email, ...(raw.email ?? {}) },
+    profile: { ...defaults.profile, ...(raw.profile ?? {}) },
+    email: { ...defaults.email, ...(raw.email ?? {}) },
     weeklyDigest: {
-      ...DEFAULT_APP_SETTINGS.weeklyDigest,
+      ...defaults.weeklyDigest,
       ...(raw.weeklyDigest ?? {}),
     },
     emailAutomation: {
-      ...DEFAULT_APP_SETTINGS.emailAutomation,
+      ...defaults.emailAutomation,
       ...(raw.emailAutomation ?? {}),
     },
-    templates: mergeEmailTemplates(raw.templates),
-    signature: mergeSignature(raw.signature),
+    templates: mergeEmailTemplates(raw.templates, defaults),
+    signature: mergeSignature(raw.signature, defaults),
   };
 }

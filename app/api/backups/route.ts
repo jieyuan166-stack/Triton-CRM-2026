@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { auditLog, requireSession, unauthorized } from "@/lib/api-security";
-import { createSnapshotBackup, listBackupFiles, setBackupImportant } from "@/lib/server-backups";
+import { createDatabaseBackup, createSnapshotBackup, listBackupFiles, setBackupImportant } from "@/lib/server-backups";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,7 +10,7 @@ export async function GET() {
   const session = await requireSession();
   if (!session) return unauthorized();
 
-  const backups = await listBackupFiles();
+  const backups = await listBackupFiles(session.user);
   await auditLog({ action: "list_backups", entityType: "backup" });
   return NextResponse.json({ backups });
 }
@@ -27,7 +27,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    const record = await createSnapshotBackup(snapshot as never);
+    const record =
+      session.user.role === "admin"
+        ? await createDatabaseBackup("manual")
+        : await createSnapshotBackup(snapshot as never, session.user);
     await auditLog({
       action: "create_backup",
       entityType: "backup",
@@ -59,7 +62,7 @@ export async function PATCH(request: Request) {
   }
 
   try {
-    await setBackupImportant(body.id, body.important);
+    await setBackupImportant(body.id, body.important, session.user);
     await auditLog({
       action: body.important ? "mark_backup_important" : "unmark_backup_important",
       entityType: "backup",

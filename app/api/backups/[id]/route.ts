@@ -32,7 +32,7 @@ export async function POST(
   }
 
   try {
-    await setBackupImportant(id, body.important);
+    await setBackupImportant(id, body.important, session.user);
     await auditLog({
       action: body.important ? "mark_backup_important" : "unmark_backup_important",
       entityType: "backup",
@@ -67,7 +67,7 @@ export async function DELETE(
 
   const { id } = await params;
   try {
-    await deleteBackupFile(id);
+    await deleteBackupFile(id, session.user);
     await auditLog({ action: "delete_backup", entityType: "backup", entityId: id });
     return NextResponse.json({ ok: true });
   } catch (error) {

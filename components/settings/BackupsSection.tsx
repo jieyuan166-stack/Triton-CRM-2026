@@ -25,6 +25,7 @@ import {
 import { ConfirmDialog } from "@/components/ui-shared/ConfirmDialog";
 import { useData } from "@/components/providers/DataProvider";
 import { useSettings } from "@/components/providers/SettingsProvider";
+import { useAuth } from "@/components/providers/AuthProvider";
 import { EmptyState } from "@/components/ui-shared/EmptyState";
 import { formatDate } from "@/lib/date-utils";
 import {
@@ -53,6 +54,12 @@ function backupTone(kind: BackupRecord["kind"]) {
         badge: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
         label: "Auto DB",
       }
+    : kind === "user-snapshot"
+    ? {
+        icon: "bg-blue-50 text-blue-700 ring-1 ring-blue-100",
+        badge: "bg-blue-50 text-blue-700 ring-1 ring-blue-100",
+        label: "User Snapshot",
+      }
     : {
         icon: "bg-blue-50 text-blue-700 ring-1 ring-blue-100",
         badge: "bg-blue-50 text-blue-700 ring-1 ring-blue-100",
@@ -61,7 +68,9 @@ function backupTone(kind: BackupRecord["kind"]) {
 }
 
 export function BackupsSection() {
+  const { session } = useAuth();
   const {
+    settings,
     backups,
     createBackup,
     restoreBackup,
@@ -69,6 +78,7 @@ export function BackupsSection() {
     setBackupImportant,
   } = useSettings();
   const { getSnapshot, replaceAll } = useData();
+  const isAdmin = session?.user?.role === "admin";
   const [creating, setCreating] = useState(false);
   const [restoring, setRestoring] = useState<string | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<BackupRecord | null>(null);
@@ -78,7 +88,10 @@ export function BackupsSection() {
     setCreating(true);
     try {
       const snapshot = getSnapshot();
-      const rec = await createBackup(snapshot);
+      const rec = await createBackup({
+        ...snapshot,
+        settings,
+      });
       toast.success("Backup created", { description: rec.filename });
     } catch (e) {
       toast.error("Backup failed", {
@@ -112,6 +125,13 @@ export function BackupsSection() {
     if (!replaced.ok) {
       toast.error("Restore failed", { description: replaced.error });
       return;
+    }
+    if (r.data.settings) {
+      await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(r.data.settings),
+      }).catch(() => undefined);
     }
     toast.success("Data restored successfully! Reloading...", {
       description: target.filename,
@@ -163,10 +183,12 @@ export function BackupsSection() {
         <div className="px-5 md:px-6 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-              Backups
+              {isAdmin ? "All Backups" : "My Backups"}
             </h3>
             <p className="text-xs text-triton-muted mt-0.5">
-              Manual snapshots and weekly database backups are real files stored on the NAS at{" "}
+              {isAdmin
+                ? "Admin can manage full database backups and user snapshots stored on the NAS at "
+                : "Your backups are user-scoped snapshots. They restore only your clients, policies, logs, and settings. Files are stored at "}
               <code className="font-number text-[11px] px-1 py-0.5 rounded bg-slate-100">
                 /volume1/docker/triton-crm/backups/
               </code>
@@ -186,7 +208,7 @@ export function BackupsSection() {
               ) : (
                 <Play className="h-3.5 w-3.5 mr-1.5" />
               )}
-              Backup Now
+              {isAdmin ? "Database Backup" : "Backup Now"}
             </Button>
           </div>
         </div>
@@ -202,6 +224,11 @@ export function BackupsSection() {
             {backups.map((b) => {
               const isRestoring = restoring === b.id;
               const tone = backupTone(b.kind);
+              const canRestore =
+                b.kind === "database" ||
+                !isAdmin ||
+                !b.ownerUserId ||
+                b.ownerUserId === session?.user?.id;
               return (
                 <li
                   key={b.id}
@@ -231,6 +258,11 @@ export function BackupsSection() {
                       <span className="hidden md:inline truncate">
                         {b.contents.join(" · ")}
                       </span>
+                      {isAdmin && b.ownerEmail ? (
+                        <span className="hidden lg:inline truncate">
+                          Owner: {b.ownerName || b.ownerEmail}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
@@ -262,8 +294,16 @@ export function BackupsSection() {
                       size="sm"
                       variant="outline"
                       className="h-8"
-                      disabled={isRestoring || b.restorable === false}
-                      title={b.restorable === false ? "This backup cannot be restored from Settings" : b.filename.endsWith(".db.gz") ? "Restore & restart CRM" : "Restore backup"}
+                      disabled={isRestoring || b.restorable === false || !canRestore}
+                      title={
+                        !canRestore
+                          ? "Admins can download this user snapshot; the owner must restore it from their account."
+                          : b.restorable === false
+                          ? "This backup cannot be restored from Settings"
+                          : b.filename.endsWith(".db.gz")
+                          ? "Restore & restart CRM"
+                          : "Restore backup"
+                      }
                       onClick={() => setConfirmTarget(b)}
                     >
                       {isRestoring ? (
@@ -305,9 +345,10 @@ export function BackupsSection() {
               {confirmTarget ? (
                 <>
                   <span className="font-number">{confirmTarget.filename}</span>{" "}
-                  will overwrite all current data. This is destructive and
-                  cannot be undone. Database restores restart the CRM after
-                  the selected backup is applied.
+                  {confirmTarget.kind === "database"
+                    ? "will replace the full CRM database and restart the app."
+                    : "will replace your current CRM data and settings only."}{" "}
+                  This is destructive and cannot be undone.
                 </>
               ) : null}
             </DialogDescription>

@@ -15,7 +15,7 @@ export async function GET(
 
   const { id } = await params;
   try {
-    const { data } = await readBackupFile(id);
+    const { data } = await readBackupFile(id, session.user);
     await auditLog({ action: "download_backup", entityType: "backup", entityId: id });
     return new NextResponse(data, {
       headers: {

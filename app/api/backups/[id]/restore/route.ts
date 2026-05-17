@@ -16,7 +16,7 @@ export async function POST(
   const { id } = await params;
   try {
     if (!id.toLowerCase().endsWith(".json.gz")) {
-      const result = await restoreDatabaseBackup(id);
+      const result = await restoreDatabaseBackup(id, session.user);
       await auditLog({
         action: "restore_backup",
         entityType: "backup",
@@ -29,7 +29,15 @@ export async function POST(
       return NextResponse.json({ ok: true, ...result });
     }
 
-    const data = await readSnapshotBackup(id);
+    const ownerMatch = id.match(/^user_(.+)_\d{8}T\d{6}(?:-[a-z0-9]+)?\.json\.gz$/);
+    if (ownerMatch && ownerMatch[1] !== session.user.id) {
+      return NextResponse.json(
+        { ok: false, error: "Only the snapshot owner can restore this backup" },
+        { status: 403 },
+      );
+    }
+
+    const data = await readSnapshotBackup(id, session.user);
     await auditLog({ action: "restore_backup", entityType: "backup", entityId: id });
     return NextResponse.json({ ok: true, data });
   } catch (error) {
@@ -46,4 +54,3 @@ export function GET() {
     { status: 405, headers: { Allow: "POST" } },
   );
 }
-

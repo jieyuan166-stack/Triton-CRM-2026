@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { auditLog, requireSession, unauthorized } from "@/lib/api-security";
 import { db } from "@/lib/db";
-import { DEFAULT_APP_SETTINGS, mergeAppSettings } from "@/lib/default-settings";
+import { buildDefaultSettingsForUser, mergeAppSettings } from "@/lib/default-settings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,12 +60,20 @@ const settingsPatchSchema = z.object({
 }).strict();
 
 async function readSettings(userId: string) {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true, name: true },
+  });
+  if (!user) {
+    throw new Error("User not found");
+  }
+  const defaults = buildDefaultSettingsForUser(user);
   const row = await db.settings.findUnique({ where: { userId } });
-  if (!row) return DEFAULT_APP_SETTINGS;
+  if (!row) return defaults;
   try {
-    return mergeAppSettings(JSON.parse(row.data));
+    return mergeAppSettings(JSON.parse(row.data), defaults);
   } catch {
-    return DEFAULT_APP_SETTINGS;
+    return defaults;
   }
 }
 
@@ -92,10 +100,18 @@ export async function PATCH(request: Request) {
   }
 
   const current = await readSettings(session.user.id);
+  const user = await db.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true, email: true, name: true },
+  });
+  if (!user) {
+    return NextResponse.json({ ok: false, error: "User not found" }, { status: 404 });
+  }
+  const defaults = buildDefaultSettingsForUser(user);
   const next = mergeAppSettings({
     ...current,
     ...parsed.data,
-  });
+  }, defaults);
 
   await db.settings.upsert({
     where: { userId: session.user.id },

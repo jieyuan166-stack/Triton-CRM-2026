@@ -40,18 +40,27 @@ export interface WeeklyDigestConfig {
  *  the DataProvider export boundary. */
 export interface BackupSnapshot {
   version: 1;
+  scope?: "user";
+  ownerUserId?: string;
+  ownerEmail?: string;
+  ownerName?: string;
   capturedAt: string;
   clients: unknown[];
   policies: unknown[];
   followUps: unknown[];
   relationships?: unknown[];
   emailReminderSends?: unknown[];
+  settings?: AppSettings;
 }
 
 export interface BackupRecord {
   id: string;
   filename: string;          // e.g. backup_20260506T1430.tar.gz
-  kind?: "snapshot" | "database";
+  kind?: "snapshot" | "database" | "user-snapshot";
+  scope?: "database" | "user";
+  ownerUserId?: string;
+  ownerEmail?: string;
+  ownerName?: string;
   restorable?: boolean;
   /** Advisor-pinned backups are protected from automatic retention cleanup. */
   important?: boolean;

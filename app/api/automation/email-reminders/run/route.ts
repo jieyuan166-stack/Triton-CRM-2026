@@ -5,7 +5,7 @@ import nodemailer from "nodemailer";
 import { auditLog } from "@/lib/api-security";
 import { db } from "@/lib/db";
 import { emailDefaults, serverEnv } from "@/lib/env.server";
-import { DEFAULT_APP_SETTINGS, mergeAppSettings } from "@/lib/default-settings";
+import { buildDefaultSettingsForUser, mergeAppSettings } from "@/lib/default-settings";
 import { canSendToEmail } from "@/lib/email-address";
 import { formatCurrency } from "@/lib/format";
 import { applyTemplate, renderEmailBody, renderEmailHtml } from "@/lib/templates";
@@ -28,9 +28,15 @@ const PROVINCE_TIMEZONES: Record<string, string> = {
 };
 
 async function readSettings(userId: string) {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true, name: true },
+  });
+  if (!user) throw new Error("User not found");
+  const defaults = buildDefaultSettingsForUser(user);
   const row = await db.settings.findUnique({ where: { userId } });
-  if (!row) return DEFAULT_APP_SETTINGS;
-  return mergeAppSettings(JSON.parse(row.data));
+  if (!row) return defaults;
+  return mergeAppSettings(JSON.parse(row.data), defaults);
 }
 
 function fullName(client: { firstName: string; lastName: string }) {

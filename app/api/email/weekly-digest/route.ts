@@ -7,15 +7,21 @@ import { db } from "@/lib/db";
 import { emailDefaults, serverEnv } from "@/lib/env.server";
 import { formatCurrencyShort } from "@/lib/format";
 import { daysUntil, formatDate, resolveRecurringDate } from "@/lib/date-utils";
-import { DEFAULT_APP_SETTINGS, mergeAppSettings } from "@/lib/default-settings";
+import { buildDefaultSettingsForUser, mergeAppSettings } from "@/lib/default-settings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 async function readSettings(userId: string) {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true, name: true },
+  });
+  if (!user) throw new Error("User not found");
+  const defaults = buildDefaultSettingsForUser(user);
   const row = await db.settings.findUnique({ where: { userId } });
-  if (!row) return DEFAULT_APP_SETTINGS;
-  return mergeAppSettings(JSON.parse(row.data));
+  if (!row) return defaults;
+  return mergeAppSettings(JSON.parse(row.data), defaults);
 }
 
 function escapeHtml(text: string) {

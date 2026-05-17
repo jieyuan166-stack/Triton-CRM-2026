@@ -23,8 +23,8 @@ import type {
   EmailTemplateId,
 } from "@/lib/settings-types";
 import { getBackupService, type RestoreBackupResult } from "@/lib/backup-service";
-import { DEFAULT_APP_SETTINGS } from "@/lib/default-settings";
-import { DEFAULT_TEMPLATES } from "@/lib/templates";
+import { buildDefaultSettingsForUser } from "@/lib/default-settings";
+import { useAuth } from "@/components/providers/AuthProvider";
 
 interface SettingsContextValue {
   settings: AppSettings;
@@ -64,12 +64,22 @@ interface SettingsContextValue {
 const SettingsContext = createContext<SettingsContextValue | null>(null);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  const [profile, setProfile] = useState(DEFAULT_APP_SETTINGS.profile);
-  const [email, setEmail] = useState<EmailConfig>(DEFAULT_APP_SETTINGS.email);
-  const [weeklyDigest, setWeeklyDigest] = useState(DEFAULT_APP_SETTINGS.weeklyDigest);
-  const [emailAutomation, setEmailAutomation] = useState(DEFAULT_APP_SETTINGS.emailAutomation);
-  const [templates, setTemplates] = useState<EmailTemplate[]>(DEFAULT_APP_SETTINGS.templates);
-  const [signature, setSignature] = useState<EmailSignature>(DEFAULT_APP_SETTINGS.signature);
+  const { session } = useAuth();
+  const userDefaults = useMemo(
+    () => buildDefaultSettingsForUser({
+      id: session?.user?.id ?? "user",
+      email: session?.user?.email ?? "",
+      name: session?.user?.name ?? "",
+    }),
+    [session?.user?.email, session?.user?.id, session?.user?.name],
+  );
+
+  const [profile, setProfile] = useState(userDefaults.profile);
+  const [email, setEmail] = useState<EmailConfig>(userDefaults.email);
+  const [weeklyDigest, setWeeklyDigest] = useState(userDefaults.weeklyDigest);
+  const [emailAutomation, setEmailAutomation] = useState(userDefaults.emailAutomation);
+  const [templates, setTemplates] = useState<EmailTemplate[]>(userDefaults.templates);
+  const [signature, setSignature] = useState<EmailSignature>(userDefaults.signature);
   const [backups, setBackups] = useState<BackupRecord[]>([]);
 
   const persistSettings = useCallback((next: Partial<AppSettings>) => {
@@ -88,8 +98,22 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setBackups(list);
   }, []);
 
-  // Hydrate persisted Settings, backups + SMTP password status on mount.
+  // Reset to the current user's defaults before hydrating persisted settings,
+  // so a newly-created advisor never sees another advisor's profile/template
+  // during the short fetch window.
   useEffect(() => {
+    setProfile(userDefaults.profile);
+    setEmail(userDefaults.email);
+    setWeeklyDigest(userDefaults.weeklyDigest);
+    setEmailAutomation(userDefaults.emailAutomation);
+    setTemplates(userDefaults.templates);
+    setSignature(userDefaults.signature);
+    setBackups([]);
+  }, [session?.user?.id, userDefaults]);
+
+  // Hydrate persisted Settings, backups + SMTP password status on account change.
+  useEffect(() => {
+    if (!session?.user?.id) return;
     refreshBackups();
     fetch("/api/settings", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
@@ -100,8 +124,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           ...d.settings!.email,
           passwordConfigured: prev.passwordConfigured,
         }));
-        setWeeklyDigest(d.settings.weeklyDigest ?? DEFAULT_APP_SETTINGS.weeklyDigest);
-        setEmailAutomation(d.settings.emailAutomation ?? DEFAULT_APP_SETTINGS.emailAutomation);
+        setWeeklyDigest(d.settings.weeklyDigest ?? userDefaults.weeklyDigest);
+        setEmailAutomation(d.settings.emailAutomation ?? userDefaults.emailAutomation);
         setTemplates(d.settings.templates);
         setSignature(d.settings.signature);
       })
@@ -119,7 +143,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       .catch(() => {
         // silent — UI shows "not configured"
       });
-  }, [refreshBackups]);
+  }, [refreshBackups, session?.user?.id, userDefaults]);
 
   const updateProfile = useCallback<SettingsContextValue["updateProfile"]>((patch) => {
     setProfile((prev) => {
@@ -188,14 +212,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, [persistSettings]);
 
   const resetTemplate = useCallback((id: EmailTemplateId) => {
-    const original = DEFAULT_TEMPLATES.find((t) => t.id === id);
+    const original = userDefaults.templates.find((t) => t.id === id);
     if (!original) return;
     setTemplates((prev) => {
       const next = prev.map((t) => (t.id === id ? original : t));
       persistSettings({ templates: next });
       return next;
     });
-  }, [persistSettings]);
+  }, [persistSettings, userDefaults.templates]);
 
   const updateSignature = useCallback((patch: Partial<EmailSignature>) => {
     setSignature((prev) => {

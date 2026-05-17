@@ -15,11 +15,18 @@ const gunzipAsync = promisify(gunzip);
 
 const SAFE_BACKUP_BASENAME_RE = /^[^\\/]+$/;
 const SNAPSHOT_RE = /^backup_\d{8}T\d{6}\.json\.gz$/;
+const USER_SNAPSHOT_RE = /^user_(.+)_(\d{8}T\d{6})(?:-[a-z0-9]+)?\.json\.gz$/;
 const MANUAL_DATABASE_RE = /^backup_\d{8}T\d{6}\.db\.gz$/;
 const DATABASE_RE = /^triton-\d{8}-\d{6}(?:-[a-z0-9-]+)?\.db\.gz$/i;
 const BACKUP_TIME_ZONE = "America/Vancouver";
 const BACKUP_FLAGS_FILENAME = ".backup-flags.json";
 type BackupFlags = Record<string, { important?: boolean }>;
+type BackupAccessUser = {
+  id: string;
+  email?: string | null;
+  name?: string | null;
+  role?: string | null;
+};
 
 export function getBackupDir() {
   return process.env.BACKUP_DIR || path.join(/*turbopackIgnore: true*/ process.cwd(), "backups");
@@ -29,7 +36,10 @@ export function isSafeBackupFilename(filename: string) {
   return (
     SAFE_BACKUP_BASENAME_RE.test(filename) &&
     path.basename(filename) === filename &&
-    (SNAPSHOT_RE.test(filename) || MANUAL_DATABASE_RE.test(filename) || DATABASE_RE.test(filename))
+    (SNAPSHOT_RE.test(filename) ||
+      USER_SNAPSHOT_RE.test(filename) ||
+      MANUAL_DATABASE_RE.test(filename) ||
+      DATABASE_RE.test(filename))
   );
 }
 
@@ -132,7 +142,31 @@ async function writeBackupFlags(flags: BackupFlags) {
   await fs.chmod(target, 0o660).catch(() => undefined);
 }
 
-export async function setBackupImportant(filename: string, important: boolean) {
+function safeUserIdForFilename(userId: string) {
+  return userId.replace(/[^a-zA-Z0-9_-]/g, "-");
+}
+
+function ownerIdFromFilename(filename: string) {
+  return filename.match(USER_SNAPSHOT_RE)?.[1];
+}
+
+function canAccessBackup(filename: string, user: BackupAccessUser) {
+  if (user.role === "admin") return true;
+  if (isDatabaseBackup(filename)) return false;
+  const ownerId = ownerIdFromFilename(filename);
+  if (ownerId) return ownerId === user.id;
+  // Legacy JSON snapshots predate owner metadata and are treated as admin-only.
+  return false;
+}
+
+async function assertBackupAccess(filename: string, user: BackupAccessUser) {
+  if (!canAccessBackup(filename, user)) {
+    throw new Error("Backup not found");
+  }
+}
+
+export async function setBackupImportant(filename: string, important: boolean, user?: BackupAccessUser) {
+  if (user) await assertBackupAccess(filename, user);
   const target = backupPath(filename);
   await fs.access(target).catch((error) => {
     throw safeBackupReadError(error);
@@ -151,7 +185,9 @@ export async function setBackupImportant(filename: string, important: boolean) {
 }
 
 function kindFor(filename: string): BackupRecord["kind"] {
+  if (filename.startsWith("user_")) return "user-snapshot";
   if (filename.startsWith("triton-")) return "database";
+  if (filename.endsWith(".db.gz")) return "database";
   return "snapshot";
 }
 
@@ -194,6 +230,18 @@ function createdAtFromFilename(filename: string, fallback: Date) {
   if (snapshot) {
     return toVancouverIso(snapshot[1], snapshot[2], snapshot[3], snapshot[4], snapshot[5], snapshot[6]);
   }
+  const userSnapshot = filename.match(USER_SNAPSHOT_RE);
+  if (userSnapshot) {
+    const compact = userSnapshot[2];
+    return toVancouverIso(
+      compact.slice(0, 4),
+      compact.slice(4, 6),
+      compact.slice(6, 8),
+      compact.slice(9, 11),
+      compact.slice(11, 13),
+      compact.slice(13, 15)
+    );
+  }
   const database = filename.match(/^triton-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})(?:-[a-z0-9-]+)?\.db\.gz$/i);
   if (database) {
     return toVancouverIso(database[1], database[2], database[3], database[4], database[5], database[6]);
@@ -214,10 +262,12 @@ function sqliteDatabasePath() {
   return path.isAbsolute(raw) ? raw : path.resolve(/*turbopackIgnore: true*/ process.cwd(), raw);
 }
 
-export async function listBackupFiles(): Promise<BackupRecord[]> {
+export async function listBackupFiles(user: BackupAccessUser): Promise<BackupRecord[]> {
   await ensureBackupDir();
   const entries = await fs.readdir(getBackupDir(), { withFileTypes: true });
   const flags = await readBackupFlags();
+  const users = await db.user.findMany({ select: { id: true, email: true, name: true } }).catch(() => []);
+  const usersById = new Map(users.map((item) => [item.id, item]));
   const liveFilenames = new Set(entries.filter((entry) => entry.isFile()).map((entry) => entry.name));
   const cleanedFlags = Object.fromEntries(
     Object.entries(flags).filter(([filename]) => liveFilenames.has(filename))
@@ -227,22 +277,28 @@ export async function listBackupFiles(): Promise<BackupRecord[]> {
   }
   const records = await Promise.all(
     entries
-      .filter((entry) => entry.isFile() && isSafeBackupFilename(entry.name))
+      .filter((entry) => entry.isFile() && isSafeBackupFilename(entry.name) && canAccessBackup(entry.name, user))
       .map(async (entry) => {
         const file = backupPath(entry.name);
         const stat = await fs.stat(file);
         const kind = kindFor(entry.name);
         const isDb = entry.name.endsWith(".db.gz");
+        const ownerUserId = ownerIdFromFilename(entry.name);
+        const owner = ownerUserId ? usersById.get(ownerUserId) : undefined;
         return {
           id: entry.name,
           filename: entry.name,
           kind,
-          restorable: isDb || (!isDb && kind === "snapshot"),
+          scope: isDb ? "database" : "user",
+          ownerUserId,
+          ownerEmail: owner?.email,
+          ownerName: owner?.name,
+          restorable: isDb || kind === "snapshot" || kind === "user-snapshot",
           important: !!cleanedFlags[entry.name]?.important,
           size: stat.size,
-          createdAt: stat.mtime.toISOString(),
+          createdAt: createdAtFromFilename(entry.name, stat.mtime),
           contents:
-            isDb ? ["SQLite Database"] : ["Clients", "Policies", "Follow Ups"],
+            isDb ? ["SQLite Database"] : ["Clients", "Policies", "Follow Ups", "Settings"],
         } satisfies BackupRecord;
       }),
   );
@@ -250,15 +306,20 @@ export async function listBackupFiles(): Promise<BackupRecord[]> {
   return records.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
 }
 
-export async function createSnapshotBackup(snapshot: BackupSnapshot) {
-  // Production backups are real SQLite file backups. The legacy snapshot
-  // argument is accepted so the existing SettingsProvider API does not need
-  // to change; the actual source of truth is DATABASE_URL.
-  void snapshot;
+export async function createSnapshotBackup(snapshot: BackupSnapshot, user: BackupAccessUser) {
   await ensureBackupDir();
-  const filename = `backup_${timestampLabel()}.db.gz`;
-  const dbPath = sqliteDatabasePath();
-  const body = await fs.readFile(dbPath);
+  const ownerUserId = user.id;
+  const suffix = createHash("sha1").update(`${process.pid}:${Date.now()}:${Math.random()}`).digest("hex").slice(0, 6);
+  const filename = `user_${safeUserIdForFilename(ownerUserId)}_${timestampLabel()}-${suffix}.json.gz`;
+  const body = Buffer.from(JSON.stringify({
+    ...snapshot,
+    version: 1,
+    scope: "user",
+    ownerUserId,
+    ownerEmail: user.email ?? "",
+    ownerName: user.name ?? "",
+    capturedAt: snapshot.capturedAt || new Date().toISOString(),
+  }), "utf8");
   const compressed = await gzipAsync(body, { level: 9 });
   const file = backupPath(filename);
   await fs.writeFile(file, compressed, { mode: 0o660 });
@@ -267,11 +328,15 @@ export async function createSnapshotBackup(snapshot: BackupSnapshot) {
   return {
     id: filename,
     filename,
-    kind: "snapshot",
+    kind: "user-snapshot",
+    scope: "user",
+    ownerUserId,
+    ownerEmail: user.email ?? undefined,
+    ownerName: user.name ?? undefined,
     restorable: true,
     size: stat.size,
     createdAt: createdAtFromFilename(filename, stat.mtime),
-    contents: ["SQLite Database"],
+    contents: ["Clients", "Policies", "Follow Ups", "Settings"],
   } satisfies BackupRecord;
 }
 
@@ -301,7 +366,8 @@ export async function createDatabaseBackup(label?: string) {
   } satisfies BackupRecord;
 }
 
-export async function readSnapshotBackup(filename: string): Promise<BackupSnapshot> {
+export async function readSnapshotBackup(filename: string, user: BackupAccessUser): Promise<BackupSnapshot> {
+  await assertBackupAccess(filename, user);
   if (!filename.endsWith(".json.gz")) {
     throw new Error("Only JSON snapshot backups can be restored from Settings");
   }
@@ -329,7 +395,10 @@ async function removeSqliteSidecars(dbPath: string) {
   ]);
 }
 
-export async function restoreDatabaseBackup(filename: string) {
+export async function restoreDatabaseBackup(filename: string, user?: BackupAccessUser) {
+  if (user?.role !== "admin") {
+    throw new Error("Only admins can restore database backups");
+  }
   if (!isDatabaseBackup(filename)) {
     throw new Error("Only SQLite database backups can use database restore");
   }
@@ -353,7 +422,8 @@ export async function restoreDatabaseBackup(filename: string) {
   return { restartRequired: true as const };
 }
 
-export async function deleteBackupFile(filename: string) {
+export async function deleteBackupFile(filename: string, user?: BackupAccessUser) {
+  if (user) await assertBackupAccess(filename, user);
   await fs.unlink(backupPath(filename));
   await fs.unlink(backupChecksumPath(filename)).catch(() => undefined);
   const flags = await readBackupFlags();
@@ -363,7 +433,8 @@ export async function deleteBackupFile(filename: string) {
   }
 }
 
-export async function readBackupFile(filename: string) {
+export async function readBackupFile(filename: string, user?: BackupAccessUser) {
+  if (user) await assertBackupAccess(filename, user);
   const file = backupPath(filename);
   const stat = await fs.stat(file).catch((error) => {
     throw safeBackupReadError(error);
