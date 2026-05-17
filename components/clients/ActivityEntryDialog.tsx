@@ -16,7 +16,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -200,8 +199,12 @@ export function ActivityEntryDialog({
               value={selectedPolicyId}
               onValueChange={(value) => setSelectedPolicyId(value ?? NO_POLICY_VALUE)}
             >
-              <SelectTrigger id="activity-entry-policy">
-                <SelectValue />
+              <SelectTrigger id="activity-entry-policy" className="w-full">
+                <span className="min-w-0 flex-1 truncate text-left">
+                  {selectedPolicy
+                    ? policyDisplayName(selectedPolicy)
+                    : "No policy target"}
+                </span>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={NO_POLICY_VALUE}>No policy target</SelectItem>
