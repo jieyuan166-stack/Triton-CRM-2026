@@ -82,6 +82,13 @@ CRON_TZ=America/Vancouver
 
 The script keeps only the latest 10 `.db.gz` backups.
 
+Install customer email automation checks. These endpoints are idempotent: each user only sends when their own Settings schedule is due, and duplicate cycles are skipped. Replace `<CRON_SECRET>` with the value from `.env.production`:
+
+```bash
+*/15 * * * * curl -fsS -X POST -H "Authorization: Bearer <CRON_SECRET>" http://127.0.0.1:3001/api/automation/email-reminders/run >> /volume1/docker/triton-crm/email-automation.log 2>&1
+*/15 * * * * curl -fsS -X POST -H "Authorization: Bearer <CRON_SECRET>" http://127.0.0.1:3001/api/automation/weekly-digest/run >> /volume1/docker/triton-crm/weekly-digest.log 2>&1
+```
+
 ## 5. Restore drill
 
 ```bash
