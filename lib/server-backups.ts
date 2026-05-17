@@ -16,11 +16,14 @@ const gunzipAsync = promisify(gunzip);
 const SAFE_BACKUP_BASENAME_RE = /^[^\\/]+$/;
 const SNAPSHOT_RE = /^backup_\d{8}T\d{6}\.json\.gz$/;
 const USER_SNAPSHOT_RE = /^user_(.+)_(\d{8}T\d{6})(?:-[a-z0-9]+)?\.json\.gz$/;
+const FRIENDLY_USER_SNAPSHOT_RE = /^advisor-([a-z0-9-]+)-(\d{8})-(\d{6})(?:-[a-z0-9]+)?\.json\.gz$/;
 const MANUAL_DATABASE_RE = /^backup_\d{8}T\d{6}\.db\.gz$/;
 const DATABASE_RE = /^triton-\d{8}-\d{6}(?:-[a-z0-9-]+)?\.db\.gz$/i;
 const BACKUP_TIME_ZONE = "America/Vancouver";
 const BACKUP_FLAGS_FILENAME = ".backup-flags.json";
+const BACKUP_OWNERS_FILENAME = ".backup-owners.json";
 type BackupFlags = Record<string, { important?: boolean }>;
+type BackupOwners = Record<string, { ownerUserId: string; ownerEmail?: string; ownerName?: string }>;
 type BackupAccessUser = {
   id: string;
   email?: string | null;
@@ -45,6 +48,7 @@ export function isSafeBackupFilename(filename: string) {
     path.basename(filename) === filename &&
     (SNAPSHOT_RE.test(filename) ||
       USER_SNAPSHOT_RE.test(filename) ||
+      FRIENDLY_USER_SNAPSHOT_RE.test(filename) ||
       MANUAL_DATABASE_RE.test(filename) ||
       DATABASE_RE.test(filename))
   );
@@ -124,6 +128,10 @@ function flagsPath() {
   return path.join(getBackupDir(), BACKUP_FLAGS_FILENAME);
 }
 
+function ownersPath() {
+  return path.join(getBackupDir(), BACKUP_OWNERS_FILENAME);
+}
+
 async function readBackupFlags(): Promise<BackupFlags> {
   await ensureBackupDir();
   try {
@@ -134,6 +142,20 @@ async function readBackupFlags(): Promise<BackupFlags> {
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return {};
     console.warn("[backups] could not read backup flags:", error);
+    return {};
+  }
+}
+
+async function readBackupOwners(): Promise<BackupOwners> {
+  await ensureBackupDir();
+  try {
+    const raw = await fs.readFile(ownersPath(), "utf8");
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    return parsed as BackupOwners;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return {};
+    console.warn("[backups] could not read backup owners:", error);
     return {};
   }
 }
@@ -149,25 +171,48 @@ async function writeBackupFlags(flags: BackupFlags) {
   await fs.chmod(target, 0o660).catch(() => undefined);
 }
 
-function safeUserIdForFilename(userId: string) {
-  return userId.replace(/[^a-zA-Z0-9_-]/g, "-");
+async function writeBackupOwners(owners: BackupOwners) {
+  await ensureBackupDir();
+  const target = ownersPath();
+  const temp = path.join(getBackupDir(), `.${BACKUP_OWNERS_FILENAME}.${process.pid}.${Date.now()}.tmp`);
+  await fs.writeFile(temp, `${JSON.stringify(owners, null, 2)}\n`, {
+    mode: 0o660,
+  });
+  await fs.rename(temp, target);
+  await fs.chmod(target, 0o660).catch(() => undefined);
+}
+
+function slugForFilename(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/@/g, "-at-")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40) || "advisor";
 }
 
 function ownerIdFromFilename(filename: string) {
   return filename.match(USER_SNAPSHOT_RE)?.[1];
 }
 
-function canAccessBackup(filename: string, user: BackupAccessUser) {
+async function ownerMetadataForFilename(filename: string) {
+  const legacyOwnerId = ownerIdFromFilename(filename);
+  if (legacyOwnerId) return { ownerUserId: legacyOwnerId };
+  const owners = await readBackupOwners();
+  return owners[filename];
+}
+
+async function canAccessBackup(filename: string, user: BackupAccessUser) {
   if (user.role === "admin") return true;
   if (isDatabaseBackup(filename)) return false;
-  const ownerId = ownerIdFromFilename(filename);
+  const ownerId = (await ownerMetadataForFilename(filename))?.ownerUserId;
   if (ownerId) return ownerId === user.id;
   // Legacy JSON snapshots predate owner metadata and are treated as admin-only.
   return false;
 }
 
 async function assertBackupAccess(filename: string, user: BackupAccessUser) {
-  if (!canAccessBackup(filename, user)) {
+  if (!(await canAccessBackup(filename, user))) {
     throw new BackupAccessError();
   }
 }
@@ -192,7 +237,7 @@ export async function setBackupImportant(filename: string, important: boolean, u
 }
 
 function kindFor(filename: string): BackupRecord["kind"] {
-  if (filename.startsWith("user_")) return "user-snapshot";
+  if (filename.startsWith("user_") || filename.startsWith("advisor-")) return "user-snapshot";
   if (filename.startsWith("triton-")) return "database";
   if (filename.endsWith(".db.gz")) return "database";
   return "snapshot";
@@ -255,6 +300,17 @@ function createdAtFromFilename(filename: string, fallback: Date) {
       compact.slice(13, 15)
     );
   }
+  const friendlyUserSnapshot = filename.match(FRIENDLY_USER_SNAPSHOT_RE);
+  if (friendlyUserSnapshot) {
+    return toVancouverIso(
+      friendlyUserSnapshot[2].slice(0, 4),
+      friendlyUserSnapshot[2].slice(4, 6),
+      friendlyUserSnapshot[2].slice(6, 8),
+      friendlyUserSnapshot[3].slice(0, 2),
+      friendlyUserSnapshot[3].slice(2, 4),
+      friendlyUserSnapshot[3].slice(4, 6)
+    );
+  }
   const database = filename.match(/^triton-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})(?:-[a-z0-9-]+)?\.db\.gz$/i);
   if (database) {
     return toVancouverIso(database[1], database[2], database[3], database[4], database[5], database[6]);
@@ -279,6 +335,7 @@ export async function listBackupFiles(user: BackupAccessUser): Promise<BackupRec
   await ensureBackupDir();
   const entries = await fs.readdir(getBackupDir(), { withFileTypes: true });
   const flags = await readBackupFlags();
+  const owners = await readBackupOwners();
   const users = await db.user.findMany({ select: { id: true, email: true, name: true } }).catch(() => []);
   const usersById = new Map(users.map((item) => [item.id, item]));
   const liveFilenames = new Set(entries.filter((entry) => entry.isFile()).map((entry) => entry.name));
@@ -288,42 +345,51 @@ export async function listBackupFiles(user: BackupAccessUser): Promise<BackupRec
   if (Object.keys(cleanedFlags).length !== Object.keys(flags).length) {
     await writeBackupFlags(cleanedFlags);
   }
-  const records = await Promise.all(
-    entries
-      .filter((entry) => entry.isFile() && isSafeBackupFilename(entry.name) && canAccessBackup(entry.name, user))
-      .map(async (entry) => {
-        const file = backupPath(entry.name);
-        const stat = await fs.stat(file);
-        const kind = kindFor(entry.name);
-        const isDb = entry.name.endsWith(".db.gz");
-        const ownerUserId = ownerIdFromFilename(entry.name);
-        const owner = ownerUserId ? usersById.get(ownerUserId) : undefined;
-        return {
-          id: entry.name,
-          filename: entry.name,
-          kind,
-          scope: isDb ? "database" : "user",
-          ownerUserId,
-          ownerEmail: owner?.email,
-          ownerName: owner?.name,
-          restorable: isDb || kind === "snapshot" || kind === "user-snapshot",
-          important: !!cleanedFlags[entry.name]?.important,
-          size: stat.size,
-          createdAt: createdAtFromFilename(entry.name, stat.mtime),
-          contents:
-            isDb ? ["SQLite Database"] : ["Clients", "Policies", "Follow Ups", "Settings"],
-        } satisfies BackupRecord;
-      }),
+  const cleanedOwners = Object.fromEntries(
+    Object.entries(owners).filter(([filename]) => liveFilenames.has(filename))
+  );
+  if (Object.keys(cleanedOwners).length !== Object.keys(owners).length) {
+    await writeBackupOwners(cleanedOwners);
+  }
+  const records: Array<BackupRecord | null> = await Promise.all(
+    entries.map(async (entry) => {
+      if (!entry.isFile() || !isSafeBackupFilename(entry.name)) return null;
+      if (!(await canAccessBackup(entry.name, user))) return null;
+      const file = backupPath(entry.name);
+      const stat = await fs.stat(file);
+      const kind = kindFor(entry.name);
+      const isDb = entry.name.endsWith(".db.gz");
+      const ownerMeta = await ownerMetadataForFilename(entry.name);
+      const ownerUserId = ownerMeta?.ownerUserId;
+      const owner = ownerUserId ? usersById.get(ownerUserId) : undefined;
+      return {
+        id: entry.name,
+        filename: entry.name,
+        kind,
+        scope: isDb ? "database" : "user",
+        ownerUserId,
+        ownerEmail: owner?.email ?? ownerMeta?.ownerEmail,
+        ownerName: owner?.name ?? ownerMeta?.ownerName,
+        restorable: isDb || kind === "snapshot" || kind === "user-snapshot",
+        important: !!cleanedFlags[entry.name]?.important,
+        size: stat.size,
+        createdAt: createdAtFromFilename(entry.name, stat.mtime),
+        contents:
+          isDb ? ["SQLite Database"] : ["Clients", "Policies", "Follow Ups", "Settings"],
+      } satisfies BackupRecord;
+    }),
   );
 
-  return records.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  return records
+    .filter((record): record is BackupRecord => !!record)
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
 }
 
 export async function createSnapshotBackup(snapshot: BackupSnapshot, user: BackupAccessUser) {
   await ensureBackupDir();
   const ownerUserId = user.id;
-  const suffix = createHash("sha1").update(`${process.pid}:${Date.now()}:${Math.random()}`).digest("hex").slice(0, 6);
-  const filename = `user_${safeUserIdForFilename(ownerUserId)}_${timestampLabel()}-${suffix}.json.gz`;
+  const ownerSlug = slugForFilename(user.name || user.email || "advisor");
+  const filename = `advisor-${ownerSlug}-${timestampLabel().replace("T", "-")}.json.gz`;
   const body = Buffer.from(JSON.stringify({
     ...snapshot,
     version: 1,
@@ -337,6 +403,13 @@ export async function createSnapshotBackup(snapshot: BackupSnapshot, user: Backu
   const file = backupPath(filename);
   await fs.writeFile(file, compressed, { mode: 0o660 });
   await writeBackupChecksum(filename, compressed);
+  const owners = await readBackupOwners();
+  owners[filename] = {
+    ownerUserId,
+    ownerEmail: user.email ?? undefined,
+    ownerName: user.name ?? undefined,
+  };
+  await writeBackupOwners(owners);
   const stat = await fs.stat(file);
   return {
     id: filename,
@@ -443,6 +516,11 @@ export async function deleteBackupFile(filename: string, user?: BackupAccessUser
   if (flags[filename]) {
     delete flags[filename];
     await writeBackupFlags(flags);
+  }
+  const owners = await readBackupOwners();
+  if (owners[filename]) {
+    delete owners[filename];
+    await writeBackupOwners(owners);
   }
 }
 
