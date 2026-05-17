@@ -28,6 +28,7 @@ import {
   renderEmailHtml,
   BIRTHDAY_CARD_IMAGE_URL,
   BIRTHDAY_CARD_TOKEN,
+  removeBirthdayCardToken,
 } from "@/lib/templates";
 
 const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
@@ -144,7 +145,7 @@ export function EmailPreviewDialog({
       setTo(payload.to);
       setBcc(payload.bcc ?? "");
       setSubject(payload.subject);
-      setBody(payload.body);
+      setBody(payload.template === "birthday" ? removeBirthdayCardToken(payload.body) : payload.body);
       setAttachments(payload.attachments ?? []);
       setSelectedTemplate(payload.template ?? "custom");
       setSelectedPolicyId(payload.policyId);
@@ -206,7 +207,8 @@ export function EmailPreviewDialog({
     if (!tpl) return;
     const vars = templateVars(nextPolicyId);
     setSubject(applyTemplate(tpl.subject, vars));
-    setBody(applyTemplate(tpl.body, vars));
+    const nextBody = applyTemplate(tpl.body, vars);
+    setBody(nextTemplate === "birthday" ? removeBirthdayCardToken(nextBody) : nextBody);
   }
 
   function arrayBufferToBase64(buffer: ArrayBuffer) {
