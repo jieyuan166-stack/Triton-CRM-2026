@@ -95,10 +95,10 @@ class ApiBackupService implements BackupService {
   async setImportant(id: string, important: boolean): Promise<{ ok: boolean; error?: string }> {
     try {
       await readJson<{ ok: true }>(
-        await fetch("/api/backups/important", {
+        await fetch(`/api/backups/${encodeURIComponent(id)}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id, important }),
+          body: JSON.stringify({ important }),
         }),
       );
       return { ok: true };
