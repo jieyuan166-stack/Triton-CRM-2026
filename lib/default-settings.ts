@@ -3,6 +3,7 @@ import type {
   AppSettings,
   EmailConfig,
   WeeklyDigestConfig,
+  EmailAutomationConfig,
 } from "@/lib/settings-types";
 import { DEFAULT_SIGNATURE, DEFAULT_TEMPLATES, LEGACY_DEFAULT_TEMPLATE_COPY } from "@/lib/templates";
 
@@ -30,10 +31,16 @@ export const DEFAULT_WEEKLY_DIGEST: WeeklyDigestConfig = {
   recipientEmail: "jieyuan165@gmail.com",
 };
 
+export const DEFAULT_EMAIL_AUTOMATION: EmailAutomationConfig = {
+  premiumRemindersEnabled: false,
+  birthdayGreetingsEnabled: false,
+};
+
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   profile: DEFAULT_PROFILE,
   email: DEFAULT_EMAIL,
   weeklyDigest: DEFAULT_WEEKLY_DIGEST,
+  emailAutomation: DEFAULT_EMAIL_AUTOMATION,
   templates: DEFAULT_TEMPLATES,
   signature: DEFAULT_SIGNATURE,
 };
@@ -81,6 +88,11 @@ function mergeEmailTemplates(input: unknown): AppSettings["templates"] {
               subject: "Happy Birthday from Jeffrey Yuan",
               body:
                 "Dear [Client Name],\n\nWishing you a very happy birthday from Jeffrey Yuan.\n\nMay the year ahead bring you good health, happiness, success, and continued prosperity. We truly appreciate your trust and support, and we look forward to continuing to serve you in the years ahead.\n\nEnjoy your special day!\n\nWarm regards,\n\n尊敬的 [Client Name]，\n\nJeffrey Yuan 诚挚祝您生日快乐！\n\n愿您在新的一岁里身体健康、万事顺遂、幸福美满、事业兴旺。感谢您一直以来的信任与支持，我们也期待在未来继续为您提供专业服务。\n\n祝您度过一个愉快而难忘的生日！\n\n诚挚问候",
+            },
+            {
+              subject: "Happy Birthday from Jeffrey Yuan",
+              body:
+                "Dear [Client Name],\n\nWishing you a very happy birthday from Jeffrey Yuan.\n\nMay the year ahead bring you good health, happiness, success, and continued prosperity. We truly appreciate your trust and support, and we look forward to continuing to serve you in the years ahead.\n\nEnjoy your special day!\n\nWarm regards,\n\n尊敬的 [Client Name]，\n\nJeffrey Yuan 诚挚祝您生日快乐！\n\n愿您在新的一岁里身体健康、万事顺遂、幸福美满、事业兴旺。感谢您一直以来的信任与支持，我们也期待在未来继续为您提供专业服务。\n\n祝您度过一个愉快而难忘的生日！\n\n诚挚问候\n\n[Birthday Card]",
             },
             {
               subject: "Happy Birthday from Jeffrey Yuan",
@@ -166,6 +178,10 @@ export function mergeAppSettings(input: unknown): AppSettings {
     weeklyDigest: {
       ...DEFAULT_APP_SETTINGS.weeklyDigest,
       ...(raw.weeklyDigest ?? {}),
+    },
+    emailAutomation: {
+      ...DEFAULT_APP_SETTINGS.emailAutomation,
+      ...(raw.emailAutomation ?? {}),
     },
     templates: mergeEmailTemplates(raw.templates),
     signature: mergeSignature(raw.signature),

@@ -50,6 +50,7 @@ model Client {
   jointPolicies        Policy[]       @relation("JointPolicyClient")
   followUps            FollowUp[]
   emailHistory         EmailHistory[]
+  emailReminderSends    EmailReminderSend[]
   backups              BackupRecord[]
 
   @@index([lastName, firstName])
@@ -105,6 +106,7 @@ model Policy {
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
   beneficiaries        Beneficiary[]
+  emailReminderSends   EmailReminderSend[]
 
   @@index([clientId])
   @@index([jointWithClientId])
@@ -149,6 +151,26 @@ model EmailHistory {
   templateLabel String?
 
   @@index([clientId, date])
+}
+
+model EmailReminderSend {
+  id          String   @id @default(cuid())
+  dedupeKey   String   @unique
+  policyId    String?
+  policy      Policy?  @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  type        String
+  stage       String?
+  cycleKey    String
+  source      String   @default("auto")
+  messageId   String?
+  sentAt      DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([clientId, sentAt])
+  @@index([policyId, sentAt])
+  @@index([type, cycleKey])
 }
 
 model AuditLog {

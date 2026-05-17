@@ -15,6 +15,7 @@ import type {
   Client,
   ClientRelationship,
   EmailHistoryEntry,
+  EmailReminderSend,
   FollowUp,
   Policy,
 } from "@/lib/types";
@@ -27,6 +28,7 @@ type DataSnapshot = {
   policies: Policy[];
   followUps: FollowUp[];
   relationships: ClientRelationship[];
+  emailReminderSends: EmailReminderSend[];
 };
 
 function dateOnly(value: Date | string | null | undefined): string | undefined {
@@ -206,8 +208,36 @@ function serializeRelationship(
   };
 }
 
+function serializeEmailReminderSend(send: {
+  id: string;
+  dedupeKey: string;
+  policyId: string | null;
+  clientId: string;
+  type: string;
+  stage: string | null;
+  cycleKey: string;
+  source: string;
+  messageId: string | null;
+  sentAt: Date;
+  createdAt: Date;
+}): EmailReminderSend {
+  return {
+    id: send.id,
+    dedupeKey: send.dedupeKey,
+    policyId: send.policyId ?? undefined,
+    clientId: send.clientId,
+    type: send.type as EmailReminderSend["type"],
+    stage: send.stage as EmailReminderSend["stage"],
+    cycleKey: send.cycleKey,
+    source: send.source as EmailReminderSend["source"],
+    messageId: send.messageId ?? undefined,
+    sentAt: send.sentAt.toISOString(),
+    createdAt: send.createdAt.toISOString(),
+  };
+}
+
 async function readData(): Promise<DataSnapshot> {
-  const [clients, policies, followUps, relationships] = await Promise.all([
+  const [clients, policies, followUps, relationships, emailReminderSends] = await Promise.all([
     db.client.findMany({
       include: { emailHistory: { orderBy: { date: "desc" } } },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
@@ -223,6 +253,9 @@ async function readData(): Promise<DataSnapshot> {
     db.clientRelationship.findMany({
       orderBy: { createdAt: "asc" },
     }),
+    db.emailReminderSend.findMany({
+      orderBy: { sentAt: "desc" },
+    }),
   ]);
 
   return {
@@ -230,6 +263,7 @@ async function readData(): Promise<DataSnapshot> {
     policies: policies.map(serializePolicy),
     followUps: followUps.map(serializeFollowUp),
     relationships: relationships.map(serializeRelationship),
+    emailReminderSends: emailReminderSends.map(serializeEmailReminderSend),
   };
 }
 
@@ -327,6 +361,7 @@ async function replaceAll(snapshot: {
   policies?: Policy[];
   followUps?: FollowUp[];
   relationships?: ClientRelationship[];
+  emailReminderSends?: EmailReminderSend[];
 }, userId: string) {
   const clients = ensureUniqueClientSlugs(
     Array.isArray(snapshot.clients) ? snapshot.clients : []
@@ -334,10 +369,12 @@ async function replaceAll(snapshot: {
   const policies = Array.isArray(snapshot.policies) ? snapshot.policies : [];
   const followUps = Array.isArray(snapshot.followUps) ? snapshot.followUps : [];
   const relationships = Array.isArray(snapshot.relationships) ? snapshot.relationships : [];
+  const emailReminderSends = Array.isArray(snapshot.emailReminderSends) ? snapshot.emailReminderSends : [];
   const clientIds = new Set(clients.map((c) => c.id));
 
   await db.$transaction(async (tx) => {
     await tx.beneficiary.deleteMany();
+    await tx.emailReminderSend.deleteMany();
     await tx.emailHistory.deleteMany();
     await tx.followUp.deleteMany();
     await tx.policy.deleteMany();
@@ -436,6 +473,25 @@ async function replaceAll(snapshot: {
             })),
           },
         } as never,
+      });
+    }
+
+    for (const send of emailReminderSends.filter((send) => clientIds.has(send.clientId))) {
+      if (send.policyId && !policies.some((policy) => policy.id === send.policyId)) continue;
+      await tx.emailReminderSend.create({
+        data: {
+          id: send.id,
+          dedupeKey: send.dedupeKey,
+          policyId: send.policyId ?? null,
+          clientId: send.clientId,
+          type: send.type,
+          stage: send.stage ?? null,
+          cycleKey: send.cycleKey,
+          source: send.source ?? "manual",
+          messageId: send.messageId ?? null,
+          sentAt: toDate(send.sentAt) ?? new Date(),
+          createdAt: toDate(send.createdAt) ?? new Date(),
+        },
       });
     }
 
@@ -679,6 +735,35 @@ export async function POST(request: Request) {
           entityType: "client",
           entityId: clientId,
           metadata: { count: entryIds.length },
+        });
+        break;
+      }
+      case "emailReminderSend.record": {
+        const send = payload.reminderSend as EmailReminderSend;
+        await db.emailReminderSend.create({
+          data: {
+            id: send.id,
+            dedupeKey: send.dedupeKey,
+            policyId: send.policyId ?? null,
+            clientId: send.clientId,
+            type: send.type,
+            stage: send.stage ?? null,
+            cycleKey: send.cycleKey,
+            source: send.source ?? "manual",
+            messageId: send.messageId ?? null,
+            sentAt: toDate(send.sentAt) ?? new Date(),
+            createdAt: toDate(send.createdAt) ?? new Date(),
+          },
+        }).catch(async (error) => {
+          if (error && typeof error === "object" && "code" in error && (error as { code?: string }).code === "P2002") {
+            return null;
+          }
+          throw error;
+        });
+        await auditLog({
+          action: "record_email_reminder_send",
+          entityType: send.type,
+          entityId: send.policyId ?? send.clientId,
         });
         break;
       }

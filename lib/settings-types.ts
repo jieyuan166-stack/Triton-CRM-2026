@@ -23,6 +23,11 @@ export interface EmailConfig {
   passwordConfigured?: boolean;
 }
 
+export interface EmailAutomationConfig {
+  premiumRemindersEnabled: boolean;
+  birthdayGreetingsEnabled: boolean;
+}
+
 export interface WeeklyDigestConfig {
   enabled: boolean;
   weekday: "monday" | "tuesday" | "wednesday" | "thursday" | "friday";
@@ -40,6 +45,7 @@ export interface BackupSnapshot {
   policies: unknown[];
   followUps: unknown[];
   relationships?: unknown[];
+  emailReminderSends?: unknown[];
 }
 
 export interface BackupRecord {
@@ -97,6 +103,7 @@ export interface AppSettings {
   profile: AdminProfile;
   email: EmailConfig;
   weeklyDigest: WeeklyDigestConfig;
+  emailAutomation: EmailAutomationConfig;
   templates: EmailTemplate[];
   signature: EmailSignature;
 }

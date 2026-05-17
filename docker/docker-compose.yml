@@ -32,6 +32,7 @@ services:
       SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Jeffrey Yuan}
       SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL}
       NEXT_PUBLIC_GOOGLE_MAPS_KEY: ${NEXT_PUBLIC_GOOGLE_MAPS_KEY}
+      CRON_SECRET: ${CRON_SECRET}
       BACKUP_DIR: /app/backups
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/api/health"]

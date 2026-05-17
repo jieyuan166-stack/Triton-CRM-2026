@@ -3,10 +3,9 @@ import {
   formatDate,
   resolveRecurringDate,
 } from "@/lib/date-utils";
-import type { Client, Policy } from "@/lib/types";
+import type { Client, EmailReminderSend, EmailReminderStage, Policy } from "@/lib/types";
 
 export const PREMIUM_REMINDER_WINDOW_DAYS = 30;
-export const RENEWAL_COMPLETED_DAYS = 30;
 
 export type PremiumReminderRecipientRow = {
   id: string;
@@ -15,15 +14,15 @@ export type PremiumReminderRecipientRow = {
   dueDate: string;
   dueInDays: number;
   isJointRecipient: boolean;
+  stage: EmailReminderStage;
+  stageLabel: string;
+  cycleKey: string;
+  dedupeKey: string;
 };
 
-export type PremiumReminderCompletedRow = {
-  id: string;
-  policy: Policy;
-  clientId: string;
-  dueDate: string;
-  dueInDays: number;
+export type PremiumReminderCompletedRow = PremiumReminderRecipientRow & {
   completedAt: string;
+  reminderSend?: EmailReminderSend;
 };
 
 export type PremiumReminderState = {
@@ -44,28 +43,54 @@ export function resolvePremiumReminderDate(
   return resolveRecurringDate(input, today);
 }
 
-function isRenewalCompleted(policy: Policy, now: number): boolean {
-  if (!policy.lastRenewalEmailAt) return false;
-  const sentAt = new Date(policy.lastRenewalEmailAt).getTime();
-  if (Number.isNaN(sentAt)) return false;
-  const sinceDays = (now - sentAt) / (1000 * 60 * 60 * 24);
-  return sinceDays >= 0 && sinceDays < RENEWAL_COMPLETED_DAYS;
+export function getPremiumReminderStage(dueInDays: number): EmailReminderStage | null {
+  if (dueInDays >= 16 && dueInDays <= 30) return "first";
+  if (dueInDays >= 0 && dueInDays <= 15) return "second";
+  return null;
+}
+
+export function premiumReminderStageLabel(stage: EmailReminderStage): string {
+  return stage === "first" ? "First Reminder" : "Second Reminder";
+}
+
+export function premiumReminderCycleKey(policy: Policy, dueDate: string): string {
+  return `${policy.id}:${dueDate}`;
+}
+
+export function premiumReminderDedupeKey(input: {
+  policyId: string;
+  clientId: string;
+  cycleKey: string;
+  stage: EmailReminderStage;
+}): string {
+  return `premium:${input.policyId}:${input.clientId}:${input.cycleKey}:${input.stage}`;
 }
 
 function buildRecipientRows(
   policy: Policy,
   clients: Client[],
   dueDate: string,
-  dueInDays: number
+  dueInDays: number,
+  stage: EmailReminderStage
 ): PremiumReminderRecipientRow[] {
+  const cycleKey = premiumReminderCycleKey(policy, dueDate);
   const rows: PremiumReminderRecipientRow[] = [
     {
-      id: `${policy.id}:${policy.clientId}`,
+      id: `${policy.id}:${policy.clientId}:${stage}`,
       policy,
       clientId: policy.clientId,
       dueDate,
       dueInDays,
       isJointRecipient: false,
+      stage,
+      stageLabel: premiumReminderStageLabel(stage),
+      cycleKey,
+      dedupeKey: premiumReminderDedupeKey({
+        policyId: policy.id,
+        clientId: policy.clientId,
+        cycleKey,
+        stage,
+      }),
     },
   ];
 
@@ -76,12 +101,21 @@ function buildRecipientRows(
     clients.some((client) => client.id === policy.jointWithClientId)
   ) {
     rows.push({
-      id: `${policy.id}:${policy.jointWithClientId}`,
+      id: `${policy.id}:${policy.jointWithClientId}:${stage}`,
       policy,
       clientId: policy.jointWithClientId,
       dueDate,
       dueInDays,
       isJointRecipient: true,
+      stage,
+      stageLabel: premiumReminderStageLabel(stage),
+      cycleKey,
+      dedupeKey: premiumReminderDedupeKey({
+        policyId: policy.id,
+        clientId: policy.jointWithClientId,
+        cycleKey,
+        stage,
+      }),
     });
   }
 
@@ -91,15 +125,22 @@ function buildRecipientRows(
 export function buildPremiumReminderState({
   policies,
   clients = [],
+  emailReminderSends = [],
   today = new Date(),
   windowDays = PREMIUM_REMINDER_WINDOW_DAYS,
 }: {
   policies: Policy[];
   clients?: Client[];
+  emailReminderSends?: EmailReminderSend[];
   today?: Date;
   windowDays?: number;
 }): PremiumReminderState {
-  const now = today.getTime();
+  const sentByKey = new Map(
+    emailReminderSends
+      .filter((send) => send.type === "premium")
+      .map((send) => [send.dedupeKey, send])
+  );
+
   const rows = policies
     .filter(
       (policy) =>
@@ -110,9 +151,10 @@ export function buildPremiumReminderState({
     .map((policy) => {
       const dueDate = resolvePremiumReminderDate(policy.premiumDate!, today);
       const dueInDays = daysUntil(dueDate, today);
-      return { policy, dueDate, dueInDays };
+      const stage = getPremiumReminderStage(dueInDays);
+      return { policy, dueDate, dueInDays, stage };
     })
-    .filter((row) => row.dueInDays >= 0 && row.dueInDays <= windowDays)
+    .filter((row) => row.dueInDays >= 0 && row.dueInDays <= windowDays && row.stage)
     .sort((a, b) => {
       if (a.dueDate === b.dueDate) {
         return (a.policy.policyNumber || a.policy.id).localeCompare(
@@ -124,46 +166,48 @@ export function buildPremiumReminderState({
 
   const pendingRows: PremiumReminderRecipientRow[] = [];
   const completedRows: PremiumReminderCompletedRow[] = [];
-  const pendingPolicies: Policy[] = [];
-  const completedPolicies: Policy[] = [];
 
   for (const row of rows) {
-    if (isRenewalCompleted(row.policy, now)) {
-      completedPolicies.push(row.policy);
-      completedRows.push({
-        id: row.policy.id,
-        policy: row.policy,
-        clientId: row.policy.clientId,
-        dueDate: row.dueDate,
-        dueInDays: row.dueInDays,
-        completedAt: row.policy.lastRenewalEmailAt!,
-      });
-    } else {
-      pendingPolicies.push(row.policy);
-      pendingRows.push(
-        ...buildRecipientRows(row.policy, clients, row.dueDate, row.dueInDays)
-      );
+    const recipientRows = buildRecipientRows(
+      row.policy,
+      clients,
+      row.dueDate,
+      row.dueInDays,
+      row.stage!
+    );
+    for (const recipientRow of recipientRows) {
+      const sent = sentByKey.get(recipientRow.dedupeKey);
+      if (sent) {
+        completedRows.push({
+          ...recipientRow,
+          completedAt: sent.sentAt,
+          reminderSend: sent,
+        });
+      } else {
+        pendingRows.push(recipientRow);
+      }
     }
   }
 
+  const pendingPolicyIds = new Set(pendingRows.map((row) => row.policy.id));
+  const completedPolicyIds = new Set(completedRows.map((row) => row.policy.id));
+  const duePolicies = rows.map((row) => row.policy);
+
   return {
-    duePolicies: rows.map((row) => row.policy),
-    pendingPolicies,
-    completedPolicies,
+    duePolicies,
+    pendingPolicies: duePolicies.filter((policy) => pendingPolicyIds.has(policy.id)),
+    completedPolicies: duePolicies.filter((policy) => completedPolicyIds.has(policy.id)),
     pendingRows,
     completedRows,
-    duePremiumAmount: rows.reduce(
-      (sum, row) => sum + (row.policy.premium || 0),
-      0
-    ),
-    pendingPremiumAmount: pendingPolicies.reduce(
-      (sum, policy) => sum + (policy.premium || 0),
-      0
-    ),
-    completedPremiumAmount: completedPolicies.reduce(
-      (sum, policy) => sum + (policy.premium || 0),
-      0
-    ),
+    duePremiumAmount: duePolicies.reduce((sum, policy) => sum + (policy.premium || 0), 0),
+    pendingPremiumAmount: Array.from(pendingPolicyIds).reduce((sum, id) => {
+      const policy = duePolicies.find((item) => item.id === id);
+      return sum + (policy?.premium || 0);
+    }, 0),
+    completedPremiumAmount: Array.from(completedPolicyIds).reduce((sum, id) => {
+      const policy = duePolicies.find((item) => item.id === id);
+      return sum + (policy?.premium || 0);
+    }, 0),
   };
 }
 

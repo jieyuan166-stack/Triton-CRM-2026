@@ -1,0 +1,278 @@
+import "server-only";
+
+import { NextResponse } from "next/server";
+import nodemailer from "nodemailer";
+import { auditLog } from "@/lib/api-security";
+import { db } from "@/lib/db";
+import { emailDefaults, serverEnv } from "@/lib/env.server";
+import { DEFAULT_APP_SETTINGS, mergeAppSettings } from "@/lib/default-settings";
+import { formatCurrency } from "@/lib/format";
+import { applyTemplate, renderEmailBody, renderEmailHtml } from "@/lib/templates";
+import {
+  getPremiumReminderStage,
+  premiumReminderCycleKey,
+  premiumReminderDedupeKey,
+  premiumReminderStageLabel,
+  resolvePremiumReminderDate,
+} from "@/lib/premium-reminders";
+import { daysUntil, formatDate } from "@/lib/date-utils";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const PROVINCE_TIMEZONES: Record<string, string> = {
+  BC: "America/Vancouver",
+  AB: "America/Edmonton",
+  ON: "America/Toronto",
+};
+
+async function readSettings() {
+  const row = await db.settings.findUnique({ where: { id: "global" } });
+  if (!row) return DEFAULT_APP_SETTINGS;
+  return mergeAppSettings(JSON.parse(row.data));
+}
+
+function fullName(client: { firstName: string; lastName: string }) {
+  return `${client.firstName} ${client.lastName}`.trim();
+}
+
+function localParts(now: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(now);
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  return {
+    year: get("year"),
+    month: get("month"),
+    day: get("day"),
+    hour: Number(get("hour")),
+    minute: Number(get("minute")),
+  };
+}
+
+function birthdayMonthDay(value: Date | null) {
+  if (!value) return "";
+  return value.toISOString().slice(5, 10);
+}
+
+function insertStageIfMissing(input: { subject: string; body: string; stageLabel: string }) {
+  return {
+    subject: input.subject.includes(input.stageLabel)
+      ? input.subject
+      : `${input.stageLabel} · ${input.subject}`,
+    body: input.body.includes(input.stageLabel)
+      ? input.body
+      : `${input.stageLabel}\n\n${input.body}`,
+  };
+}
+
+async function createTransporter(settings: Awaited<ReturnType<typeof readSettings>>) {
+  const password = serverEnv.getSmtpPassword();
+  return nodemailer.createTransport({
+    host: settings.email.host || emailDefaults.host,
+    port: settings.email.port || emailDefaults.port,
+    secure: settings.email.secure ?? emailDefaults.secure,
+    auth: { user: settings.email.user || emailDefaults.user, pass: password },
+  });
+}
+
+export async function POST(request: Request) {
+  const expectedSecret = process.env.CRON_SECRET;
+  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
+  if (!expectedSecret || token !== expectedSecret) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
+
+  const settings = await readSettings();
+  if (!settings.emailAutomation.premiumRemindersEnabled && !settings.emailAutomation.birthdayGreetingsEnabled) {
+    return NextResponse.json({ ok: true, sent: 0, skipped: 0, errors: [], message: "Customer email automation is disabled" });
+  }
+
+  const transporter = await createTransporter(settings);
+  const fromName = settings.email.fromName || emailDefaults.fromName;
+  const fromEmail = settings.email.fromEmail || emailDefaults.fromEmail || emailDefaults.user;
+  const from = fromName ? `${fromName} <${fromEmail}>` : fromEmail;
+  const now = new Date();
+  const errors: string[] = [];
+  let sent = 0;
+  let skipped = 0;
+
+  if (settings.emailAutomation.premiumRemindersEnabled) {
+    const renewalTpl = settings.templates.find((template) => template.id === "renewal");
+    const policies = await db.policy.findMany({
+      where: { status: "active", category: "Insurance", premiumDate: { not: null } },
+      include: { client: true, jointWithClient: true },
+    });
+
+    for (const policy of policies) {
+      const dueDate = resolvePremiumReminderDate(policy.premiumDate!, now);
+      const dueInDays = daysUntil(dueDate, now);
+      const stage = getPremiumReminderStage(dueInDays);
+      if (!stage || !renewalTpl) continue;
+      const stageLabel = premiumReminderStageLabel(stage);
+      const cycleKey = premiumReminderCycleKey({ id: policy.id } as never, dueDate);
+      const recipients = [policy.client];
+      if (policy.isJoint && policy.jointWithClient && policy.jointWithClient.id !== policy.clientId) {
+        recipients.push(policy.jointWithClient);
+      }
+
+      for (const client of recipients) {
+        if (!client.email) {
+          skipped += 1;
+          continue;
+        }
+        const dedupeKey = premiumReminderDedupeKey({ policyId: policy.id, clientId: client.id, cycleKey, stage });
+        const existing = await db.emailReminderSend.findUnique({ where: { dedupeKey } });
+        if (existing) {
+          skipped += 1;
+          continue;
+        }
+        const premiumAmount = formatCurrency(policy.premium ?? 0);
+        const deathBenefit = formatCurrency(policy.sumAssured ?? 0);
+        const formattedDueDate = formatDate(dueDate);
+        const vars = {
+          "Client Name": fullName(client),
+          Carrier: policy.carrier,
+          "Policy Name": policy.productName || policy.productType,
+          "Policy Number": policy.policyNumber,
+          "Death Benefit": deathBenefit,
+          "Face Amount": deathBenefit,
+          "Premium Amount": premiumAmount,
+          Date: formattedDueDate,
+          "Reminder Stage": stageLabel,
+        };
+        const rendered = insertStageIfMissing({
+          subject: applyTemplate(renewalTpl.subject, vars),
+          body: applyTemplate(renewalTpl.body, vars),
+          stageLabel,
+        });
+        try {
+          const info = await transporter.sendMail({
+            from,
+            to: client.email,
+            subject: rendered.subject,
+            text: renderEmailBody(rendered.body, {}, settings.signature),
+            html: renderEmailHtml(rendered.body, {}, settings.signature, {
+              template: "renewal",
+              emphasizedTerms: [policy.policyNumber, premiumAmount, deathBenefit, formattedDueDate],
+            }),
+          });
+          await db.$transaction([
+            db.emailHistory.create({
+              data: {
+                clientId: client.id,
+                date: new Date(),
+                subject: rendered.subject,
+                body: rendered.body,
+                templateLabel: `Renewal Reminder · ${stageLabel} · ${policy.carrier} · #${policy.policyNumber}`,
+              },
+            }),
+            db.emailReminderSend.create({
+              data: {
+                dedupeKey,
+                policyId: policy.id,
+                clientId: client.id,
+                type: "premium",
+                stage,
+                cycleKey,
+                source: "auto",
+                messageId: info.messageId,
+                sentAt: new Date(),
+              },
+            }),
+            db.policy.update({ where: { id: policy.id }, data: { lastRenewalEmailAt: new Date() } }),
+            db.client.update({ where: { id: client.id }, data: { lastContactedAt: new Date() } }),
+          ]);
+          await auditLog({
+            action: "auto_send_premium_reminder",
+            entityType: "policy",
+            entityId: policy.id,
+            metadata: { clientId: client.id, stage, cycleKey, messageId: info.messageId },
+          });
+          sent += 1;
+        } catch (error) {
+          errors.push(`Premium ${policy.policyNumber} / ${client.email}: ${error instanceof Error ? error.message : "failed"}`);
+        }
+      }
+    }
+  }
+
+  if (settings.emailAutomation.birthdayGreetingsEnabled) {
+    const birthdayTpl = settings.templates.find((template) => template.id === "birthday");
+    if (birthdayTpl) {
+      const clients = await db.client.findMany({ where: { birthday: { not: null } } });
+      for (const client of clients) {
+        if (!client.email) {
+          skipped += 1;
+          continue;
+        }
+        const timeZone = PROVINCE_TIMEZONES[client.province ?? ""] ?? "America/Vancouver";
+        const local = localParts(now, timeZone);
+        if (local.hour !== 0) continue;
+        if (`${local.month}-${local.day}` !== birthdayMonthDay(client.birthday)) continue;
+        const cycleKey = `${client.id}:${local.year}`;
+        const dedupeKey = `birthday:${client.id}:${cycleKey}`;
+        const existing = await db.emailReminderSend.findUnique({ where: { dedupeKey } });
+        if (existing) {
+          skipped += 1;
+          continue;
+        }
+        const vars = { "Client Name": fullName(client), Date: `${local.year}-${local.month}-${local.day}` };
+        const subject = applyTemplate(birthdayTpl.subject, vars);
+        const body = applyTemplate(birthdayTpl.body, vars);
+        try {
+          const info = await transporter.sendMail({
+            from,
+            to: client.email,
+            subject,
+            text: renderEmailBody(body, {}, settings.signature),
+            html: renderEmailHtml(body, {}, settings.signature, { template: "birthday" }),
+          });
+          await db.$transaction([
+            db.emailHistory.create({
+              data: {
+                clientId: client.id,
+                date: new Date(),
+                subject,
+                body,
+                templateLabel: "Birthday Greeting",
+              },
+            }),
+            db.emailReminderSend.create({
+              data: {
+                dedupeKey,
+                clientId: client.id,
+                type: "birthday",
+                cycleKey,
+                source: "auto",
+                messageId: info.messageId,
+                sentAt: new Date(),
+              },
+            }),
+            db.client.update({
+              where: { id: client.id },
+              data: { lastBirthdayEmailAt: new Date(), lastContactedAt: new Date() },
+            }),
+          ]);
+          await auditLog({
+            action: "auto_send_birthday_greeting",
+            entityType: "client",
+            entityId: client.id,
+            metadata: { cycleKey, messageId: info.messageId, timeZone },
+          });
+          sent += 1;
+        } catch (error) {
+          errors.push(`Birthday ${client.email}: ${error instanceof Error ? error.message : "failed"}`);
+        }
+      }
+    }
+  }
+
+  return NextResponse.json({ ok: true, sent, skipped, errors: errors.slice(0, 20) });
+}

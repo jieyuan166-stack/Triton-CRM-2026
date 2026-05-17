@@ -3,7 +3,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Cake, Mail, Send } from "lucide-react";
+import { Cake, Mail, RotateCcw, Send } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useData } from "@/components/providers/DataProvider";
 import { useSettings } from "@/components/providers/SettingsProvider";
@@ -67,7 +67,7 @@ export function UpcomingBirthdays() {
   // Sent: birthday emails from emailHistory (lookback 7 days)
   const sentRows = useMemo(() => {
     const cutoff = Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000;
-    const entries: { clientId: string; date: string; subject: string }[] = [];
+    const entries: { clientId: string; date: string; subject: string; body: string }[] = [];
     clients.forEach((c) => {
       (c.emailHistory ?? []).forEach((e) => {
         const label = e.templateLabel?.toLowerCase() ?? "";
@@ -76,7 +76,7 @@ export function UpcomingBirthdays() {
         if (!isBirthday) return;
         const t = new Date(e.date).getTime();
         if (Number.isNaN(t) || t < cutoff) return;
-        entries.push({ clientId: c.id, date: e.date, subject: e.subject });
+        entries.push({ clientId: c.id, date: e.date, subject: e.subject, body: e.body });
       });
     });
     return entries.sort((a, b) => (a.date > b.date ? -1 : 1)).slice(0, MAX_SENT);
@@ -106,15 +106,16 @@ export function UpcomingBirthdays() {
 
   function openSingle(clientId: string) {
     const row = upcomingRows.find((r) => r.client.id === clientId);
-    if (!row?.client?.email) return;
-    const clientName = `${row.client.firstName ?? ""} ${row.client.lastName ?? ""}`.trim() || "client";
-    const vars = { "Client Name": clientName, Date: row.client.birthday ? formatDate(row.client.birthday) : "" };
+    const client = row?.client ?? clients.find((c) => c.id === clientId);
+    if (!client?.email) return;
+    const clientName = `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim() || "client";
+    const vars = { "Client Name": clientName, Date: client.birthday ? formatDate(client.birthday) : "" };
     setPayload({
-      contextLabel: clientName, to: row.client.email,
+      contextLabel: clientName, to: client.email,
       subject: applyTemplate(birthdayTpl.subject, vars),
       body: applyTemplate(birthdayTpl.body, vars),
       attachments: birthdayTpl.attachments ?? [],
-      clientId: row.client.id, template: "birthday",
+      clientId: client.id, template: "birthday",
     });
     setDialogOpen(true);
   }
@@ -308,6 +309,18 @@ export function UpcomingBirthdays() {
                         }
                         subtitle={`${row.subject} · ${formatRelative(row.date)}`}
                         badges={<StatusBadge kind="custom" label="SENT" className="bg-slate-50 text-slate-500 ring-slate-100" />}
+                        actions={
+                          client?.email ? (
+                            <button
+                              type="button"
+                              aria-label={`Re-send birthday greeting to ${clientName}`}
+                              onClick={() => openSingle(row.clientId)}
+                              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-emerald-50 hover:text-emerald-700"
+                            >
+                              <RotateCcw className="h-4 w-4" />
+                            </button>
+                          ) : null
+                        }
                       />
                     </li>
                   );

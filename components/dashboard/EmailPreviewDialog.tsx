@@ -17,10 +17,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useData } from "@/components/providers/DataProvider";
 import { useSettings } from "@/components/providers/SettingsProvider";
 import type { EmailTemplateAttachment } from "@/lib/settings-types";
 import {
+  applyTemplate,
   plainTextToEmailHtml,
   renderEmailBody,
   renderEmailHtml,
@@ -62,10 +64,13 @@ export interface EmailPreviewPayload {
    *  side effects. "renewal" stamps the policy's lastRenewalEmailAt;
    *  "birthday" stamps the client's lastBirthdayEmailAt; "custom" only
    *  writes to the Communication Log + auto-note. */
-  template?: "renewal" | "birthday" | "custom";
+  template?: "renewal" | "birthday" | "festival" | "custom";
   /** Required when template === "renewal" — identifies the policy whose
    *  renewal-suppression timestamp should be stamped. */
   policyId?: string;
+  reminderStage?: "first" | "second";
+  reminderCycleKey?: string;
+  reminderDedupeKey?: string;
   emphasizedTerms?: string[];
   attachments?: EmailTemplateAttachment[];
 }
@@ -77,8 +82,11 @@ export interface EmailPreviewBatchItem {
   body: string;
   html?: string;
   clientId?: string;
-  template?: "renewal" | "birthday" | "custom";
+  template?: "renewal" | "birthday" | "festival" | "custom";
   policyId?: string;
+  reminderStage?: "first" | "second";
+  reminderCycleKey?: string;
+  reminderDedupeKey?: string;
   emphasizedTerms?: string[];
 }
 
@@ -113,7 +121,10 @@ export function EmailPreviewDialog({
     appendEmailHistory,
     markRenewalEmailSent,
     markBirthdayEmailSent,
+    recordEmailReminderSend,
     getPolicy,
+    clients,
+    policies,
   } = useData();
   const { settings } = useSettings();
 
@@ -123,6 +134,8 @@ export function EmailPreviewDialog({
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [attachments, setAttachments] = useState<ComposeAttachment[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<"custom" | "birthday" | "renewal" | "festival">("custom");
+  const [selectedPolicyId, setSelectedPolicyId] = useState<string | undefined>(undefined);
   const [sending, setSending] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -133,13 +146,16 @@ export function EmailPreviewDialog({
       setSubject(payload.subject);
       setBody(payload.body);
       setAttachments(payload.attachments ?? []);
+      setSelectedTemplate(payload.template ?? "custom");
+      setSelectedPolicyId(payload.policyId);
       setSending(false);
     }
   }, [open, payload]);
 
   if (!payload) return null;
+  const activePayload = payload;
 
-  const batch = payload.batch ?? [];
+  const batch = activePayload.batch ?? [];
   const isBatch = batch.length > 0;
   const isBulk = isBatch || !!payload.bcc;
   const recipientCount = isBatch
@@ -160,6 +176,37 @@ export function EmailPreviewDialog({
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function templateVars(policyId?: string) {
+    const policy = policyId ? policies.find((item) => item.id === policyId) : undefined;
+    const client = clients.find((item) => item.id === activePayload.clientId);
+    const clientName = client ? `${client.firstName} ${client.lastName}`.trim() : activePayload.contextLabel;
+    const money = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" });
+    const premiumAmount = policy ? money.format(policy.premium ?? 0) : "";
+    const deathBenefit = policy ? money.format(policy.sumAssured ?? 0) : "";
+    const stageLabel = activePayload.reminderStage === "second" ? "Second Reminder" : activePayload.reminderStage === "first" ? "First Reminder" : "Manual Reminder";
+    return {
+      "Client Name": clientName,
+      Carrier: policy?.carrier ?? "",
+      "Policy Name": policy?.productName || policy?.productType || "",
+      "Policy Number": policy?.policyNumber ?? "",
+      "Death Benefit": deathBenefit,
+      "Face Amount": deathBenefit,
+      "Premium Amount": premiumAmount,
+      Date: policy?.premiumDate ?? "",
+      "Reminder Stage": stageLabel,
+    };
+  }
+
+  function applySelectedTemplate(nextTemplate: "custom" | "birthday" | "renewal" | "festival", nextPolicyId = selectedPolicyId) {
+    setSelectedTemplate(nextTemplate);
+    if (nextTemplate === "custom") return;
+    const tpl = settings.templates.find((item) => item.id === nextTemplate);
+    if (!tpl) return;
+    const vars = templateVars(nextPolicyId);
+    setSubject(applyTemplate(tpl.subject, vars));
+    setBody(applyTemplate(tpl.body, vars));
   }
 
   function arrayBufferToBase64(buffer: ArrayBuffer) {
@@ -217,8 +264,11 @@ export function EmailPreviewDialog({
       subject: string;
       body: string;
       clientId?: string;
-      template?: "renewal" | "birthday" | "custom";
+      template?: "renewal" | "birthday" | "festival" | "custom";
       policyId?: string;
+      reminderStage?: "first" | "second";
+      reminderCycleKey?: string;
+      reminderDedupeKey?: string;
       emphasizedTerms?: string[];
       bcc?: string[];
     }) {
@@ -231,7 +281,7 @@ export function EmailPreviewDialog({
         message.body,
         {},
         settings.signature,
-        { emphasizedTerms: message.emphasizedTerms }
+        { emphasizedTerms: message.emphasizedTerms, template: message.template }
       );
       const res = await fetch("/api/send-email", {
         method: "POST",
@@ -272,6 +322,8 @@ export function EmailPreviewDialog({
             : "Renewal Reminder"
           : template === "birthday"
           ? "Birthday Greeting"
+          : template === "festival"
+          ? "Festival Greeting"
           : "Custom";
 
       if (clientId) {
@@ -285,6 +337,18 @@ export function EmailPreviewDialog({
 
       if (template === "renewal" && message.policyId) {
         markRenewalEmailSent(message.policyId);
+        if (clientId && message.reminderStage && message.reminderCycleKey && message.reminderDedupeKey) {
+          recordEmailReminderSend({
+            dedupeKey: message.reminderDedupeKey,
+            policyId: message.policyId,
+            clientId,
+            type: "premium",
+            stage: message.reminderStage,
+            cycleKey: message.reminderCycleKey,
+            source: "manual",
+            sentAt: new Date().toISOString(),
+          });
+        }
       }
       if (template === "birthday" && clientId) {
         markBirthdayEmailSent(clientId);
@@ -305,6 +369,9 @@ export function EmailPreviewDialog({
             template: item.template,
             policyId: item.policyId,
             emphasizedTerms: item.emphasizedTerms,
+            reminderStage: item.reminderStage,
+            reminderCycleKey: item.reminderCycleKey,
+            reminderDedupeKey: item.reminderDedupeKey,
           });
           sent += 1;
         }
@@ -328,10 +395,13 @@ export function EmailPreviewDialog({
         bcc: bccList,
         subject,
         body,
-        clientId: payload?.clientId,
-        template: payload?.template,
-        policyId: payload?.policyId,
-        emphasizedTerms: payload?.emphasizedTerms,
+        clientId: activePayload.clientId,
+        template: selectedTemplate,
+        policyId: selectedPolicyId ?? activePayload.policyId,
+        reminderStage: activePayload.reminderStage,
+        reminderCycleKey: activePayload.reminderCycleKey,
+        reminderDedupeKey: activePayload.reminderDedupeKey,
+        emphasizedTerms: activePayload.emphasizedTerms,
       });
 
       // === Post-success bookkeeping (runs in one render cycle) ===
@@ -340,14 +410,14 @@ export function EmailPreviewDialog({
       // them into a single re-render so the dashboard widgets shrink in
       // real time the moment the dialog closes — no manual refetch.
       toast.success("Email sent successfully", {
-        description: `Delivered to ${payload?.contextLabel ?? to}`,
+        description: `Delivered to ${activePayload.contextLabel ?? to}`,
       });
       onSent?.({
         via: "smtp",
         to: to.trim(),
         subject,
         body,
-        clientId: payload?.clientId,
+        clientId: activePayload.clientId,
       });
       onOpenChange(false);
     } catch (e) {
@@ -408,7 +478,7 @@ export function EmailPreviewDialog({
                 : `Bulk message — ${recipientCount} ${
                   recipientCount === 1 ? "recipient" : "recipients"
                 } via Bcc`
-              : `To ${payload.contextLabel}`}
+              : `To ${activePayload.contextLabel}`}
           </DialogDescription>
         </DialogHeader>
 
@@ -451,6 +521,51 @@ export function EmailPreviewDialog({
             </div>
           ) : null}
 
+          {!isBatch ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="email-template-select">Template</Label>
+                <Select value={selectedTemplate} onValueChange={(value) => applySelectedTemplate(value as typeof selectedTemplate)}>
+                  <SelectTrigger id="email-template-select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="custom">Custom</SelectItem>
+                    <SelectItem value="birthday">Birthday</SelectItem>
+                    <SelectItem value="renewal">Renewal</SelectItem>
+                    <SelectItem value="festival">Festival</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {selectedTemplate === "renewal" && activePayload.clientId ? (
+                <div className="space-y-1.5">
+                  <Label htmlFor="email-policy-select">Policy</Label>
+                  <Select
+                    value={selectedPolicyId ?? ""}
+                    onValueChange={(value) => {
+                      const nextPolicyId = value || undefined;
+                      setSelectedPolicyId(nextPolicyId);
+                      applySelectedTemplate("renewal", nextPolicyId);
+                    }}
+                  >
+                    <SelectTrigger id="email-policy-select">
+                      <SelectValue placeholder="Select policy" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {policies
+                        .filter((policy) => policy.clientId === activePayload.clientId || policy.jointWithClientId === activePayload.clientId)
+                        .map((policy) => (
+                          <SelectItem key={policy.id} value={policy.id}>
+                            {policy.carrier} · #{policy.policyNumber}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
           <div className="space-y-1.5">
             <Label htmlFor="email-subject">Subject</Label>
             <Input
@@ -476,10 +591,10 @@ export function EmailPreviewDialog({
               onChange={(e) => setBody(e.target.value)}
               readOnly={isBatch}
             />
-            {body.includes(BIRTHDAY_CARD_TOKEN) ? (
+            {selectedTemplate === "birthday" || body.includes(BIRTHDAY_CARD_TOKEN) ? (
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
                 <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                  Birthday card preview
+                  Birthday card preview · sent above signature
                 </p>
                 <div
                   role="img"

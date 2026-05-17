@@ -5,6 +5,7 @@ import { useState } from "react";
 import {
   CalendarClock,
   CheckCircle2,
+  MailCheck,
   AlertTriangle,
   Lock,
   Save,
@@ -25,9 +26,10 @@ import { useSettings } from "@/components/providers/SettingsProvider";
 import { cn } from "@/lib/utils";
 
 export function EmailConfigSection() {
-  const { settings, updateEmailConfig, updateWeeklyDigest } = useSettings();
+  const { settings, updateEmailConfig, updateWeeklyDigest, updateEmailAutomation } = useSettings();
   const { email } = settings;
   const digest = settings.weeklyDigest;
+  const automation = settings.emailAutomation;
 
   const [host, setHost] = useState(email.host);
   const [port, setPort] = useState<number>(email.port);
@@ -308,6 +310,77 @@ export function EmailConfigSection() {
           </div>
         </div>
       </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div className="flex gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#002147] ring-1 ring-blue-100">
+                <MailCheck className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-triton-text">
+                  Customer Email Automation
+                </p>
+                <p className="mt-0.5 max-w-2xl text-xs leading-relaxed text-triton-muted">
+                  Sends customer-facing renewal reminders and birthday greetings automatically. Each send is logged and deduped per client, policy, cycle, and stage.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">Premium reminders</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-slate-500">
+                    First reminder at 30-16 days, second reminder at 15-0 days before due date.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={automation.premiumRemindersEnabled ? "default" : "outline"}
+                  className={cn(
+                    "h-8 shrink-0",
+                    automation.premiumRemindersEnabled && "bg-[#002147] text-white hover:bg-[#002147]/90"
+                  )}
+                  onClick={() => {
+                    updateEmailAutomation({ premiumRemindersEnabled: !automation.premiumRemindersEnabled });
+                    toast.success(automation.premiumRemindersEnabled ? "Premium automation disabled" : "Premium automation enabled");
+                  }}
+                >
+                  {automation.premiumRemindersEnabled ? "Enabled" : "Disabled"}
+                </Button>
+              </div>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">Birthday greetings</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-slate-500">
+                    Sends on the birthday at local midnight based on the client&rsquo;s province timezone.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={automation.birthdayGreetingsEnabled ? "default" : "outline"}
+                  className={cn(
+                    "h-8 shrink-0",
+                    automation.birthdayGreetingsEnabled && "bg-[#002147] text-white hover:bg-[#002147]/90"
+                  )}
+                  onClick={() => {
+                    updateEmailAutomation({ birthdayGreetingsEnabled: !automation.birthdayGreetingsEnabled });
+                    toast.success(automation.birthdayGreetingsEnabled ? "Birthday automation disabled" : "Birthday automation enabled");
+                  }}
+                >
+                  {automation.birthdayGreetingsEnabled ? "Enabled" : "Disabled"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
 
       <div className="px-5 md:px-6 py-3 border-t border-slate-100 flex justify-end gap-2 bg-slate-50/50 rounded-b-xl">
         <Button

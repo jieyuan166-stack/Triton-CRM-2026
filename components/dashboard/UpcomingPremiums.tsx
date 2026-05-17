@@ -3,7 +3,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarClock, Mail, Send, Trash2 } from "lucide-react";
+import { CalendarClock, Mail, RotateCcw, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useData } from "@/components/providers/DataProvider";
@@ -39,13 +39,13 @@ import { cn } from "@/lib/utils";
 const WINDOW_DAYS = PREMIUM_REMINDER_WINDOW_DAYS;
 
 export function UpcomingPremiums() {
-  const { policies, clients, deleteClient } = useData();
+  const { policies, clients, emailReminderSends, deleteClient } = useData();
   const { settings } = useSettings();
   const renewalTpl = settings.templates.find((t) => t.id === "renewal") ?? { subject: "", body: "", attachments: [] };
 
   const premiumReminderState = useMemo(
-    () => buildPremiumReminderState({ policies, clients }),
-    [clients, policies]
+    () => buildPremiumReminderState({ policies, clients, emailReminderSends }),
+    [clients, emailReminderSends, policies]
   );
   const upcomingRows = premiumReminderState.pendingRows;
   const completedRows = premiumReminderState.completedRows;
@@ -99,7 +99,7 @@ export function UpcomingPremiums() {
   }
 
   function openSingle(reminderId: string) {
-    const row = upcomingRows.find((r) => r.id === reminderId);
+    const row = [...upcomingRows, ...completedRows].find((r) => r.id === reminderId);
     if (!row) return;
     const p = row.policy;
     const client = clients.find((c) => c.id === row.clientId);
@@ -113,6 +113,7 @@ export function UpcomingPremiums() {
       "Policy Number": p.policyNumber ?? "",
       "Death Benefit": faceAmount, "Face Amount": faceAmount, "Premium Amount": premiumAmount,
       Date: dueDate,
+      "Reminder Stage": row.stageLabel,
     };
     setPayload({
       contextLabel: clientName, to: client.email,
@@ -120,7 +121,7 @@ export function UpcomingPremiums() {
       body: applyTemplate(renewalTpl.body, vars),
       attachments: renewalTpl.attachments ?? [],
       emphasizedTerms: [p.policyNumber ?? "", premiumAmount, faceAmount, dueDate],
-      clientId: client.id, template: "renewal", policyId: p.id,
+      clientId: client.id, template: "renewal", policyId: p.id, reminderStage: row.stage, reminderCycleKey: row.cycleKey, reminderDedupeKey: row.dedupeKey,
     });
     setDialogOpen(true);
   }
@@ -148,6 +149,7 @@ export function UpcomingPremiums() {
           "Face Amount": faceAmount,
           "Premium Amount": premiumAmount,
           Date: dueDate,
+          "Reminder Stage": row.stageLabel,
         };
         return {
           contextLabel: clientName,
@@ -157,6 +159,9 @@ export function UpcomingPremiums() {
           clientId: client.id,
           template: "renewal" as const,
           policyId: p.id,
+          reminderStage: row.stage,
+          reminderCycleKey: row.cycleKey,
+          reminderDedupeKey: row.dedupeKey,
           emphasizedTerms: [p.policyNumber ?? "", premiumAmount, faceAmount, dueDate],
         };
       })
@@ -301,7 +306,7 @@ export function UpcomingPremiums() {
                             <span>{clientName}</span>
                           )
                         }
-                        subtitle={`${row.isJointRecipient ? "Joint Policy · " : ""}${p.carrier} · ${p.productName || p.productType} · #${p.policyNumber} · ${formatCurrency(p.premium)} · ${formatRelative(row.dueDate)}`}
+                        subtitle={`${row.stageLabel} · ${row.isJointRecipient ? "Joint Policy · " : ""}${p.carrier} · ${p.productName || p.productType} · #${p.policyNumber} · ${formatCurrency(p.premium)} · ${formatRelative(row.dueDate)}`}
                         badges={
                           p.category === "Investment" && p.isInvestmentLoan ? (
                             <StatusBadge kind="loan" lender={p.lender} />
@@ -374,28 +379,40 @@ export function UpcomingPremiums() {
                           )
                         }
                         subtitle={`${row.policy.carrier} · ${row.policy.productName || row.policy.productType} · #${row.policy.policyNumber} · due ${formatDate(row.dueDate)} · completed ${formatRelative(row.completedAt)}`}
-                        badges={<StatusBadge kind="custom" label="COMPLETED" className="bg-slate-50 text-slate-500 ring-slate-100" />}
+                        badges={<StatusBadge kind="custom" label={row.stageLabel.toUpperCase()} className="bg-slate-50 text-slate-500 ring-slate-100" />}
                         actions={
-                          <button
-                            type="button"
-                            aria-label={`Preview completed reminder for ${clientName}`}
-                            onClick={() =>
-                              setSentPreview({
-                                to: client?.email,
-                                date: history?.date ?? row.completedAt,
-                                subject:
-                                  history?.subject ??
-                                  `Renewal reminder completed · #${row.policy.policyNumber}`,
-                                body:
-                                  history?.body ??
-                                  `Reminder completed for ${row.policy.carrier} ${row.policy.productName || row.policy.productType} policy #${row.policy.policyNumber}.`,
-                                templateLabel: history?.templateLabel ?? "Renewal Reminder",
-                              })
-                            }
-                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-accent-blue/10 hover:text-accent-blue"
-                          >
-                            <Mail className="h-4 w-4" />
-                          </button>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              aria-label={`Preview completed reminder for ${clientName}`}
+                              onClick={() =>
+                                setSentPreview({
+                                  to: client?.email,
+                                  date: history?.date ?? row.completedAt,
+                                  subject:
+                                    history?.subject ??
+                                    `Renewal reminder completed · #${row.policy.policyNumber}`,
+                                  body:
+                                    history?.body ??
+                                    `Reminder completed for ${row.policy.carrier} ${row.policy.productName || row.policy.productType} policy #${row.policy.policyNumber}.`,
+                                  templateLabel: history?.templateLabel ?? "Renewal Reminder",
+                                })
+                              }
+                              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-accent-blue/10 hover:text-accent-blue"
+                            >
+                              <Mail className="h-4 w-4" />
+                            </button>
+                            {client?.email ? (
+                              <button
+                                type="button"
+                                aria-label={`Re-send reminder to ${clientName}`}
+                                onClick={() => openSingle(row.id)}
+                                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-emerald-50 hover:text-emerald-700"
+                              >
+                                <RotateCcw className="h-4 w-4" />
+                              </button>
+                            ) : null}
+                          </div>
                         }
                       />
                     </li>

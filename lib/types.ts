@@ -139,6 +139,23 @@ import type {
  *  The `body` is preserved verbatim for audit / future export, but the UI
  *  list deliberately renders only the timestamp + a one-line action label
  *  (see CommunicationLog) — keep the data, hide the noise. */
+export type EmailReminderType = "premium" | "birthday";
+export type EmailReminderStage = "first" | "second";
+
+export interface EmailReminderSend {
+  id: string;
+  dedupeKey: string;
+  policyId?: string;
+  clientId: string;
+  type: EmailReminderType;
+  stage?: EmailReminderStage;
+  cycleKey: string;
+  source?: "auto" | "manual" | "manual_resend";
+  messageId?: string;
+  sentAt: string;
+  createdAt: string;
+}
+
 export interface EmailHistoryEntry {
   id: string;
   /** ISO timestamp of when the send succeeded. */

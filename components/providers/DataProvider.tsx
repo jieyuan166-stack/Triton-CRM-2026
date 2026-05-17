@@ -31,6 +31,7 @@ import type {
   ClientRelationship,
   ClientWithStats,
   EmailHistoryEntry,
+  EmailReminderSend,
   FollowUp,
   Policy,
 } from "@/lib/types";
@@ -43,6 +44,7 @@ interface DataContextValue {
   policies: Policy[];
   followUps: FollowUp[];
   relationships: ClientRelationship[];
+  emailReminderSends: EmailReminderSend[];
   dataStatus: "loading" | "ready" | "error";
   dataError?: string;
 
@@ -84,6 +86,8 @@ interface DataContextValue {
   // mutations — follow-ups
   createFollowUp(input: Omit<FollowUp, "id" | "createdAt">): FollowUp;
   deleteFollowUp(id: string): boolean;
+
+  recordEmailReminderSend(input: Omit<EmailReminderSend, "id" | "createdAt"> & Partial<Pick<EmailReminderSend, "id" | "createdAt">>): EmailReminderSend | null;
 
   // mutations — communication log
   /** Append a sent-email record to the given client's history. Generates
@@ -203,11 +207,13 @@ function sanitizeSnapshot(snapshot: {
   policies?: unknown[];
   followUps?: unknown[];
   relationships?: unknown[];
+  emailReminderSends?: unknown[];
 }): {
   clients: Client[];
   policies: Policy[];
   followUps: FollowUp[];
   relationships: ClientRelationship[];
+  emailReminderSends: EmailReminderSend[];
 } {
   const clients = Array.isArray(snapshot.clients)
     ? (snapshot.clients.filter(
@@ -236,6 +242,17 @@ function sanitizeSnapshot(snapshot: {
           typeof (f as FollowUp).clientId === "string"
       ) as FollowUp[])
     : [];
+  const emailReminderSends = Array.isArray(snapshot.emailReminderSends)
+    ? (snapshot.emailReminderSends.filter(
+        (r): r is EmailReminderSend =>
+          !!r &&
+          typeof r === "object" &&
+          typeof (r as EmailReminderSend).id === "string" &&
+          typeof (r as EmailReminderSend).dedupeKey === "string" &&
+          typeof (r as EmailReminderSend).clientId === "string" &&
+          typeof (r as EmailReminderSend).type === "string"
+      ) as EmailReminderSend[])
+    : [];
   const relationships = Array.isArray(snapshot.relationships)
     ? (snapshot.relationships.filter(
         (r): r is ClientRelationship =>
@@ -252,6 +269,7 @@ function sanitizeSnapshot(snapshot: {
     policies: prunePolicyJointReferences(pruneOrphans(policies, clientsWithSlugs), clientsWithSlugs),
     followUps: pruneOrphans(followUps, clientsWithSlugs),
     relationships: pruneRelationships(relationships, clientsWithSlugs),
+    emailReminderSends,
   };
 }
 
@@ -260,12 +278,14 @@ function readInitialData(): {
   policies: Policy[];
   followUps: FollowUp[];
   relationships: ClientRelationship[];
+  emailReminderSends: EmailReminderSend[];
 } {
   return {
     clients: ensureUniqueClientSlugs(seedClients.map((client) => ensureClientSlug(client))),
     policies: prunePolicyJointReferences(pruneOrphans(seedPolicies, seedClients), seedClients),
     followUps: pruneOrphans(seedFollowUps, seedClients),
     relationships: [],
+    emailReminderSends: [],
   };
 }
 
@@ -299,6 +319,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [relationships, setRelationships] = useState<ClientRelationship[]>(
     initialData.relationships
   );
+  const [emailReminderSends, setEmailReminderSends] = useState<EmailReminderSend[]>(
+    initialData.emailReminderSends
+  );
   const [dataStatus, setDataStatus] =
     useState<DataContextValue["dataStatus"]>("loading");
   const [dataError, setDataError] = useState<string | undefined>(undefined);
@@ -313,6 +336,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           policies?: Policy[];
           followUps?: FollowUp[];
           relationships?: ClientRelationship[];
+          emailReminderSends?: EmailReminderSend[];
         }>;
       })
       .then((data) => {
@@ -322,6 +346,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setPolicies(next.policies);
         setFollowUps(next.followUps);
         setRelationships(next.relationships);
+        setEmailReminderSends(next.emailReminderSends);
         setDataStatus("ready");
         setDataError(undefined);
       })
@@ -703,6 +728,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return removed;
     }, []);
 
+  const recordEmailReminderSend: DataContextValue["recordEmailReminderSend"] =
+    useCallback((input) => {
+      if (!clients.some((client) => client.id === input.clientId)) return null;
+      if (emailReminderSends.some((send) => send.dedupeKey === input.dedupeKey)) {
+        return null;
+      }
+      const saved: EmailReminderSend = {
+        id: input.id ?? uid("ers"),
+        dedupeKey: input.dedupeKey,
+        policyId: input.policyId,
+        clientId: input.clientId,
+        type: input.type,
+        stage: input.stage,
+        cycleKey: input.cycleKey,
+        source: input.source ?? "manual",
+        messageId: input.messageId,
+        sentAt: input.sentAt,
+        createdAt: input.createdAt ?? new Date().toISOString(),
+      };
+      setEmailReminderSends((prev) => [...prev, saved]);
+      persistInBackground("emailReminderSend.record", { reminderSend: saved });
+      return saved;
+    }, [clients, emailReminderSends]);
+
   const markRenewalEmailSent: DataContextValue["markRenewalEmailSent"] =
     useCallback((policyId, at) => {
       const stamp = at ?? new Date().toISOString();
@@ -753,8 +802,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       policies,
       followUps,
       relationships,
+      emailReminderSends,
     };
-  }, [clients, policies, followUps, relationships]);
+  }, [clients, policies, followUps, relationships, emailReminderSends]);
 
   const replaceAll: DataContextValue["replaceAll"] = useCallback(
     (snapshot) => {
@@ -808,10 +858,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
           : [],
         nextClients
       );
+      const nextEmailReminderSends = Array.isArray(snapshot.emailReminderSends)
+        ? (snapshot.emailReminderSends as EmailReminderSend[]).filter(
+            (send) =>
+              !!send &&
+              typeof send === "object" &&
+              typeof send.id === "string" &&
+              typeof send.dedupeKey === "string" &&
+              typeof send.clientId === "string" &&
+              nextClients.some((client) => client.id === send.clientId) &&
+              (!send.policyId || nextPolicies.some((policy) => policy.id === send.policyId))
+          )
+        : [];
       setClients(nextClients);
       setPolicies(nextPolicies);
       setFollowUps(nextFollowUps);
       setRelationships(nextRelationships);
+      setEmailReminderSends(nextEmailReminderSends);
       persistInBackground("data.replaceAll", {
         snapshot: {
           version: 1,
@@ -820,6 +883,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           policies: nextPolicies,
           followUps: nextFollowUps,
           relationships: nextRelationships,
+          emailReminderSends: nextEmailReminderSends,
         },
       });
       return { ok: true };
@@ -833,6 +897,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       policies,
       followUps,
       relationships,
+      emailReminderSends,
       dataStatus,
       dataError,
       getClient,
@@ -855,6 +920,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       deleteFollowUp,
       appendEmailHistory,
       deleteEmailHistory,
+      recordEmailReminderSend,
       markRenewalEmailSent,
       markBirthdayEmailSent,
       prependClientNote,
@@ -866,6 +932,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       policies,
       followUps,
       relationships,
+      emailReminderSends,
       dataStatus,
       dataError,
       getClient,
@@ -888,6 +955,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       deleteFollowUp,
       appendEmailHistory,
       deleteEmailHistory,
+      recordEmailReminderSend,
       markRenewalEmailSent,
       markBirthdayEmailSent,
       prependClientNote,

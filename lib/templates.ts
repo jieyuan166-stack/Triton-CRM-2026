@@ -15,7 +15,7 @@ import type { EmailSignature, EmailTemplate } from "./settings-types";
 export const BIRTHDAY_CARD_TOKEN = "[Birthday Card]";
 export const BIRTHDAY_CARD_IMAGE_URL = "https://crm.tritonwealth.ca/email/birthday-greeting.png";
 
-function birthdayCardImageHtml(): string {
+export function birthdayCardImageHtml(): string {
   return [
     '<div style="margin: 18px 0 12px;">',
     `<img src="${BIRTHDAY_CARD_IMAGE_URL}" alt="Happy Birthday from Triton Wealth" style="display:block;width:70%;max-width:504px;min-width:280px;height:auto;border:0;border-radius:12px;" />`,
@@ -54,9 +54,9 @@ export const DEFAULT_TEMPLATES: EmailTemplate[] = [
   {
     id: "renewal",
     label: "Renewal",
-    subject: "Premium Payment Reminder · [Carrier] [Policy Name] · #[Policy Number]",
+    subject: "[Reminder Stage] · Premium Payment Reminder · [Carrier] [Policy Name] · #[Policy Number]",
     body:
-      "Dear [Client Name],\n\nI hope you are doing well.\n\nThis is a friendly reminder that the premium payment of [Premium Amount] for your [Carrier] [Policy Name] policy, policy number [Policy Number], with a death benefit of [Death Benefit], is due on [Date].\n\nTo ensure your coverage remains active and uninterrupted, please arrange the payment before the due date. Should you have any questions regarding your policy or if you would like to schedule a review of your coverage, please feel free to contact me at any time.\n\nIf you have already made the payment, please disregard this reminder.\n\nThank you for your continued trust and support.\n\nBest regards,\n\n<sub>* If you are a Manulife Vitality client, actual premium varies by your Vitality status — please refer to your statement for the current amount.</sub>\n\n尊敬的 [Client Name]，\n\n您好！\n\n温馨提醒您，您在 [Carrier] 的 [Policy Name] 保单（保单号码：[Policy Number]，保额：[Death Benefit]）保费 [Premium Amount] 将于 [Date] 到期。\n\n为确保您的保障持续有效并避免保障中断，请您在到期日前完成缴费。如您对保单内容有任何疑问，或希望重新检视您的保障规划，欢迎随时与我联系。\n\n如果您已经完成缴费，请忽略此提醒。\n\n感谢您一直以来的信任与支持！\n\n<sub>* 如果您是 Manulife Vitality 客户，实际保费会根据您的 Vitality 等级调整，具体金额请以 statement 为准。</sub>",
+      "Dear [Client Name],\n\n[Reminder Stage]\n\nI hope you are doing well.\n\nThis is a friendly reminder that the premium payment of [Premium Amount] for your [Carrier] [Policy Name] policy, policy number [Policy Number], with a death benefit of [Death Benefit], is due on [Date].\n\nTo ensure your coverage remains active and uninterrupted, please arrange the payment before the due date. Should you have any questions regarding your policy or if you would like to schedule a review of your coverage, please feel free to contact me at any time.\n\nIf you have already made the payment, please disregard this reminder.\n\nThank you for your continued trust and support.\n\nBest regards,\n\n<sub>* If you are a Manulife Vitality client, actual premium varies by your Vitality status — please refer to your statement for the current amount.</sub>\n\n尊敬的 [Client Name]，\n\n您好！\n\n温馨提醒您，您在 [Carrier] 的 [Policy Name] 保单（保单号码：[Policy Number]，保额：[Death Benefit]）保费 [Premium Amount] 将于 [Date] 到期。\n\n为确保您的保障持续有效并避免保障中断，请您在到期日前完成缴费。如您对保单内容有任何疑问，或希望重新检视您的保障规划，欢迎随时与我联系。\n\n如果您已经完成缴费，请忽略此提醒。\n\n感谢您一直以来的信任与支持！\n\n<sub>* 如果您是 Manulife Vitality 客户，实际保费会根据您的 Vitality 等级调整，具体金额请以 statement 为准。</sub>",
     attachments: [],
     variables: [
       "[Client Name]",
@@ -66,6 +66,7 @@ export const DEFAULT_TEMPLATES: EmailTemplate[] = [
       "[Death Benefit]",
       "[Premium Amount]",
       "[Date]",
+      "[Reminder Stage]",
     ],
   },
   {
@@ -166,7 +167,7 @@ export function renderEmailHtml(
   body: string,
   vars: Record<string, string | undefined>,
   signature?: EmailSignature,
-  options?: { emphasizedTerms?: string[] }
+  options?: { emphasizedTerms?: string[]; template?: "birthday" | "renewal" | "festival" | "custom" }
 ): string {
   const filled = applyTemplate(body, vars);
   const bodyHtml = emphasizeHtmlTerms(
@@ -179,11 +180,13 @@ export function renderEmailHtml(
       : signature?.enabled && signature.text.trim()
       ? plainTextToEmailHtml(signature.text)
       : "";
-  const separator = filled.trim() && signatureHtml ? "<br /><br />" : "";
+  const cardHtml = options?.template === "birthday" ? birthdayCardImageHtml() : "";
+  const separator = (filled.trim() || cardHtml) && signatureHtml ? "<br /><br />" : "";
 
   return [
     '<div style="font-family: Geist, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, sans-serif; font-size: 14px; line-height: 1.6; color: #0F172A;">',
     bodyHtml,
+    cardHtml ? `<div style="margin-top: 18px;">${cardHtml}</div>` : "",
     separator,
     signatureHtml
       ? `<div style="margin-top: 2px;">${signatureHtml}</div>`

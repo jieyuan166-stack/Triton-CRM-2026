@@ -15,14 +15,14 @@ import { calculatePortfolioMetrics } from "@/lib/portfolio-metrics";
 import { buildPremiumReminderState } from "@/lib/premium-reminders";
 
 export default function DashboardPage() {
-  const { clients, policies } = useData();
+  const { clients, policies, emailReminderSends } = useData();
   const totalClients = clients.length;
   const vipClients = clients.filter((c) =>
     calculateClientTags(c, policies).includes("VIP")
   ).length;
 
   const metrics = calculatePortfolioMetrics(policies);
-  const premiumReminderState = buildPremiumReminderState({ policies, clients });
+  const premiumReminderState = buildPremiumReminderState({ policies, clients, emailReminderSends });
   const pendingPremiumReminders = premiumReminderState.pendingPolicies.length;
   const completedPremiumReminders = premiumReminderState.completedPolicies.length;
 
