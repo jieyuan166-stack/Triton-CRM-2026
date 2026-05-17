@@ -34,6 +34,11 @@ export async function POST() {
     });
     return NextResponse.json({ ok: true, record }, { status: 201 });
   } catch (error) {
+    console.error("[backups] create failed", {
+      userId: session.user.id,
+      role: session.user.role,
+      error,
+    });
     return NextResponse.json(
       { ok: false, error: error instanceof Error ? error.message : "Backup failed" },
       { status: 400 },
