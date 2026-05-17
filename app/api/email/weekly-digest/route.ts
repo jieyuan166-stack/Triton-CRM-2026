@@ -129,10 +129,10 @@ export async function POST() {
 
   const digest = await buildDigest(session.user.id);
   const transporter = nodemailer.createTransport({
-    host: emailDefaults.host,
-    port: emailDefaults.port,
-    secure: emailDefaults.secure,
-    auth: { user: emailDefaults.user, pass: password },
+    host: settings.email.host || emailDefaults.host,
+    port: settings.email.port || emailDefaults.port,
+    secure: settings.email.secure ?? emailDefaults.secure,
+    auth: { user: settings.email.user || emailDefaults.user, pass: password },
   });
 
   const fromName = settings.email.fromName || emailDefaults.fromName;

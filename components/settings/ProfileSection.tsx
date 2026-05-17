@@ -33,6 +33,11 @@ export function ProfileSection() {
     if (loginEmail) setSignInEmail(loginEmail);
   }, [loginEmail]);
 
+  useEffect(() => {
+    setName(profile.name);
+    setEmail(profile.email);
+  }, [profile.email, profile.name]);
+
   const profileDirty =
     name !== profile.name || email !== profile.email;
 

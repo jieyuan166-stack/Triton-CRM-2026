@@ -1,7 +1,7 @@
 // components/settings/EmailConfigSection.tsx
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CalendarClock,
   CheckCircle2,
@@ -37,6 +37,15 @@ export function EmailConfigSection() {
   const [user, setUser] = useState(email.user);
   const [fromName, setFromName] = useState(email.fromName);
   const [fromEmail, setFromEmail] = useState(email.fromEmail);
+
+  useEffect(() => {
+    setHost(email.host);
+    setPort(email.port);
+    setSecure(email.secure);
+    setUser(email.user);
+    setFromName(email.fromName);
+    setFromEmail(email.fromEmail);
+  }, [email.fromEmail, email.fromName, email.host, email.port, email.secure, email.user]);
 
   const passwordOk = !!email.passwordConfigured;
 
