@@ -205,6 +205,12 @@ export function queryClients(
         r.province ?? "",
         fullClientAddress(data.clients.find((client) => client.id === r.id)),
         ...clientPolicies.flatMap((policy) => [
+          policy.carrier,
+          policy.productType,
+          policy.productName,
+          policy.policyNumber,
+          policy.businessName,
+          policy.lender,
           policy.policyOwnerName,
           policy.policyOwner2Name,
           ...(policy.category === "Insurance"

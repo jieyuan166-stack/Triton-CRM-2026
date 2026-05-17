@@ -1,31 +1,66 @@
 import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 
 import { auditLog, requireSession, unauthorized } from "@/lib/api-security";
 import { parseClientQueryParams, queryClients } from "@/lib/clients-query";
+import { TAG_VALUES } from "@/lib/constants";
 import { parseTagList } from "@/lib/client-tags";
 import { db } from "@/lib/db";
 import { parseInsuredPersonsJson } from "@/lib/policy-parties";
-import { toTitleCaseName } from "@/lib/text-utils";
+import { normalizeSearchText, toTitleCaseName } from "@/lib/text-utils";
 import { clientFormSchema } from "@/lib/validators";
 import type { Client, FollowUp, Policy } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET(request: Request) {
-  const session = await requireSession();
-  if (!session) return unauthorized();
+function policySearchWhere(token: string): Prisma.PolicyWhereInput {
+  return {
+    OR: [
+      { carrier: { contains: token } },
+      { productType: { contains: token } },
+      { productName: { contains: token } },
+      { policyNumber: { contains: token } },
+      { businessName: { contains: token } },
+      { lender: { contains: token } },
+      { policyOwnerName: { contains: token } },
+      { policyOwner2Name: { contains: token } },
+      { insuredPersons: { contains: token } },
+    ],
+  };
+}
 
-  const url = new URL(request.url);
-  const query = parseClientQueryParams(url.searchParams);
+function buildClientWhere(query: ReturnType<typeof parseClientQueryParams>): Prisma.ClientWhereInput {
+  const and: Prisma.ClientWhereInput[] = [];
 
-  const [clientRows, policyRows, followUpRows] = await Promise.all([
-    db.client.findMany({ include: { emailHistory: { orderBy: { date: "desc" } } } }),
-    db.policy.findMany({ include: { beneficiaries: true } }),
-    db.followUp.findMany(),
-  ]);
+  if (query.provinces?.length) {
+    and.push({ province: { in: query.provinces } });
+  }
 
-  const clients: Client[] = clientRows.map((c) => ({
+  const tokens = normalizeSearchText(query.search).split(" ").filter(Boolean);
+  for (const token of tokens) {
+    const policyWhere = policySearchWhere(token);
+    and.push({
+      OR: [
+        { firstName: { contains: token } },
+        { lastName: { contains: token } },
+        { email: { contains: token } },
+        { phone: { contains: token } },
+        { streetAddress: { contains: token } },
+        { unit: { contains: token } },
+        { city: { contains: token } },
+        { province: { contains: token } },
+        { postalCode: { contains: token } },
+        { policies: { some: policyWhere } },
+      ],
+    });
+  }
+
+  return and.length ? { AND: and } : {};
+}
+
+function mapClientRow(c: Awaited<ReturnType<typeof db.client.findMany>>[number]): Client {
+  return {
     id: c.id,
     firstName: c.firstName,
     lastName: c.lastName,
@@ -42,23 +77,27 @@ export async function GET(request: Request) {
     hiddenTags: parseTagList(c.hiddenTags),
     linkedToId: c.linkedToId ?? undefined,
     relationship: c.relationship as Client["relationship"],
-    emailHistory: c.emailHistory.map((entry) => ({
-      id: entry.id,
-      date: entry.date.toISOString(),
-      subject: entry.subject,
-      body: entry.body,
-      templateLabel: entry.templateLabel ?? undefined,
-      policyId: entry.policyId ?? undefined,
-      policyNumber: entry.policyNumber ?? undefined,
-      policyLabel: entry.policyLabel ?? undefined,
-      communicationType: entry.communicationType ?? undefined,
-    })),
+    emailHistory: "emailHistory" in c && Array.isArray(c.emailHistory)
+      ? c.emailHistory.map((entry) => ({
+          id: entry.id,
+          date: entry.date.toISOString(),
+          subject: entry.subject,
+          body: entry.body,
+          templateLabel: entry.templateLabel ?? undefined,
+          policyId: entry.policyId ?? undefined,
+          policyNumber: entry.policyNumber ?? undefined,
+          policyLabel: entry.policyLabel ?? undefined,
+          communicationType: entry.communicationType ?? undefined,
+        }))
+      : undefined,
     lastBirthdayEmailAt: c.lastBirthdayEmailAt?.toISOString(),
     lastContactedAt: c.lastContactedAt?.toISOString(),
     createdAt: c.createdAt.toISOString(),
-  }));
+  };
+}
 
-  const policies = policyRows.map((p) => ({
+function mapPolicyRow(p: Awaited<ReturnType<typeof db.policy.findMany>>[number]): Policy {
+  return {
     id: p.id,
     clientId: p.clientId,
     carrier: p.carrier,
@@ -88,16 +127,20 @@ export async function GET(request: Request) {
     policyOwner2ClientId: p.policyOwner2ClientId ?? undefined,
     insuredPersons: parseInsuredPersonsJson(p.insuredPersons),
     lastRenewalEmailAt: p.lastRenewalEmailAt?.toISOString(),
-    beneficiaries: p.beneficiaries.map((b) => ({
-      id: b.id,
-      policyId: b.policyId,
-      name: b.name,
-      relationship: b.relationship,
-      sharePercent: b.sharePercent,
-    })),
-  })) as Policy[];
+    beneficiaries: "beneficiaries" in p && Array.isArray(p.beneficiaries)
+      ? p.beneficiaries.map((b) => ({
+          id: b.id,
+          policyId: b.policyId,
+          name: b.name,
+          relationship: b.relationship,
+          sharePercent: b.sharePercent,
+        }))
+      : [],
+  } as Policy;
+}
 
-  const followUps = followUpRows.map((f) => ({
+function mapFollowUpRow(f: Awaited<ReturnType<typeof db.followUp.findMany>>[number]): FollowUp {
+  return {
     id: f.id,
     clientId: f.clientId,
     type: f.type,
@@ -106,12 +149,64 @@ export async function GET(request: Request) {
     details: f.details ?? undefined,
     createdById: f.createdById,
     createdAt: f.createdAt.toISOString(),
-  })) as FollowUp[];
+  } as FollowUp;
+}
 
-  const result = queryClients(query, { clients, policies, followUps });
+export async function GET(request: Request) {
+  const session = await requireSession();
+  if (!session) return unauthorized();
 
-  await auditLog({ action: "list_clients", entityType: "client" });
-  return NextResponse.json(result);
+  try {
+    const url = new URL(request.url);
+    const query = parseClientQueryParams(url.searchParams);
+    const where = buildClientWhere(query);
+
+    const [clientRows, provinceFacetRows] = await Promise.all([
+      db.client.findMany({
+        where,
+        include: { emailHistory: { orderBy: { date: "desc" } } },
+      }),
+      db.client.findMany({
+        select: { province: true },
+        distinct: ["province"],
+        where: { province: { not: null } },
+        orderBy: { province: "asc" },
+      }),
+    ]);
+
+    const clientIds = clientRows.map((client) => client.id);
+    const [policyRows, followUpRows] = clientIds.length
+      ? await Promise.all([
+          db.policy.findMany({
+            where: { clientId: { in: clientIds } },
+            include: { beneficiaries: true },
+          }),
+          db.followUp.findMany({
+            where: { clientId: { in: clientIds } },
+          }),
+        ])
+      : [[], []];
+
+    const clients = clientRows.map(mapClientRow);
+    const policies = policyRows.map(mapPolicyRow);
+    const followUps = followUpRows.map(mapFollowUpRow);
+    const result = queryClients(query, { clients, policies, followUps });
+    result.facets = {
+      provinces: provinceFacetRows
+        .map((row) => row.province)
+        .filter((province): province is string => !!province),
+      tags: [...TAG_VALUES],
+    };
+
+    await auditLog({ action: "list_clients", entityType: "client" });
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error("[clients] list failed:", error);
+    return NextResponse.json(
+      { ok: false, error: "Could not load clients" },
+      { status: 500 },
+    );
+  }
 }
 
 export async function POST(request: Request) {

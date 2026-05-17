@@ -39,6 +39,7 @@ const sendSchema = z.object({
   subject: z.string().min(1, "Subject is required"),
   body: z.string().min(1, "Body is required"),
   html: z.string().optional(),
+  signatureHtml: z.string().optional(),
   clientId: z.string().optional(),
   fromName: z.string().optional(),
   fromEmail: z.string().email().optional(),
@@ -141,7 +142,13 @@ export async function POST(request: Request) {
   const from = fromName ? `${fromName} <${fromEmail}>` : fromEmail;
 
   try {
-    const fullHtml = data.html?.trim() ? sanitizeEmailHtml(data.html) : plainTextToHtml(data.body);
+    const bodyHtml = data.html?.trim() ? sanitizeEmailHtml(data.html) : plainTextToHtml(data.body);
+    const signatureHtml = data.signatureHtml?.trim()
+      ? sanitizeEmailHtml(data.signatureHtml)
+      : "";
+    const fullHtml = signatureHtml
+      ? `${bodyHtml}<br /><br />${signatureHtml}`
+      : bodyHtml;
     const { html: htmlWithCids, attachments } = attachInlineImages(fullHtml);
     const userAttachments = (data.attachments ?? []).map((attachment) => {
       const content = Buffer.from(attachment.content, "base64");
