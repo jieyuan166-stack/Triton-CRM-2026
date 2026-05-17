@@ -29,7 +29,7 @@ const MEMBER_TONES = [
     dot: "#BFDBFE",
     bg: "bg-blue-50/60",
     border: "border-blue-100",
-    text: "text-[#002147]",
+    text: "text-navy",
     ring: "ring-blue-100",
   },
   {

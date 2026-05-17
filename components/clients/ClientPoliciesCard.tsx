@@ -296,7 +296,7 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="h-6 px-2 text-[11px] text-slate-400 hover:text-[#002147]"
+                      className="h-6 px-2 text-[11px] text-slate-400 hover:text-navy"
                       onClick={() => setEntryDialog({ mode: "edit", entry })}
                     >
                       Edit
@@ -434,7 +434,7 @@ function CompactPolicyRow({
             href={`/policies/${policy.id}`}
             className={cn(
               buttonVariants({ variant: "ghost", size: "icon-sm" }),
-              "text-slate-400 hover:text-[#002147]"
+              "text-slate-400 hover:text-navy"
             )}
             aria-label={`Open policy ${policy.policyNumber}`}
           >

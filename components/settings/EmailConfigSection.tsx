@@ -323,7 +323,7 @@ export function EmailConfigSection() {
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div className="flex gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#002147] ring-1 ring-blue-100">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#F4EAD8] text-navy ring-1 ring-[#E8DCC4]">
                 <MailCheck className="h-4 w-4" />
               </div>
               <div>
@@ -352,7 +352,7 @@ export function EmailConfigSection() {
                   variant={automation.premiumRemindersEnabled ? "default" : "outline"}
                   className={cn(
                     "h-8 shrink-0",
-                    automation.premiumRemindersEnabled && "bg-[#002147] text-white hover:bg-[#002147]/90"
+                    automation.premiumRemindersEnabled && "bg-navy text-white hover:bg-[#0B2747]"
                   )}
                   onClick={() => {
                     updateEmailAutomation({ premiumRemindersEnabled: !automation.premiumRemindersEnabled });
@@ -377,7 +377,7 @@ export function EmailConfigSection() {
                   variant={automation.birthdayGreetingsEnabled ? "default" : "outline"}
                   className={cn(
                     "h-8 shrink-0",
-                    automation.birthdayGreetingsEnabled && "bg-[#002147] text-white hover:bg-[#002147]/90"
+                    automation.birthdayGreetingsEnabled && "bg-navy text-white hover:bg-[#0B2747]"
                   )}
                   onClick={() => {
                     updateEmailAutomation({ birthdayGreetingsEnabled: !automation.birthdayGreetingsEnabled });

@@ -38,7 +38,7 @@ export function YtdBusinessGrowth() {
             YTD Business Growth
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-3">
-            <p className="font-finance text-3xl font-bold leading-none tracking-tight text-[#002147]">
+            <p className="font-finance text-3xl font-bold leading-none tracking-tight text-navy">
               {formatCurrencyShort(metrics.currentYtd)}
             </p>
             <span
@@ -134,10 +134,10 @@ export function YtdBusinessGrowth() {
                 <Line
                   type="monotone"
                   dataKey="thisYear"
-                  stroke="#002147"
+                  stroke="#071B33"
                   strokeWidth={3}
                   dot={false}
-                  activeDot={{ r: 5, fill: "#002147", stroke: "#FFFFFF", strokeWidth: 2 }}
+                  activeDot={{ r: 5, fill: "#071B33", stroke: "#FFFFFF", strokeWidth: 2 }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -148,7 +148,7 @@ export function YtdBusinessGrowth() {
               <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                 This Year
               </p>
-              <p className="mt-1 font-finance text-sm font-semibold text-[#002147]">
+              <p className="mt-1 font-finance text-sm font-semibold text-navy">
                 {formatCurrencyShort(metrics.currentYtd)}
               </p>
             </div>

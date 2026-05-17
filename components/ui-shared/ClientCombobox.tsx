@@ -139,7 +139,7 @@ export function ClientCombobox({
                     className={cn(
                       "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors",
                       selected
-                        ? "bg-blue-50 text-[#002147]"
+                        ? "bg-[#F4EAD8] text-navy"
                         : "text-slate-700 hover:bg-slate-50"
                     )}
                   >

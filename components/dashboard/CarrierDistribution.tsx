@@ -65,14 +65,14 @@ export function CarrierDistribution({ policies: overridePolicies }: { policies?:
     <UniversalCard className="flex min-h-[420px] flex-col">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+          <p className="label-caps">
             Carrier Distribution
           </p>
-          <h3 className="mt-2 text-lg font-bold tracking-tight text-[#002147]">
+          <h3 className="mt-2 text-lg font-bold tracking-tight text-navy">
             Business by company
           </h3>
         </div>
-        <div className="rounded-2xl bg-slate-50 p-2 text-slate-400 ring-1 ring-slate-100">
+        <div className="rounded-2xl bg-[#F4EAD8] p-2 text-[#9A7A3B] ring-1 ring-[#E8DCC4]">
           <Building2 className="h-4 w-4" />
         </div>
       </div>
@@ -87,34 +87,34 @@ export function CarrierDistribution({ policies: overridePolicies }: { policies?:
           />
         </div>
       ) : (
-        <div className="mt-5 flex-1 overflow-hidden rounded-2xl border border-slate-100 bg-white">
-          <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(96px,0.8fr)_minmax(96px,0.8fr)] gap-3 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+        <div className="mt-5 flex-1 overflow-hidden rounded-2xl border border-[#E8DCC4]/75 bg-card">
+          <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(96px,0.8fr)_minmax(96px,0.8fr)] gap-3 border-b border-[#E8DCC4]/75 bg-[#F4EAD8]/70 px-4 py-2.5">
+            <span className="label-caps">
               Company
             </span>
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            <span className="label-caps">
               Insurance
             </span>
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            <span className="label-caps">
               Investment
             </span>
           </div>
 
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-[#E8DCC4]/70">
             {rows.map((row) => (
               <Link
                 key={row.carrier}
                 href={`/policies?carrier=${encodeURIComponent(row.carrier)}`}
                 aria-label={`View all ${row.carrier} policies`}
-                className="grid grid-cols-[minmax(0,1.4fr)_minmax(96px,0.8fr)_minmax(96px,0.8fr)] items-center gap-3 px-4 py-4 transition-colors hover:bg-slate-50/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue/30"
+                className="grid grid-cols-[minmax(0,1.4fr)_minmax(96px,0.8fr)_minmax(96px,0.8fr)] items-center gap-3 px-4 py-4 transition-colors hover:bg-[#F8F0E2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-amber/30"
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <CarrierLogoBadge carrier={row.carrier} size="md" />
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-[#002147]">
+                    <p className="truncate text-sm font-semibold text-navy">
                       {row.carrier}
                     </p>
-                    <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                    <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wider text-slate-500">
                       {row.count} active {row.count === 1 ? "item" : "items"}
                     </p>
                   </div>
@@ -137,10 +137,10 @@ export function CarrierDistribution({ policies: overridePolicies }: { policies?:
 function LedgerMetric({ label, value }: { label: string; value: number }) {
   return (
     <div className="min-w-0">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+      <p className="label-caps">
         {label}
       </p>
-      <p className="mt-1 font-finance text-sm font-bold leading-none text-slate-800 sm:text-base">
+      <p className="mt-1 font-finance text-sm font-bold leading-none text-navy sm:text-base">
         {formatCurrencyShort(value)}
       </p>
     </div>

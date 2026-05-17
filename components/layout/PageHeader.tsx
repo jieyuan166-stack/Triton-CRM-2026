@@ -23,7 +23,7 @@ export function PageHeader({
       )}
     >
       <div className="min-w-0">
-        <h1 className="text-2xl md:text-3xl font-bold text-triton-text leading-tight">
+        <h1 className="text-2xl font-bold leading-tight tracking-tight text-navy md:text-3xl">
           {title}
         </h1>
         {description ? (

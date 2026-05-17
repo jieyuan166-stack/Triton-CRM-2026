@@ -28,7 +28,7 @@ export function WidgetCard({
   return (
     <div
       className={cn(
-        "bg-card rounded-xl border border-slate-200 shadow-sm flex flex-col",
+        "flex flex-col rounded-xl border border-[#E8DCC4]/85 bg-card shadow-[0_14px_36px_-30px_rgba(7,27,51,0.48)]",
         className
       )}
     >
@@ -37,7 +37,7 @@ export function WidgetCard({
         <div className="flex items-center gap-2.5 min-w-0">
           {icon ? <span className="shrink-0">{icon}</span> : null}
           <div className="min-w-0">
-            <h3 className="text-sm font-bold uppercase tracking-widest text-slate-700">
+            <h3 className="text-sm font-bold uppercase tracking-widest text-navy">
               {title}
             </h3>
             {description ? (

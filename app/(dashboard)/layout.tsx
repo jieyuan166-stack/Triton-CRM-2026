@@ -60,7 +60,7 @@ export default function DashboardLayout({
         </Sheet>
 
         {/* Main content area */}
-        <main className="min-h-0 flex-1 overflow-auto bg-surface lg:ml-60">
+        <main className="min-h-0 flex-1 overflow-auto bg-transparent lg:ml-60">
           <div className="p-4 sm:p-6 lg:p-8">{children}</div>
       </main>
       </div>

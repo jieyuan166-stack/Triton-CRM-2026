@@ -347,7 +347,7 @@ function ViewButton({
       className={cn(
         "inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-semibold transition-colors",
         active
-          ? "bg-white text-[#002147] shadow-sm"
+          ? "bg-card text-navy shadow-sm"
           : "text-slate-500 hover:text-slate-800"
       )}
     >
@@ -396,7 +396,7 @@ function PoliciesTable({
             return (
               <tr key={policy.id} className="transition-colors hover:bg-slate-50">
                 <td className="px-5 py-3">
-                  <Link href={`/policies/${policy.id}`} className="font-medium text-slate-900 hover:text-accent-blue">
+                  <Link href={`/policies/${policy.id}`} className="font-medium text-slate-900 hover:text-[#8A641E]">
                     {policy.productName || policy.productType}
                   </Link>
                   <p className="mt-0.5 text-xs text-slate-500">
@@ -405,7 +405,7 @@ function PoliciesTable({
                 </td>
                 <td className="px-4 py-3">
                   {client ? (
-                    <Link href={clientPath(client)} className="text-sm font-medium text-[#002147] hover:underline">
+                    <Link href={clientPath(client)} className="text-sm font-medium text-navy hover:underline">
                       {client.firstName} {client.lastName}
                     </Link>
                   ) : (
@@ -462,7 +462,7 @@ function ClientGroupedPolicies({
             <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div>
                 {client ? (
-                  <Link href={clientPath(client)} className="text-sm font-bold text-[#002147] hover:underline">
+                  <Link href={clientPath(client)} className="text-sm font-bold text-navy hover:underline">
                     {title}
                   </Link>
                 ) : (

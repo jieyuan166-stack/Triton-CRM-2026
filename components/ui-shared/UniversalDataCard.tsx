@@ -41,7 +41,7 @@ export function UniversalDataCard({
     <div
       className={cn(
         "block border-l-[3px] p-5 transition-colors",
-        href ? "hover:bg-slate-50/80" : "bg-white",
+        href ? "bg-card hover:bg-[#F8F0E2]" : "bg-card",
         className
       )}
       style={{ borderLeftColor: accentColor }}
@@ -49,7 +49,7 @@ export function UniversalDataCard({
       <div className={cn("min-w-0", contentClassName)}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
-            <div className="text-sm font-medium leading-snug text-triton-text">
+            <div className="text-sm font-medium leading-snug text-navy">
               {title}
             </div>
             {subtitle ? (
@@ -78,7 +78,7 @@ export function UniversalDataCard({
                 <p className="label-caps leading-none">
                   {metric.label}
                 </p>
-                <p className="text-xs font-medium leading-tight text-triton-text">
+                <p className="text-xs font-medium leading-tight text-navy">
                   {metric.value}
                 </p>
                 {metric.helper ? (

@@ -8,16 +8,17 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground [a]:hover:bg-primary/80",
+        default:
+          "bg-navy text-white shadow-[0_10px_24px_-18px_rgba(7,27,51,0.9)] hover:bg-[#0B2747] [a]:hover:bg-[#0B2747]",
         outline:
-          "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+          "border-[#D9C7A7] bg-card text-navy hover:border-[#C99A3A]/55 hover:bg-[#F4EAD8] hover:text-navy aria-expanded:bg-[#F4EAD8] aria-expanded:text-navy dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
+          "bg-[#F1E6D3] text-navy hover:bg-[#E9D3A7] aria-expanded:bg-[#E9D3A7] aria-expanded:text-navy",
         ghost:
-          "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
+          "text-slate-600 hover:bg-[#F4EAD8] hover:text-navy aria-expanded:bg-[#F4EAD8] aria-expanded:text-navy dark:hover:bg-muted/50",
         destructive:
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
-        link: "text-primary underline-offset-4 hover:underline",
+        link: "text-navy underline-offset-4 hover:text-[#8A641E] hover:underline",
       },
       size: {
         default:

@@ -115,7 +115,7 @@ export default function ClientDetailPage() {
             <a
               key={href}
               href={href}
-              className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:bg-white hover:text-[#002147] hover:shadow-sm"
+              className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:bg-card hover:text-navy hover:shadow-sm"
             >
               {label}
             </a>

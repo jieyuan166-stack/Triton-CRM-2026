@@ -7,10 +7,10 @@ import { cn } from "@/lib/utils";
 type AccentColor = "blue" | "green" | "amber" | "purple";
 
 const ACCENT_BG: Record<AccentColor, string> = {
-  blue: "bg-accent-blue/10 text-accent-blue",
-  green: "bg-accent-green/10 text-accent-green",
-  amber: "bg-accent-amber/10 text-accent-amber",
-  purple: "bg-accent-purple/10 text-accent-purple",
+  blue: "bg-navy/10 text-navy ring-1 ring-navy/10",
+  green: "bg-accent-green/10 text-accent-green ring-1 ring-accent-green/15",
+  amber: "bg-accent-amber/12 text-[#8A641E] ring-1 ring-accent-amber/20",
+  purple: "bg-accent-purple/10 text-accent-purple ring-1 ring-accent-purple/15",
 };
 
 export interface KPICardProps {
@@ -43,12 +43,12 @@ export function KPICard({
   return (
     <div
       className={cn(
-        "bg-card rounded-xl border border-slate-200 shadow-sm p-3.5 sm:p-5 md:p-6 flex flex-col gap-2.5 md:gap-3",
+        "flex flex-col gap-2.5 rounded-xl border border-[#E8DCC4]/85 bg-card p-3.5 shadow-[0_14px_36px_-30px_rgba(7,27,51,0.5)] sm:p-5 md:gap-3 md:p-6",
         className
       )}
     >
       <div className="flex items-start justify-between gap-2 md:gap-3">
-        <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-slate-500 leading-tight">
+        <span className="text-[10px] font-semibold uppercase leading-tight tracking-[0.14em] text-slate-500 sm:text-xs">
           {label}
         </span>
         {Icon ? (

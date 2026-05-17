@@ -12,7 +12,7 @@ export function UniversalCard({ children, className }: UniversalCardProps) {
   return (
     <section
       className={cn(
-        "rounded-2xl border border-slate-100 bg-white p-5 shadow-[0_18px_45px_-30px_rgba(15,23,42,0.35)]",
+        "rounded-2xl border border-[#E8DCC4]/80 bg-card p-5 shadow-[0_18px_45px_-34px_rgba(7,27,51,0.5)]",
         className
       )}
     >

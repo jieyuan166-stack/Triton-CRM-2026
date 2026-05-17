@@ -38,7 +38,7 @@ export function CarrierLogoBadge({
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center justify-center overflow-hidden bg-white ring-1 ring-slate-200 shadow-[0_1px_2px_rgba(15,23,42,0.06)]",
+        "inline-flex shrink-0 items-center justify-center overflow-hidden bg-white ring-1 ring-[#E8DCC4] shadow-[0_2px_6px_rgba(7,27,51,0.08)]",
         SIZE_CLASSES[size],
         className
       )}
@@ -56,7 +56,7 @@ export function CarrierLogoBadge({
         <span
           className={cn(
             "flex h-full w-full items-center justify-center text-[10px] font-bold text-white",
-            carrier === "Sun Life" ? "text-[#002147]" : ""
+            carrier === "Sun Life" ? "text-navy" : ""
           )}
           style={{ backgroundColor: CARRIER_COLORS[carrier] }}
         >

@@ -24,7 +24,8 @@ export function TopNav({ onMenuClick }: TopNavProps) {
   }
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 h-16 bg-navy flex items-center px-4 md:px-6 gap-4">
+    <header className="fixed top-0 left-0 right-0 z-50 flex h-16 items-center gap-4 border-b border-[#C99A3A]/20 bg-navy px-4 shadow-[0_18px_45px_-32px_rgba(7,27,51,0.95)] md:px-6">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#C99A3A]/70 to-transparent" />
       {/* Mobile menu toggle */}
       <Button
         variant="ghost"
@@ -44,9 +45,9 @@ export function TopNav({ onMenuClick }: TopNavProps) {
           width={1162}
           height={262}
           priority
-          className="h-9 w-auto object-contain"
+          className="h-9 w-auto object-contain drop-shadow-[0_1px_1px_rgba(0,0,0,0.18)]"
         />
-        <span className="hidden sm:inline-block text-white/30 text-[10px] font-medium uppercase tracking-[0.2em] border-l border-white/15 pl-3">
+        <span className="hidden border-l border-[#C99A3A]/25 pl-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-[#D7B56D]/75 sm:inline-block">
           CRM
         </span>
       </div>
@@ -54,8 +55,8 @@ export function TopNav({ onMenuClick }: TopNavProps) {
       {/* Right cluster: search */}
       <div className="flex items-center gap-2 md:gap-3">
         <GlobalSearch />
-        <div className="hidden min-w-0 items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-white/90 md:flex">
-          <UserCircle className="h-4 w-4 shrink-0 text-white/55" />
+        <div className="hidden min-w-0 items-center gap-2 rounded-full border border-[#C99A3A]/20 bg-white/[0.07] px-3 py-1.5 text-white/90 shadow-inner md:flex">
+          <UserCircle className="h-4 w-4 shrink-0 text-[#D7B56D]/75" />
           <div className="min-w-0 leading-tight">
             <p className="max-w-36 truncate text-xs font-semibold">{userLabel}</p>
             {userEmail && userEmail !== userLabel ? (

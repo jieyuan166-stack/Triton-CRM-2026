@@ -118,7 +118,7 @@ export function ClientHeader({
   }
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 md:p-6 mb-6">
+    <div className="mb-6 rounded-xl border border-[#E8DCC4]/85 bg-card p-5 shadow-[0_14px_36px_-30px_rgba(7,27,51,0.5)] md:p-6">
       {/* Back link */}
       <Link
         href="/clients"
@@ -188,7 +188,7 @@ export function ClientHeader({
                 type="button"
                 onClick={openCompose}
                 title="Compose email"
-                className="inline-flex items-center gap-1.5 text-slate-700 hover:text-accent-blue transition-colors"
+              className="inline-flex items-center gap-1.5 text-slate-700 transition-colors hover:text-[#8A641E]"
               >
                 <Mail className="h-3.5 w-3.5 text-slate-400" />
                 {client.email}
@@ -197,7 +197,7 @@ export function ClientHeader({
             {client.phone ? (
               <a
                 href={`tel:${client.phone}`}
-                className="inline-flex items-center gap-1.5 whitespace-nowrap text-slate-700 transition-colors hover:text-accent-blue"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap text-slate-700 transition-colors hover:text-[#8A641E]"
               >
                 <PhoneIcon className="h-3.5 w-3.5 text-slate-400" />
                 {client.phone}
@@ -209,11 +209,11 @@ export function ClientHeader({
         {/* Portfolio metrics + report */}
         <div className="flex w-full flex-col gap-3 xl:w-auto xl:items-end xl:self-center">
           <div className="flex w-full flex-col gap-5 sm:flex-row sm:items-start sm:gap-0 xl:w-auto xl:shrink-0 xl:text-right">
-            <div className="sm:border-r sm:border-slate-200 sm:pr-8 xl:pr-10">
-              <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
+            <div className="sm:border-r sm:border-[#E8DCC4] sm:pr-8 xl:pr-10">
+              <p className="label-caps">
                 Insurance Death Benefit
               </p>
-              <p className="mt-1 text-xl md:text-2xl font-semibold text-slate-900 font-finance leading-none tracking-tight">
+              <p className="mt-1 font-finance text-xl font-semibold leading-none tracking-tight text-navy md:text-2xl">
                 {formatCurrency(clientMetrics.insuranceFaceAmount)}
               </p>
               <p className="mt-1 text-xs text-slate-500">
@@ -221,10 +221,10 @@ export function ClientHeader({
               </p>
             </div>
             <div className="sm:pl-8 xl:pl-10">
-              <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
+              <p className="label-caps">
                 Investment AUM
               </p>
-              <p className="mt-1 text-xl md:text-2xl font-semibold text-slate-900 font-finance leading-none tracking-tight">
+              <p className="mt-1 font-finance text-xl font-semibold leading-none tracking-tight text-navy md:text-2xl">
                 {formatCurrency(clientMetrics.investmentAum)}
               </p>
               <p className="mt-1 text-xs text-slate-500">

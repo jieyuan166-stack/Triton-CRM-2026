@@ -51,12 +51,12 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "flex flex-col w-60 bg-white border-r border-slate-200 pt-5 pb-6",
+        "flex w-60 flex-col border-r border-[#E8DCC4] bg-[#FFFCF6]/95 pt-5 pb-6 shadow-[8px_0_30px_-28px_rgba(7,27,51,0.55)]",
         className
       )}
     >
       {/* Section label */}
-      <p className="px-6 mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+      <p className="mb-2 px-6 text-[10px] font-semibold uppercase tracking-[0.24em] text-[#9A7A3B]">
         Workspace
       </p>
 
@@ -73,16 +73,16 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
               href={href}
               onClick={onNavigate}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors group",
+                "group flex items-center gap-3 rounded-lg border-l-2 px-3 py-2.5 text-sm font-medium transition-colors",
                 active
-                  ? "bg-navy text-white shadow-sm"
-                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                  ? "border-[#C99A3A] bg-navy text-white shadow-[0_12px_30px_-24px_rgba(7,27,51,0.9)]"
+                  : "border-transparent text-slate-600 hover:bg-[#F4EAD8] hover:text-navy"
               )}
             >
               <Icon
                 className={cn(
                   "h-4 w-4 shrink-0 transition-colors",
-                  active ? "text-white" : "text-slate-400 group-hover:text-slate-600"
+                  active ? "text-[#D7B56D]" : "text-slate-400 group-hover:text-[#9A7A3B]"
                 )}
               />
               <span className="flex-1">{label}</span>
@@ -91,8 +91,8 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
                   className={cn(
                     "text-[11px] font-semibold font-number px-2 py-0.5 rounded-md transition-colors",
                     active
-                      ? "bg-white/15 text-white"
-                      : "bg-slate-100 text-slate-500 group-hover:bg-slate-200"
+                      ? "bg-[#C99A3A]/18 text-white"
+                      : "bg-[#F1E6D3] text-slate-600 group-hover:bg-[#E9D3A7]"
                   )}
                 >
                   {badge}
@@ -104,8 +104,8 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
       </nav>
 
       {/* Bottom version tag */}
-      <div className="mx-6 mt-4 pt-4 border-t border-slate-100">
-        <p className="text-[10px] text-slate-400 uppercase tracking-wider font-medium">
+      <div className="mx-6 mt-4 border-t border-[#E8DCC4] pt-4">
+        <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
           Triton CRM v1.0
         </p>
       </div>

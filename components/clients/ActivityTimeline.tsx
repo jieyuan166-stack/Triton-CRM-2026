@@ -297,7 +297,7 @@ export function ActivityTimeline({
                 className={cn(
                   "rounded-full px-3 py-1 text-[11px] font-semibold transition-colors",
                   filter === item.value
-                    ? "bg-white text-[#002147] shadow-sm"
+                    ? "bg-card text-navy shadow-sm"
                     : "text-slate-400 hover:text-slate-600"
                 )}
               >
