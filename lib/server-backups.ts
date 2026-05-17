@@ -28,6 +28,13 @@ type BackupAccessUser = {
   role?: string | null;
 };
 
+export class BackupAccessError extends Error {
+  constructor(message = "This backup is not available for the current user. Refresh the backup list or switch to the backup owner account.") {
+    super(message);
+    this.name = "BackupAccessError";
+  }
+}
+
 export function getBackupDir() {
   return process.env.BACKUP_DIR || path.join(/*turbopackIgnore: true*/ process.cwd(), "backups");
 }
@@ -161,7 +168,7 @@ function canAccessBackup(filename: string, user: BackupAccessUser) {
 
 async function assertBackupAccess(filename: string, user: BackupAccessUser) {
   if (!canAccessBackup(filename, user)) {
-    throw new Error("Backup not found");
+    throw new BackupAccessError();
   }
 }
 
@@ -196,8 +203,14 @@ export function isDatabaseBackup(filename: string) {
 }
 
 function safeBackupReadError(error: unknown): Error {
-  if (error && typeof error === "object" && "code" in error && (error as NodeJS.ErrnoException).code === "EACCES") {
-    return new Error("Backup file is not readable by the app. Please repair backup permissions.");
+  if (error && typeof error === "object" && "code" in error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "EACCES") {
+      return new Error("Backup file is not readable by the app. Please repair backup permissions.");
+    }
+    if (code === "ENOENT") {
+      return new Error("Backup file no longer exists. Refresh the backup list.");
+    }
   }
   return error instanceof Error ? error : new Error("Backup file could not be read");
 }

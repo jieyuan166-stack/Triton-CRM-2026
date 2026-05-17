@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { auditLog, requireSession, unauthorized } from "@/lib/api-security";
-import { readSnapshotBackup, restoreDatabaseBackup } from "@/lib/server-backups";
+import { BackupAccessError, readSnapshotBackup, restoreDatabaseBackup } from "@/lib/server-backups";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,10 +41,15 @@ export async function POST(
     await auditLog({ action: "restore_backup", entityType: "backup", entityId: id });
     return NextResponse.json({ ok: true, data });
   } catch (error) {
-    console.error("[backup restore] failed:", error);
+    console.error("[backup restore] failed", {
+      id,
+      userId: session.user.id,
+      role: session.user.role,
+      error,
+    });
     return NextResponse.json(
       { ok: false, error: error instanceof Error ? error.message : "Restore failed" },
-      { status: 400 },
+      { status: error instanceof BackupAccessError ? 403 : 400 },
     );
   }
 }

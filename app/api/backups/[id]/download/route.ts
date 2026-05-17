@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { auditLog, requireSession, unauthorized } from "@/lib/api-security";
-import { readBackupFile } from "@/lib/server-backups";
+import { BackupAccessError, readBackupFile } from "@/lib/server-backups";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,9 +24,15 @@ export async function GET(
       },
     });
   } catch (error) {
+    console.error("[backups] download failed", {
+      id,
+      userId: session.user.id,
+      role: session.user.role,
+      error,
+    });
     return NextResponse.json(
       { ok: false, error: error instanceof Error ? error.message : "Backup not found" },
-      { status: 404 },
+      { status: error instanceof BackupAccessError ? 403 : 404 },
     );
   }
 }

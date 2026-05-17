@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { auditLog, requireSession, unauthorized } from "@/lib/api-security";
-import { deleteBackupFile, setBackupImportant } from "@/lib/server-backups";
+import { BackupAccessError, deleteBackupFile, setBackupImportant } from "@/lib/server-backups";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,6 +43,8 @@ export async function POST(
     console.error("[backups] important flag update failed", {
       id,
       important: body.important,
+      userId: session.user.id,
+      role: session.user.role,
       error,
     });
     return NextResponse.json(
@@ -53,7 +55,7 @@ export async function POST(
             ? error.message
             : "Backup flag update failed",
       },
-      { status: 400 },
+      { status: error instanceof BackupAccessError ? 403 : 400 },
     );
   }
 }
@@ -73,9 +75,15 @@ export async function DELETE(
     await auditLog({ action: "delete_backup", entityType: "backup", entityId: id });
     return NextResponse.json({ ok: true });
   } catch (error) {
+    console.error("[backups] delete failed", {
+      id,
+      userId: session.user.id,
+      role: session.user.role,
+      error,
+    });
     return NextResponse.json(
       { ok: false, error: error instanceof Error ? error.message : "Delete failed" },
-      { status: 404 },
+      { status: error instanceof BackupAccessError ? 403 : 404 },
     );
   }
 }

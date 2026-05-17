@@ -8,6 +8,7 @@ import {
   History,
   Loader2,
   Play,
+  RefreshCw,
   RotateCcw,
   Star,
   Trash2,
@@ -72,6 +73,7 @@ export function BackupsSection() {
   const {
     settings,
     backups,
+    refreshBackups,
     createBackup,
     restoreBackup,
     deleteBackup,
@@ -80,6 +82,7 @@ export function BackupsSection() {
   const { getSnapshot, replaceAll } = useData();
   const isAdmin = session?.user?.role === "admin";
   const [creating, setCreating] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [restoring, setRestoring] = useState<string | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<BackupRecord | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BackupRecord | null>(null);
@@ -102,6 +105,19 @@ export function BackupsSection() {
     }
   }
 
+  async function handleRefresh() {
+    setRefreshing(true);
+    try {
+      await refreshBackups();
+    } catch (error) {
+      toast.error("Could not refresh backups", {
+        description: error instanceof Error ? error.message : "Please try again.",
+      });
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   async function handleRestore() {
     if (!confirmTarget) return;
     setRestoring(confirmTarget.id);
@@ -111,6 +127,7 @@ export function BackupsSection() {
     setRestoring(null);
     if (!r.ok) {
       toast.error("Restore failed", { description: r.error });
+      void refreshBackups();
       return;
     }
     if (r.restartRequired) {
@@ -145,8 +162,10 @@ export function BackupsSection() {
     const r = await deleteBackup(target.id);
     if (!r.ok) {
       toast.error("Delete failed", { description: r.error });
+      void refreshBackups();
       return;
     }
+    setDeleteTarget(null);
     toast.success("Backup deleted", { description: target.filename });
   }
 
@@ -156,6 +175,7 @@ export function BackupsSection() {
       const result = await setBackupImportant(b.id, next);
       if (!result.ok) {
         toast.error("Could not update backup marker", { description: result.error });
+        void refreshBackups();
         return;
       }
       toast.success(next ? "Backup marked important" : "Backup unmarked", {
@@ -196,6 +216,22 @@ export function BackupsSection() {
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              title="Refresh backup list"
+              aria-label="Refresh backup list"
+            >
+              {refreshing ? (
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+              )}
+              Refresh
+            </Button>
             <Button
               type="button"
               size="sm"
