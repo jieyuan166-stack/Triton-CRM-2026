@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useSettings } from "@/components/providers/SettingsProvider";
 import { RichSignatureEditor } from "@/components/settings/RichSignatureEditor";
 import {
-  SIGNATURE_TEMPLATES,
+  getSignatureTemplates,
   htmlToPlainText,
 } from "@/lib/signature-templates";
 import { birthdayCardImageHtml, plainTextToEmailHtml, removeBirthdayCardToken } from "@/lib/templates";
@@ -23,6 +23,10 @@ export function TemplatesSection() {
   const { settings, updateTemplate, resetTemplate, updateSignature } =
     useSettings();
   const { templates, signature } = settings;
+  const signatureTemplates = getSignatureTemplates({
+    name: settings.profile.name || settings.email.fromName,
+    email: settings.email.fromEmail || settings.profile.email || settings.email.user,
+  });
 
   const [active, setActive] = useState<EmailTemplateId>("birthday");
 
@@ -57,7 +61,7 @@ export function TemplatesSection() {
               Choose Template
             </p>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {SIGNATURE_TEMPLATES.map((template) => (
+              {signatureTemplates.map((template) => (
                 <button
                   key={template.id}
                   type="button"

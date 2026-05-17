@@ -15,6 +15,11 @@ export interface SignatureTemplate {
   html: string;
 }
 
+export interface SignatureTemplateAdvisor {
+  name?: string | null;
+  email?: string | null;
+}
+
 const NAVY = "#0F172A";
 const ACCENT = "#3B82F6";
 const MUTED = "#64748B";
@@ -41,21 +46,44 @@ const credentialBadges = `
   </tr>
 </table>`.trim();
 
-// Minimalist: Broker Disclaimer with Jeffrey Yuan.
-const minimalist = `
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function advisorContact(advisor?: SignatureTemplateAdvisor) {
+  const email = advisor?.email?.trim() || "advisor@example.com";
+  const name = advisor?.name?.trim() || (email.includes("@") ? email.split("@")[0] : "Advisor");
+  const isJeffrey = email.toLowerCase() === "jieyuan165@gmail.com" || /jeffrey\s+yuan/i.test(name);
+  return {
+    name: escapeHtml(name),
+    email: escapeHtml(email),
+    phoneLine: isJeffrey
+      ? `<div style="margin-bottom: 3px;">
+        <span style="white-space: nowrap;">Cell: <a href="tel:+17788376688" style="color: ${ACCENT}; text-decoration: none;">778-837-6688</a></span>
+        <span style="padding: 0 8px; color: ${BORDER};">|</span>
+        <span style="white-space: nowrap;">Fax: 604-261-2193</span>
+      </div>`
+      : "",
+  };
+}
+
+// Minimalist: Broker Disclaimer.
+function minimalistTemplate(advisor?: SignatureTemplateAdvisor) {
+  const contact = advisorContact(advisor);
+  return `
 <div style="font-family: Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif; color: ${NAVY};">
   <div style="font-size: 14px; line-height: 1.5;">
-    <div style="font-weight: 700; font-size: 15px; color: ${NAVY};">Jeffrey Yuan</div>
+    <div style="font-weight: 700; font-size: 15px; color: ${NAVY};">${contact.name}</div>
     <div style="font-weight: 400; font-size: 12px; color: ${MUTED}; margin-top: 1px;">Independent Broker</div>
     ${credentialBadges}
     <div style="margin-top: 6px; color: ${MUTED}; font-size: 12px;">
       <div style="margin-bottom: 3px;">#1200-1200 W. 73rd Ave. Vancouver, BC V6P 6G5</div>
-      <div style="margin-bottom: 3px;">
-        <span style="white-space: nowrap;">Cell: <a href="tel:+17788376688" style="color: ${ACCENT}; text-decoration: none;">778-837-6688</a></span>
-        <span style="padding: 0 8px; color: ${BORDER};">|</span>
-        <span style="white-space: nowrap;">Fax: 604-261-2193</span>
-      </div>
-      <div style="margin-bottom: 3px; white-space: nowrap;">Email: <a href="mailto:jieyuan165@gmail.com" style="color: ${ACCENT}; text-decoration: none;">jieyuan165@gmail.com</a></div>
+      ${contact.phoneLine}
+      <div style="margin-bottom: 3px; white-space: nowrap;">Email: <a href="mailto:${contact.email}" style="color: ${ACCENT}; text-decoration: none;">${contact.email}</a></div>
       <div style="white-space: nowrap;">Web: <a href="https://www.tritonwealth.ca" style="color: ${ACCENT}; text-decoration: none;">tritonwealth.ca</a></div>
     </div>
   </div>
@@ -70,44 +98,54 @@ const minimalist = `
     </p>
   </div>
 </div>`.trim();
+}
 
 // Corporate: Two-column layout with Triton logo + full contact info.
-const corporate = `
+function corporateTemplate(advisor?: SignatureTemplateAdvisor) {
+  const contact = advisorContact(advisor);
+  return `
 <table cellpadding="0" cellspacing="0" border="0" role="presentation" style="font-family: Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif; font-size: 13px; line-height: 1.55; color: ${NAVY};">
   <tr>
     <td style="vertical-align: top; padding-right: 16px; border-right: 2px solid ${ACCENT};">
       <img src="${TRITON_LOGO_URL}" width="80" alt="Triton Wealth Management" style="display: block; border-radius: 8px; border: 0;" />
     </td>
     <td style="vertical-align: top; padding-left: 16px;">
-      <div style="font-weight: 700; font-size: 15px; color: ${NAVY};">Jeffrey Yuan</div>
+      <div style="font-weight: 700; font-size: 15px; color: ${NAVY};">${contact.name}</div>
       <div style="color: ${MUTED}; font-size: 12px; margin-top: 2px;">Independent Broker</div>
       ${credentialBadges}
       <div style="color: ${NAVY}; font-size: 12px; margin-top: 6px; font-weight: 600;">Triton Wealth Management Corporation</div>
       <div style="color: ${MUTED}; font-size: 12px; margin-top: 3px;">#1200-1200 W. 73rd Ave. Vancouver, BC V6P 6G5</div>
       <div style="margin-top: 6px; color: ${MUTED}; font-size: 12px;">
-        <div>Cell: <a href="tel:+17788376688" style="color: ${ACCENT}; text-decoration: none;">778-837-6688</a></div>
-        <div>Fax: 604-261-2193</div>
-        <div style="white-space: nowrap;">Email: <a href="mailto:jieyuan165@gmail.com" style="color: ${ACCENT}; text-decoration: none;">jieyuan165@gmail.com</a></div>
+        ${contact.phoneLine}
+        <div style="white-space: nowrap;">Email: <a href="mailto:${contact.email}" style="color: ${ACCENT}; text-decoration: none;">${contact.email}</a></div>
         <div>Web: <a href="https://www.tritonwealth.ca" style="color: ${ACCENT}; text-decoration: none;">tritonwealth.ca</a></div>
       </div>
     </td>
   </tr>
 </table>`.trim();
+}
 
-export const SIGNATURE_TEMPLATES: SignatureTemplate[] = [
-  {
-    id: "minimalist",
-    label: "Broker Disclaimer",
-    description: "Official broker contact block with confidentiality notice.",
-    html: minimalist,
-  },
-  {
-    id: "corporate",
-    label: "Corporate (with image)",
-    description: "Two-column table layout with Triton logo on the left.",
-    html: corporate,
-  },
-];
+export function getSignatureTemplates(advisor?: SignatureTemplateAdvisor): SignatureTemplate[] {
+  return [
+    {
+      id: "minimalist",
+      label: "Broker Disclaimer",
+      description: "Official broker contact block with confidentiality notice.",
+      html: minimalistTemplate(advisor),
+    },
+    {
+      id: "corporate",
+      label: "Corporate (with image)",
+      description: "Two-column table layout with Triton logo on the left.",
+      html: corporateTemplate(advisor),
+    },
+  ];
+}
+
+export const SIGNATURE_TEMPLATES: SignatureTemplate[] = getSignatureTemplates({
+  name: "Jeffrey Yuan",
+  email: "jieyuan165@gmail.com",
+});
 
 /** Strip HTML tags + decode common entities for the plain-text fallback.
  *  Cheap, dependency-free, and good enough for a signature (a few lines).
