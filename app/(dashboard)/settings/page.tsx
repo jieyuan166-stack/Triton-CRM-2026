@@ -14,16 +14,18 @@
 
 "use client";
 
-import { useState } from "react";
-import { Archive, FileText, Mail, UserCircle, type LucideIcon } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Archive, FileText, Mail, UserCircle, Users, type LucideIcon } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ProfileSection } from "@/components/settings/ProfileSection";
 import { EmailConfigSection } from "@/components/settings/EmailConfigSection";
 import { TemplatesSection } from "@/components/settings/TemplatesSection";
 import { BackupsSection } from "@/components/settings/BackupsSection";
+import { UsersSection } from "@/components/settings/UsersSection";
+import { useAuth } from "@/components/providers/AuthProvider";
 import { cn } from "@/lib/utils";
 
-type SectionId = "profile" | "email" | "templates" | "backups";
+type SectionId = "profile" | "email" | "templates" | "backups" | "users";
 
 interface SectionDef {
   id: SectionId;
@@ -33,7 +35,7 @@ interface SectionDef {
   hint: string;
 }
 
-const SECTIONS: SectionDef[] = [
+const BASE_SECTIONS: SectionDef[] = [
   {
     id: "profile",
     label: "Profile",
@@ -60,8 +62,25 @@ const SECTIONS: SectionDef[] = [
   },
 ];
 
+const ADMIN_SECTION: SectionDef = {
+  id: "users",
+  label: "Users",
+  icon: Users,
+  hint: "Admin access control",
+};
+
 export default function SettingsPage() {
   const [active, setActive] = useState<SectionId>("profile");
+  const { session, ready } = useAuth();
+  const isAdmin = session?.user?.role === "admin";
+  const sections = useMemo(
+    () => (isAdmin ? [...BASE_SECTIONS, ADMIN_SECTION] : BASE_SECTIONS),
+    [isAdmin],
+  );
+
+  useEffect(() => {
+    if (ready && active === "users" && !isAdmin) setActive("profile");
+  }, [active, isAdmin, ready]);
 
   return (
     <>
@@ -82,7 +101,7 @@ export default function SettingsPage() {
           className="md:w-56 shrink-0"
         >
           <ul className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible">
-            {SECTIONS.map((s) => {
+            {sections.map((s) => {
               const Icon = s.icon;
               const isActive = s.id === active;
               return (
@@ -133,6 +152,7 @@ export default function SettingsPage() {
           {active === "email" ? <EmailConfigSection /> : null}
           {active === "templates" ? <TemplatesSection /> : null}
           {active === "backups" ? <BackupsSection /> : null}
+          {active === "users" && isAdmin ? <UsersSection /> : null}
         </section>
       </div>
     </>
