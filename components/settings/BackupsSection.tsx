@@ -132,14 +132,20 @@ export function BackupsSection() {
 
   async function handleToggleImportant(b: BackupRecord) {
     const next = !b.important;
-    const result = await setBackupImportant(b.id, next);
-    if (!result.ok) {
-      toast.error("Could not update backup marker", { description: result.error });
-      return;
+    try {
+      const result = await setBackupImportant(b.id, next);
+      if (!result.ok) {
+        toast.error("Could not update backup marker", { description: result.error });
+        return;
+      }
+      toast.success(next ? "Backup marked important" : "Backup unmarked", {
+        description: b.filename,
+      });
+    } catch (error) {
+      toast.error("Could not update backup marker", {
+        description: error instanceof Error ? error.message : "Please try again.",
+      });
     }
-    toast.success(next ? "Backup marked important" : "Backup unmarked", {
-      description: b.filename,
-    });
   }
 
   function handleDownload(b: BackupRecord) {

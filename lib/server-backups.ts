@@ -78,13 +78,20 @@ async function readBackupFlags(): Promise<BackupFlags> {
 
 async function writeBackupFlags(flags: BackupFlags) {
   await ensureBackupDir();
-  await fs.writeFile(flagsPath(), `${JSON.stringify(flags, null, 2)}\n`, {
+  const target = flagsPath();
+  const temp = path.join(getBackupDir(), `.${BACKUP_FLAGS_FILENAME}.${process.pid}.${Date.now()}.tmp`);
+  await fs.writeFile(temp, `${JSON.stringify(flags, null, 2)}\n`, {
     mode: 0o660,
   });
+  await fs.rename(temp, target);
+  await fs.chmod(target, 0o660).catch(() => undefined);
 }
 
 export async function setBackupImportant(filename: string, important: boolean) {
-  backupPath(filename);
+  const target = backupPath(filename);
+  await fs.access(target).catch((error) => {
+    throw safeBackupReadError(error);
+  });
   const flags = await readBackupFlags();
   if (important) {
     flags[filename] = { ...(flags[filename] ?? {}), important: true };

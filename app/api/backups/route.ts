@@ -67,6 +67,11 @@ export async function PATCH(request: Request) {
     });
     return NextResponse.json({ ok: true });
   } catch (error) {
+    console.error("[backups] flag update failed", {
+      id: body.id,
+      important: body.important,
+      error,
+    });
     return NextResponse.json(
       { ok: false, error: error instanceof Error ? error.message : "Backup flag update failed" },
       { status: 400 },
