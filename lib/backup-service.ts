@@ -95,8 +95,8 @@ class ApiBackupService implements BackupService {
   async setImportant(id: string, important: boolean): Promise<{ ok: boolean; error?: string }> {
     try {
       await readJson<{ ok: true }>(
-        await fetch("/api/backups", {
-          method: "PATCH",
+        await fetch("/api/backups/important", {
+          method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id, important }),
         }),
