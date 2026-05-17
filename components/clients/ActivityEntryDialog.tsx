@@ -60,6 +60,12 @@ function policyDisplayName(policy: Policy): string {
   return `${product} · ${policy.carrier} · #${policy.policyNumber || "N/A"}`;
 }
 
+function policyShortDisplayName(policy: Policy): string {
+  const product = policy.productName || policy.productType || "Policy";
+  const shortProduct = product.length > 28 ? `${product.slice(0, 27).trim()}…` : product;
+  return `${shortProduct} · #${policy.policyNumber || "N/A"}`;
+}
+
 function splitKnownAndCustom(label: string) {
   const parts = parseCommunicationTypes(label);
   const known = parts.filter((item) =>
@@ -202,7 +208,7 @@ export function ActivityEntryDialog({
               <SelectTrigger id="activity-entry-policy" className="w-full max-w-full">
                 <span className="min-w-0 flex-1 truncate text-left">
                   {selectedPolicy
-                    ? policyDisplayName(selectedPolicy)
+                    ? policyShortDisplayName(selectedPolicy)
                     : "No policy target"}
                 </span>
               </SelectTrigger>

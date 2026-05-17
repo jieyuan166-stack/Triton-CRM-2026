@@ -16,6 +16,8 @@ const SNAPSHOT_RE = /^backup_\d{8}T\d{6}\.json\.gz$/;
 const MANUAL_DATABASE_RE = /^backup_\d{8}T\d{6}\.db\.gz$/;
 const DATABASE_RE = /^triton-\d{8}-\d{6}(?:-[a-z0-9-]+)?\.db\.gz$/i;
 const BACKUP_TIME_ZONE = "America/Vancouver";
+const BACKUP_FLAGS_FILENAME = ".backup-flags.json";
+type BackupFlags = Record<string, { important?: boolean }>;
 
 export function getBackupDir() {
   return process.env.BACKUP_DIR || path.join(/* turbopackIgnore: true */ process.cwd(), "backups");
@@ -54,6 +56,46 @@ export function backupPath(filename: string) {
 
 async function ensureBackupDir() {
   await fs.mkdir(getBackupDir(), { recursive: true });
+}
+
+function flagsPath() {
+  return path.join(getBackupDir(), BACKUP_FLAGS_FILENAME);
+}
+
+async function readBackupFlags(): Promise<BackupFlags> {
+  await ensureBackupDir();
+  try {
+    const raw = await fs.readFile(flagsPath(), "utf8");
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    return parsed as BackupFlags;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return {};
+    console.warn("[backups] could not read backup flags:", error);
+    return {};
+  }
+}
+
+async function writeBackupFlags(flags: BackupFlags) {
+  await ensureBackupDir();
+  await fs.writeFile(flagsPath(), `${JSON.stringify(flags, null, 2)}\n`, {
+    mode: 0o660,
+  });
+}
+
+export async function setBackupImportant(filename: string, important: boolean) {
+  backupPath(filename);
+  const flags = await readBackupFlags();
+  if (important) {
+    flags[filename] = { ...(flags[filename] ?? {}), important: true };
+  } else {
+    if (flags[filename]) delete flags[filename].important;
+    if (flags[filename] && Object.keys(flags[filename]).length === 0) {
+      delete flags[filename];
+    }
+  }
+  await writeBackupFlags(flags);
+  return { ok: true as const };
 }
 
 function kindFor(filename: string): BackupRecord["kind"] {
@@ -123,6 +165,14 @@ function sqliteDatabasePath() {
 export async function listBackupFiles(): Promise<BackupRecord[]> {
   await ensureBackupDir();
   const entries = await fs.readdir(getBackupDir(), { withFileTypes: true });
+  const flags = await readBackupFlags();
+  const liveFilenames = new Set(entries.filter((entry) => entry.isFile()).map((entry) => entry.name));
+  const cleanedFlags = Object.fromEntries(
+    Object.entries(flags).filter(([filename]) => liveFilenames.has(filename))
+  );
+  if (Object.keys(cleanedFlags).length !== Object.keys(flags).length) {
+    await writeBackupFlags(cleanedFlags);
+  }
   const records = await Promise.all(
     entries
       .filter((entry) => entry.isFile() && isSafeBackupFilename(entry.name))
@@ -136,6 +186,7 @@ export async function listBackupFiles(): Promise<BackupRecord[]> {
           filename: entry.name,
           kind,
           restorable: isDb || (!isDb && kind === "snapshot"),
+          important: !!cleanedFlags[entry.name]?.important,
           size: stat.size,
           createdAt: stat.mtime.toISOString(),
           contents:
@@ -249,6 +300,11 @@ export async function restoreDatabaseBackup(filename: string) {
 
 export async function deleteBackupFile(filename: string) {
   await fs.unlink(backupPath(filename));
+  const flags = await readBackupFlags();
+  if (flags[filename]) {
+    delete flags[filename];
+    await writeBackupFlags(flags);
+  }
 }
 
 export async function readBackupFile(filename: string) {

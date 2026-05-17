@@ -9,6 +9,7 @@ import {
   Loader2,
   Play,
   RotateCcw,
+  Star,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -65,6 +66,7 @@ export function BackupsSection() {
     createBackup,
     restoreBackup,
     deleteBackup,
+    setBackupImportant,
   } = useSettings();
   const { getSnapshot, replaceAll } = useData();
   const [creating, setCreating] = useState(false);
@@ -126,6 +128,18 @@ export function BackupsSection() {
       return;
     }
     toast.success("Backup deleted", { description: target.filename });
+  }
+
+  async function handleToggleImportant(b: BackupRecord) {
+    const next = !b.important;
+    const result = await setBackupImportant(b.id, next);
+    if (!result.ok) {
+      toast.error("Could not update backup marker", { description: result.error });
+      return;
+    }
+    toast.success(next ? "Backup marked important" : "Backup unmarked", {
+      description: b.filename,
+    });
   }
 
   function handleDownload(b: BackupRecord) {
@@ -201,6 +215,11 @@ export function BackupsSection() {
                       <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${tone.badge}`}>
                         {tone.label}
                       </span>
+                      {b.important ? (
+                        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 ring-1 ring-amber-100">
+                          Important
+                        </span>
+                      ) : null}
                       <span className="font-number">{fmtSize(b.size)}</span>
                       <span className="hidden md:inline truncate">
                         {b.contents.join(" · ")}
@@ -208,6 +227,16 @@ export function BackupsSection() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className={`h-8 ${b.important ? "text-amber-500 hover:bg-amber-50 hover:text-amber-600" : "text-slate-300 hover:bg-amber-50 hover:text-amber-500"}`}
+                      title={b.important ? "Important backup: protected from auto cleanup" : "Mark backup as important"}
+                      aria-label={`${b.important ? "Unmark" : "Mark"} ${b.filename} as important`}
+                      onClick={() => handleToggleImportant(b)}
+                    >
+                      <Star className={`h-3.5 w-3.5 ${b.important ? "fill-current" : ""}`} />
+                    </Button>
                     <Button
                       size="sm"
                       variant="ghost"
@@ -297,7 +326,8 @@ export function BackupsSection() {
           deleteTarget ? (
             <>
               Are you sure you want to delete{" "}
-              <span className="font-number">{deleteTarget.filename}</span>? This
+              <span className="font-number">{deleteTarget.filename}</span>?
+              {deleteTarget.important ? " This backup is marked important." : ""} This
               action cannot be undone.
             </>
           ) : (

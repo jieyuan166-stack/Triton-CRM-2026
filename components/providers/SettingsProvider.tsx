@@ -49,6 +49,7 @@ interface SettingsContextValue {
    *  it to DataProvider.replaceAll + persist it for a window.reload. */
   restoreBackup(id: string): Promise<RestoreBackupResult>;
   deleteBackup(id: string): Promise<{ ok: boolean; error?: string }>;
+  setBackupImportant(id: string, important: boolean): Promise<{ ok: boolean; error?: string }>;
   /** Add a backup record from an uploaded JSON file. The caller has done the
    *  FileReader read; we own JSON parsing + structural validation. */
   importBackup(
@@ -231,6 +232,15 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     [refreshBackups]
   );
 
+  const setBackupImportant = useCallback(
+    async (id: string, important: boolean) => {
+      const result = await getBackupService().setImportant(id, important);
+      await refreshBackups();
+      return result;
+    },
+    [refreshBackups]
+  );
+
   const importBackup = useCallback(
     async (text: string, filename: string) => {
       const result = await getBackupService().importFromJson(text, filename);
@@ -257,6 +267,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       createBackup,
       restoreBackup,
       deleteBackup,
+      setBackupImportant,
       importBackup,
     }),
     [
@@ -280,6 +291,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       createBackup,
       restoreBackup,
       deleteBackup,
+      setBackupImportant,
       importBackup,
     ]
   );

@@ -53,6 +53,8 @@ export interface BackupRecord {
   filename: string;          // e.g. backup_20260506T1430.tar.gz
   kind?: "snapshot" | "database";
   restorable?: boolean;
+  /** Advisor-pinned backups are protected from automatic retention cleanup. */
+  important?: boolean;
   /** Bytes (estimated for the in-memory mock; real bytes for file uploads). */
   size: number;
   createdAt: string;         // ISO timestamp

@@ -15,6 +15,7 @@ export interface BackupService {
   createNow(snapshot: BackupSnapshot): Promise<BackupRecord>;
   restore(id: string): Promise<RestoreBackupResult>;
   delete(id: string): Promise<{ ok: boolean; error?: string }>;
+  setImportant(id: string, important: boolean): Promise<{ ok: boolean; error?: string }>;
   importFromJson(
     text: string,
     filename: string
@@ -88,6 +89,21 @@ class ApiBackupService implements BackupService {
       return { ok: true };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error.message : "Delete failed" };
+    }
+  }
+
+  async setImportant(id: string, important: boolean): Promise<{ ok: boolean; error?: string }> {
+    try {
+      await readJson<{ ok: true }>(
+        await fetch("/api/backups", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, important }),
+        }),
+      );
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : "Update failed" };
     }
   }
 

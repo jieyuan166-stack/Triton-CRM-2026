@@ -36,6 +36,25 @@ fi
 docker exec "$CONTAINER_NAME" sh -lc "sqlite3 '$DB_PATH' '.backup /tmp/triton-backup.db' && gzip -c /tmp/triton-backup.db > '$TARGET_IN_CONTAINER' && chmod 660 '$TARGET_IN_CONTAINER'"
 docker exec "$CONTAINER_NAME" sh -lc "printf '%s' '$CURRENT_HASH' > '$HASH_FILE_IN_CONTAINER'"
 
-docker exec "$CONTAINER_NAME" sh -lc "cd /app/backups && ls -1t *.db.gz 2>/dev/null | tail -n +$((KEEP_BACKUPS + 1)) | xargs -r rm -f"
+docker exec "$CONTAINER_NAME" sh -lc "cd /app/backups && node - <<'NODE'
+const fs = require('fs');
+const keep = Number(process.env.KEEP_BACKUPS || '$KEEP_BACKUPS');
+let flags = {};
+try {
+  flags = JSON.parse(fs.readFileSync('.backup-flags.json', 'utf8'));
+} catch {}
+const files = fs.readdirSync('.')
+  .filter((name) => name.endsWith('.db.gz'))
+  .map((name) => ({ name, stat: fs.statSync(name) }))
+  .sort((a, b) => b.stat.mtimeMs - a.stat.mtimeMs);
+let keptUnstarred = 0;
+for (const file of files) {
+  if (flags[file.name]?.important) continue;
+  keptUnstarred += 1;
+  if (keptUnstarred > keep) {
+    fs.unlinkSync(file.name);
+  }
+}
+NODE"
 
 echo "Created $BACKUP_DIR/$FILENAME"
