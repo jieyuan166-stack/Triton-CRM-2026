@@ -139,7 +139,7 @@ model FollowUp {
   clientId      String
   client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
   createdById   String
-  createdBy     User     @relation(fields: [createdById], references: [id])
+  createdBy     User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
   type          String
   date          DateTime
   summary       String
@@ -154,7 +154,7 @@ model EmailHistory {
   clientId      String
   client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
   userId        String?
-  user          User?    @relation(fields: [userId], references: [id])
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   date          DateTime @default(now())
   subject       String
   body          String
@@ -191,7 +191,7 @@ model EmailReminderSend {
 model AuditLog {
   id         String   @id @default(cuid())
   userId     String?
-  user       User?    @relation(fields: [userId], references: [id])
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   action     String
   entityType String?
   entityId   String?

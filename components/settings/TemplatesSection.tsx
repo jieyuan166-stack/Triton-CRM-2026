@@ -17,6 +17,7 @@ import {
   htmlToPlainText,
 } from "@/lib/signature-templates";
 import { birthdayCardImageHtml, plainTextToEmailHtml, removeBirthdayCardToken } from "@/lib/templates";
+import { sanitizeEmailHtml } from "@/lib/security/sanitize-html";
 import type { EmailTemplate, EmailTemplateAttachment, EmailTemplateId } from "@/lib/settings-types";
 
 export function TemplatesSection() {
@@ -363,12 +364,13 @@ function TemplateEditor({
           <div
             className="text-slate-700 leading-relaxed [&_img]:mt-2 [&_img]:max-w-full [&_img]:rounded-lg [&_img]:border [&_img]:border-slate-100"
             dangerouslySetInnerHTML={{
-              __html:
+              __html: sanitizeEmailHtml(
                 plainTextToEmailHtml(
                   template.id === "birthday"
                     ? removeBirthdayCardToken(previewBody(body))
                     : previewBody(body)
-                ) + (template.id === "birthday" ? birthdayCardImageHtml() : ""),
+                ) + (template.id === "birthday" ? birthdayCardImageHtml() : "")
+              ),
             }}
           />
         </div>

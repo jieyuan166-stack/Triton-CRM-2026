@@ -24,6 +24,13 @@ export async function POST(request: Request) {
     windowMs: 15 * 60 * 1000,
   });
   if (!limited.ok) {
+    // Return the same shape as a successful request to prevent account
+    // enumeration. Log on the server so operators can correlate "I didn't
+    // get my reset email" tickets with rate-limit hits.
+    console.warn("[forgot-password] rate limited", {
+      ip: getClientIp(request),
+      resetAt: new Date(limited.resetAt).toISOString(),
+    });
     return NextResponse.json({ ok: true });
   }
 

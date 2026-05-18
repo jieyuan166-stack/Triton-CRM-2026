@@ -11,6 +11,7 @@ const scriptSrc = [
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  poweredByHeader: false,
   async headers() {
     const securityHeaders = [
       {

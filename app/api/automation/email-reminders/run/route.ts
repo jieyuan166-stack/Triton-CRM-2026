@@ -3,6 +3,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { auditLog } from "@/lib/api-security";
+import { isAuthorizedCronRequest } from "@/lib/cron-auth";
 import { db } from "@/lib/db";
 import { emailDefaults, serverEnv } from "@/lib/env.server";
 import { buildDefaultSettingsForUser, mergeAppSettings } from "@/lib/default-settings";
@@ -90,9 +91,7 @@ async function createTransporter(settings: Awaited<ReturnType<typeof readSetting
 }
 
 export async function POST(request: Request) {
-  const expectedSecret = process.env.CRON_SECRET;
-  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
-  if (!expectedSecret || token !== expectedSecret) {
+  if (!isAuthorizedCronRequest(request)) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 

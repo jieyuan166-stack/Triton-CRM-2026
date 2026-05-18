@@ -22,16 +22,42 @@ export interface BackupService {
   ): Promise<{ ok: true; record: BackupRecord } | { ok: false; error: string }>;
 }
 
+export const CURRENT_SNAPSHOT_SCHEMA_VERSION = 1 as const;
+export const SUPPORTED_SNAPSHOT_SCHEMA_VERSIONS: readonly number[] = [1];
+
+/**
+ * Loose validator: a snapshot is restorable if it has the core arrays we
+ * expect. Older snapshots may be missing optional fields (relationships,
+ * emailReminderSends, settings) — those are tolerated. Newer schema
+ * versions will fail here, surfacing a clear error before we try to
+ * write half-understood data into the database.
+ */
 export function isValidSnapshot(v: unknown): v is BackupSnapshot {
   if (!v || typeof v !== "object") return false;
   const o = v as Record<string, unknown>;
+  if (!SUPPORTED_SNAPSHOT_SCHEMA_VERSIONS.includes(o.version as number)) return false;
   return (
-    o.version === 1 &&
     typeof o.capturedAt === "string" &&
     Array.isArray(o.clients) &&
     Array.isArray(o.policies) &&
     Array.isArray(o.followUps)
   );
+}
+
+export function describeSnapshotIncompatibility(v: unknown): string | null {
+  if (!v || typeof v !== "object") return "Backup file is empty or not a JSON object.";
+  const o = v as Record<string, unknown>;
+  if (typeof o.version !== "number") {
+    return "Backup file is missing the schema version field.";
+  }
+  if (!SUPPORTED_SNAPSHOT_SCHEMA_VERSIONS.includes(o.version)) {
+    return `Backup schema version ${o.version} is not supported by this server (supported: ${SUPPORTED_SNAPSHOT_SCHEMA_VERSIONS.join(", ")}).`;
+  }
+  if (typeof o.capturedAt !== "string") return "Backup is missing the capturedAt timestamp.";
+  if (!Array.isArray(o.clients)) return "Backup is missing the clients array.";
+  if (!Array.isArray(o.policies)) return "Backup is missing the policies array.";
+  if (!Array.isArray(o.followUps)) return "Backup is missing the followUps array.";
+  return null;
 }
 
 async function readJson<T>(response: Response): Promise<T> {

@@ -127,6 +127,12 @@ export async function DELETE(
   }
 
   try {
+    // FollowUp.createdById and EmailHistory.userId both cascade or set
+    // null at the database layer, so a single user delete is safe even
+    // if the advisor has produced years of activity. We still wrap the
+    // whole sequence in a transaction in case the DB engine is missing
+    // any of those constraints (older deployments before the
+    // 20260518 migration).
     await db.$transaction(async (tx) => {
       await tx.auditLog.deleteMany({ where: { userId: target.id } });
       await tx.user.delete({ where: { id: target.id } });

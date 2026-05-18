@@ -8,7 +8,11 @@ import { gzip, gunzip } from "zlib";
 import { promisify } from "util";
 
 import type { BackupRecord, BackupSnapshot } from "@/lib/settings-types";
-import { isValidSnapshot } from "@/lib/backup-service";
+import {
+  CURRENT_SNAPSHOT_SCHEMA_VERSION,
+  describeSnapshotIncompatibility,
+  isValidSnapshot,
+} from "@/lib/backup-service";
 import { db } from "@/lib/db";
 
 const gzipAsync = promisify(gzip);
@@ -424,7 +428,7 @@ export async function createSnapshotBackup(snapshot: BackupSnapshot, user: Backu
   const filename = `advisor-${ownerSlug}-${timestampLabel().replace("T", "-")}.json.gz`;
   const body = Buffer.from(JSON.stringify({
     ...snapshot,
-    version: 1,
+    version: CURRENT_SNAPSHOT_SCHEMA_VERSION,
     scope: "user",
     ownerUserId,
     ownerEmail: user.email ?? "",
@@ -507,7 +511,14 @@ export async function readSnapshotBackup(filename: string, user: BackupAccessUse
   });
   const raw = await gunzipAsync(compressed);
   const parsed = JSON.parse(raw.toString("utf8"));
+  const incompatibility = describeSnapshotIncompatibility(parsed);
+  if (incompatibility) {
+    throw new Error(incompatibility);
+  }
   if (!isValidSnapshot(parsed)) {
+    // Defense-in-depth: describeSnapshotIncompatibility should have caught
+    // every failure mode above, but we keep the type guard so callers can
+    // rely on a typed return value.
     throw new Error("Backup file is missing required snapshot fields");
   }
   return parsed;

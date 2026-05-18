@@ -3,6 +3,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 
 import { auditLog } from "@/lib/api-security";
+import { isAuthorizedCronRequest } from "@/lib/cron-auth";
 import { db } from "@/lib/db";
 import { createSnapshotBackup } from "@/lib/server-backups";
 import { buildUserSnapshot } from "@/lib/user-backup-snapshots";
@@ -11,9 +12,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function isAuthorized(request: Request) {
-  const expectedSecret = process.env.CRON_SECRET;
-  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
-  return !!expectedSecret && token === expectedSecret;
+  return isAuthorizedCronRequest(request);
 }
 
 export async function POST(request: Request) {

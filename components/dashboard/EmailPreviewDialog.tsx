@@ -31,6 +31,7 @@ import {
   BIRTHDAY_CARD_TOKEN,
   removeBirthdayCardToken,
 } from "@/lib/templates";
+import { sanitizeEmailHtml } from "@/lib/security/sanitize-html";
 
 const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
 
@@ -177,7 +178,7 @@ export function EmailPreviewDialog({
     : 1;
   const signatureHtml =
     settings.signature.enabled && settings.signature.html?.trim()
-      ? settings.signature.html
+      ? sanitizeEmailHtml(settings.signature.html)
       : settings.signature.enabled && settings.signature.text.trim()
       ? plainTextToEmailHtml(settings.signature.text)
       : "";
