@@ -23,6 +23,10 @@
 /prisma/*.db
 /prisma/*.db-*
 
+# runtime artifacts on the NAS
+tunnel-watchdog.log
+/cloudflared/
+
 # misc
 .DS_Store
 ._*
