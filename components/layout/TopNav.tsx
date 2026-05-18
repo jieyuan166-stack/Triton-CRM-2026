@@ -2,6 +2,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogOut, Menu, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -39,14 +40,20 @@ export function TopNav({ onMenuClick }: TopNavProps) {
 
       {/* Brand */}
       <div className="flex items-center gap-3 flex-1 min-w-0">
-        <Image
-          src="/brand/triton-logo-horizontal.png"
-          alt="Triton Wealth Management"
-          width={1162}
-          height={262}
-          priority
-          className="h-9 w-auto object-contain drop-shadow-[0_1px_1px_rgba(0,0,0,0.18)]"
-        />
+        <Link
+          href="/dashboard"
+          aria-label="Go to dashboard"
+          className="shrink-0 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#D7B56D]/70"
+        >
+          <Image
+            src="/brand/triton-logo-horizontal.png"
+            alt="Triton Wealth Management"
+            width={1162}
+            height={262}
+            priority
+            className="h-9 w-auto object-contain drop-shadow-[0_1px_1px_rgba(0,0,0,0.18)]"
+          />
+        </Link>
         <span className="hidden border-l border-[#C99A3A]/25 pl-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-[#D7B56D]/75 sm:inline-block">
           CRM
         </span>
