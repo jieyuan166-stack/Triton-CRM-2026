@@ -20,13 +20,21 @@ services:
       - /volume1/docker/triton-crm/backups:/app/backups
     environment:
       # Override values that should be hard-coded for the container regardless
-      # of what the env file says, plus AUTH_SECRET which is just a copy of
-      # NEXTAUTH_SECRET (NextAuth v5 reads either name).
+      # of what the env file says.
       DATABASE_URL: file:/app/prisma/data/triton.db
-      AUTH_URL: ${AUTH_URL:-https://crm.tritonwealth.ca}
-      NEXTAUTH_URL: ${NEXTAUTH_URL:-https://crm.tritonwealth.ca}
-      AUTH_SECRET: ${NEXTAUTH_SECRET}
       BACKUP_DIR: /app/backups
+      # The remaining values (NEXTAUTH_SECRET, AUTH_SECRET, AUTH_URL,
+      # NEXTAUTH_URL, SMTP_*, NEXT_PUBLIC_GOOGLE_MAPS_KEY, SEED_*,
+      # CRON_SECRET) come from env_file: ../.env.production. We do NOT
+      # list them here as ${VAR} interpolation, because docker-compose
+      # variable substitution reads from the calling shell's environment
+      # rather than env_file, and a missing shell var would silently
+      # blank out the value (this is what wiped AUTH_SECRET on the first
+      # run after the env_file refactor).
+      #
+      # AUTH_SECRET note: the .env.production file should set both
+      # NEXTAUTH_SECRET and AUTH_SECRET (NextAuth v5 reads AUTH_SECRET
+      # first). They are normally identical strings.
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/api/ready"]
       interval: 30s
