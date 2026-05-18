@@ -7,6 +7,8 @@ services:
         NEXT_PUBLIC_GOOGLE_MAPS_KEY: ${NEXT_PUBLIC_GOOGLE_MAPS_KEY}
     container_name: triton-crm
     restart: unless-stopped
+    env_file:
+      - ../.env.production
     expose:
       - "3000"
     ports:
@@ -17,22 +19,13 @@ services:
       - triton-data:/app/prisma/data
       - /volume1/docker/triton-crm/backups:/app/backups
     environment:
+      # Override values that should be hard-coded for the container regardless
+      # of what the env file says, plus AUTH_SECRET which is just a copy of
+      # NEXTAUTH_SECRET (NextAuth v5 reads either name).
       DATABASE_URL: file:/app/prisma/data/triton.db
       AUTH_URL: ${AUTH_URL:-https://crm.tritonwealth.ca}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-https://crm.tritonwealth.ca}
       AUTH_SECRET: ${NEXTAUTH_SECRET}
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
-      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL}
-      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD}
-      SMTP_PASSWORD: ${SMTP_PASSWORD}
-      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
-      SMTP_PORT: ${SMTP_PORT:-465}
-      SMTP_SECURE: ${SMTP_SECURE:-true}
-      SMTP_USER: ${SMTP_USER}
-      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Jeffrey Yuan}
-      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL}
-      NEXT_PUBLIC_GOOGLE_MAPS_KEY: ${NEXT_PUBLIC_GOOGLE_MAPS_KEY}
-      CRON_SECRET: ${CRON_SECRET}
       BACKUP_DIR: /app/backups
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/api/ready"]
@@ -45,9 +38,15 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: triton-tunnel
     restart: unless-stopped
-    command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TOKEN}
-    environment:
-      TUNNEL_TOKEN: ${CLOUDFLARED_TOKEN}
+    # Credentials-file mode: the tunnel UUID and signing key live in
+    # /etc/cloudflared/credentials.json (mode 600, only the cloudflared
+    # process can read it). The companion config.yml on the host names
+    # the tunnel and routes hostnames to the upstream Next.js service.
+    # Token mode is gone — tokens used to leak through `docker ps` and
+    # `docker inspect` because they had to be passed as a CLI arg.
+    command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run
+    volumes:
+      - /volume1/docker/triton-crm/cloudflared:/etc/cloudflared:ro
     networks:
       - triton-net
     depends_on:

@@ -411,83 +411,84 @@ async function replaceAll(snapshot: {
   const emailReminderSends = Array.isArray(snapshot.emailReminderSends) ? snapshot.emailReminderSends : [];
   const clientIds = new Set(clients.map((c) => c.id));
 
-  await db.$transaction(async (tx) => {
-    await tx.client.deleteMany({ where: { userId } });
+  // Build all rows up-front so the transaction body itself only issues
+  // a fixed number of bulk SQL statements. Restoring an account with
+  // hundreds of clients used to issue 2k+ individual INSERTs inside a
+  // single 30-second transaction; this version is bounded by table
+  // count, not row count.
+  const clientRows = clients.map((c) => clientData({ ...c, linkedToId: undefined }, false, userId));
 
-    for (const c of clients) {
-      await tx.client.create({
-        data: clientData({
-          ...c,
-          linkedToId: undefined,
-        }, false, userId) as never,
-      });
-      for (const entry of c.emailHistory ?? []) {
-        await tx.emailHistory.create({
-          data: {
-            id: entry.id,
-            clientId: c.id,
-            userId,
-            date: toDate(entry.date) ?? new Date(),
-            subject: entry.subject,
-            body: entry.body,
-            templateLabel: entry.templateLabel ?? null,
-            policyId: entry.policyId ?? null,
-            policyNumber: entry.policyNumber ?? null,
-            policyLabel: entry.policyLabel ?? null,
-            communicationType: entry.communicationType ?? null,
-          },
-        });
-      }
+  const emailHistoryRows = clients.flatMap((c) =>
+    (c.emailHistory ?? []).map((entry) => ({
+      id: entry.id,
+      clientId: c.id,
+      userId,
+      date: toDate(entry.date) ?? new Date(),
+      subject: entry.subject,
+      body: entry.body,
+      templateLabel: entry.templateLabel ?? null,
+      policyId: entry.policyId ?? null,
+      policyNumber: entry.policyNumber ?? null,
+      policyLabel: entry.policyLabel ?? null,
+      communicationType: entry.communicationType ?? null,
+    }))
+  );
+
+  const linkedClientUpdates = clients
+    .filter((c) => c.linkedToId && clientIds.has(c.linkedToId))
+    .map((c) => ({
+      where: { id: c.id },
+      data: {
+        linkedToId: c.linkedToId!,
+        relationship: c.relationship ?? null,
+      },
+    }));
+
+  const seenRelationships = new Set<string>();
+  const relationshipRows: Array<{
+    id: string;
+    fromClientId: string;
+    toClientId: string;
+    relationship: string;
+    createdAt: Date;
+  }> = [];
+  for (const relationship of [
+    ...relationships,
+    ...clients
+      .filter((c) => c.linkedToId && c.relationship)
+      .map((c) => ({
+        id: `${c.id}_${c.linkedToId}`,
+        fromClientId: c.id,
+        toClientId: c.linkedToId!,
+        relationship: c.relationship!,
+        createdAt: c.createdAt,
+      } satisfies ClientRelationship)),
+  ]) {
+    if (
+      !clientIds.has(relationship.fromClientId) ||
+      !clientIds.has(relationship.toClientId) ||
+      relationship.fromClientId === relationship.toClientId
+    ) {
+      continue;
     }
+    const key = `${relationship.fromClientId}:${relationship.toClientId}`;
+    if (seenRelationships.has(key)) continue;
+    seenRelationships.add(key);
+    relationshipRows.push({
+      id: relationship.id,
+      fromClientId: relationship.fromClientId,
+      toClientId: relationship.toClientId,
+      relationship: relationship.relationship,
+      createdAt: toDate(relationship.createdAt) ?? new Date(),
+    });
+  }
 
-    for (const c of clients) {
-      if (c.linkedToId && clientIds.has(c.linkedToId)) {
-        await tx.client.update({
-          where: { id: c.id },
-          data: {
-            linkedToId: c.linkedToId,
-            relationship: c.relationship ?? null,
-          },
-        });
-      }
-    }
-
-    const seenRelationships = new Set<string>();
-    const relationshipRows = [
-      ...relationships,
-      ...clients
-        .filter((c) => c.linkedToId && c.relationship)
-        .map((c) => ({
-          id: `${c.id}_${c.linkedToId}`,
-          fromClientId: c.id,
-          toClientId: c.linkedToId!,
-          relationship: c.relationship!,
-          createdAt: c.createdAt,
-        } satisfies ClientRelationship)),
-    ];
-    for (const relationship of relationshipRows) {
-      if (
-        !clientIds.has(relationship.fromClientId) ||
-        !clientIds.has(relationship.toClientId) ||
-        relationship.fromClientId === relationship.toClientId
-      ) {
-        continue;
-      }
-      const key = `${relationship.fromClientId}:${relationship.toClientId}`;
-      if (seenRelationships.has(key)) continue;
-      seenRelationships.add(key);
-      await tx.clientRelationship.create({
-        data: {
-          id: relationship.id,
-          fromClientId: relationship.fromClientId,
-          toClientId: relationship.toClientId,
-          relationship: relationship.relationship,
-          createdAt: toDate(relationship.createdAt) ?? new Date(),
-        },
-      });
-    }
-
-    for (const p of policies.filter((p) => clientIds.has(p.clientId))) {
+  // Policies still need per-row create() because beneficiaries are a
+  // nested write that createMany does not support. We pre-compute the
+  // policy data so the inner loop is just one tx call per policy.
+  const policyEntries = policies
+    .filter((p) => clientIds.has(p.clientId))
+    .map((p) => {
       const hasValidJoint =
         !!p.isJoint &&
         !!p.jointWithClientId &&
@@ -498,55 +499,89 @@ async function replaceAll(snapshot: {
         isJoint: hasValidJoint,
         jointWithClientId: hasValidJoint ? p.jointWithClientId : undefined,
       }, false, userId);
+      const beneficiaries = (p.beneficiaries ?? []).map((b) => ({
+        id: b.id,
+        name: b.name,
+        relationship: b.relationship,
+        sharePercent: b.sharePercent,
+      }));
+      return { data, beneficiaries };
+    });
+
+  const policyIdSet = new Set(policyEntries.map((entry) => entry.data.id as string).filter(Boolean));
+
+  const reminderRows = emailReminderSends
+    .filter((send) => clientIds.has(send.clientId))
+    .filter((send) => !send.policyId || policyIdSet.has(send.policyId))
+    .map((send) => ({
+      id: send.id,
+      dedupeKey: send.dedupeKey,
+      policyId: send.policyId ?? null,
+      clientId: send.clientId,
+      type: send.type,
+      stage: send.stage ?? null,
+      cycleKey: send.cycleKey,
+      source: send.source ?? "manual",
+      messageId: send.messageId ?? null,
+      sentAt: toDate(send.sentAt) ?? new Date(),
+      createdAt: toDate(send.createdAt) ?? new Date(),
+    }));
+
+  const followUpRows = followUps
+    .filter((f) => clientIds.has(f.clientId))
+    .map((f) => ({
+      id: f.id,
+      clientId: f.clientId,
+      createdById: userId,
+      type: f.type,
+      date: toDate(f.date) ?? new Date(),
+      summary: f.summary,
+      details: f.details ?? null,
+      createdAt: toDate(f.createdAt) ?? new Date(),
+    }));
+
+  await db.$transaction(async (tx) => {
+    await tx.client.deleteMany({ where: { userId } });
+
+    if (clientRows.length) {
+      await tx.client.createMany({ data: clientRows as never });
+    }
+
+    if (emailHistoryRows.length) {
+      await tx.emailHistory.createMany({ data: emailHistoryRows });
+    }
+
+    // linkedToId is a self-reference; rows must already exist before we
+    // can resolve the FK. Updates run after the bulk client insert.
+    for (const update of linkedClientUpdates) {
+      await tx.client.update(update);
+    }
+
+    if (relationshipRows.length) {
+      await tx.clientRelationship.createMany({ data: relationshipRows });
+    }
+
+    // Beneficiaries are nested under each policy, so this loop stays
+    // per-policy. The cost is O(policy count), not O(client * policy).
+    for (const entry of policyEntries) {
       await tx.policy.create({
         data: {
-          ...data,
+          ...entry.data,
           beneficiaries: {
-            create: (p.beneficiaries ?? []).map((b) => ({
-              id: b.id,
-              name: b.name,
-              relationship: b.relationship,
-              sharePercent: b.sharePercent,
-            })),
+            create: entry.beneficiaries,
           },
         } as never,
       });
     }
 
-    for (const send of emailReminderSends.filter((send) => clientIds.has(send.clientId))) {
-      if (send.policyId && !policies.some((policy) => policy.id === send.policyId)) continue;
-      await tx.emailReminderSend.create({
-        data: {
-          id: send.id,
-          dedupeKey: send.dedupeKey,
-          policyId: send.policyId ?? null,
-          clientId: send.clientId,
-          type: send.type,
-          stage: send.stage ?? null,
-          cycleKey: send.cycleKey,
-          source: send.source ?? "manual",
-          messageId: send.messageId ?? null,
-          sentAt: toDate(send.sentAt) ?? new Date(),
-          createdAt: toDate(send.createdAt) ?? new Date(),
-        },
-      });
+    if (reminderRows.length) {
+      await tx.emailReminderSend.createMany({ data: reminderRows });
     }
 
-    for (const f of followUps.filter((f) => clientIds.has(f.clientId))) {
-      await tx.followUp.create({
-        data: {
-          id: f.id,
-          clientId: f.clientId,
-          createdById: userId,
-          type: f.type,
-          date: toDate(f.date) ?? new Date(),
-          summary: f.summary,
-          details: f.details ?? null,
-          createdAt: toDate(f.createdAt) ?? new Date(),
-        },
-      });
+    if (followUpRows.length) {
+      await tx.followUp.createMany({ data: followUpRows });
     }
-  }, { maxWait: 5_000, timeout: 30_000 });
+  }, { maxWait: 10_000, timeout: 120_000 });
 }
 
 export async function GET() {
