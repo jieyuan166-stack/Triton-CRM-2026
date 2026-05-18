@@ -312,16 +312,15 @@ export function EmailConfigSection() {
                 onChange={(e) => updateWeeklyDigest({ time: e.target.value })}
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="weekly-digest-recipient">Recipient</Label>
-              <Input
-                id="weekly-digest-recipient"
-                type="email"
-                value={digest.recipientEmail}
-                onChange={(e) =>
-                  updateWeeklyDigest({ recipientEmail: e.target.value })
-                }
-              />
+            <div className="space-y-1.5 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2">
+              <Label>Recipient</Label>
+              <p className="text-sm font-medium text-slate-800">
+                Your sign-in email
+              </p>
+              <p className="text-[11px] leading-relaxed text-triton-muted">
+                Digest emails are sent only to the advisor account that owns
+                the data.
+              </p>
             </div>
           </div>
         </div>

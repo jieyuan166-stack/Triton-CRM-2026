@@ -126,7 +126,6 @@ export function ClientsDataTable() {
   const [provinces, setProvinces] = useState<string[]>([]);
   const [tagsFilter, setTagsFilter] = useState<string[]>([]);
   const [tagMatchMode, setTagMatchMode] = useState<"any" | "all">("any");
-  const [needsFollowUpOnly, setNeedsFollowUpOnly] = useState(false);
   const [sort, setSort] = useState<SortState>({ key: "name", dir: "asc" });
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState<RowsPerPage>(25);
@@ -186,10 +185,9 @@ export function ClientsDataTable() {
         {
           search,
           provinces,
-      tags: tagsFilter,
-      tagMatchMode,
-      needsFollowUpOnly,
-      sortKey: sort.key,
+          tags: tagsFilter,
+          tagMatchMode,
+          sortKey: sort.key,
           sortDir: sort.dir,
           page,
           perPage,
@@ -201,7 +199,6 @@ export function ClientsDataTable() {
       provinces,
       tagsFilter,
       tagMatchMode,
-      needsFollowUpOnly,
       sort,
       page,
       perPage,
@@ -244,7 +241,6 @@ export function ClientsDataTable() {
     setProvinces([]);
     setTagsFilter([]);
     setTagMatchMode("any");
-    setNeedsFollowUpOnly(false);
     setPage(1);
   }
 
@@ -412,11 +408,6 @@ export function ClientsDataTable() {
         }}
         onTagMatchModeChange={(mode) => {
           setTagMatchMode(mode);
-          setPage(1);
-        }}
-        needsFollowUpOnly={needsFollowUpOnly}
-        onToggleNeedsFollowUp={() => {
-          setNeedsFollowUpOnly((value) => !value);
           setPage(1);
         }}
         onClearAll={clearAll}

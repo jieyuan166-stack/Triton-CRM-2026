@@ -15,7 +15,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Check, ChevronDown, Clock3, MapPin, Search, Tag, X } from "lucide-react";
+import { Check, ChevronDown, MapPin, Search, Tag, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DynamicTagBadge } from "@/components/ui-shared/DynamicTagBadge";
@@ -39,9 +39,6 @@ export interface ClientsToolbarProps {
   onClearTags: () => void;
   onTagMatchModeChange: (mode: "any" | "all") => void;
 
-  needsFollowUpOnly: boolean;
-  onToggleNeedsFollowUp: () => void;
-
   onClearAll: () => void;
 }
 
@@ -59,16 +56,13 @@ export function ClientsToolbar(props: ClientsToolbarProps) {
     onToggleTag,
     onClearTags,
     onTagMatchModeChange,
-    needsFollowUpOnly,
-    onToggleNeedsFollowUp,
     onClearAll,
   } = props;
 
   const anyFilter =
     !!search.trim() ||
     selectedProvinces.length > 0 ||
-    selectedTags.length > 0 ||
-    needsFollowUpOnly;
+    selectedTags.length > 0;
 
   return (
     <div className="flex flex-col lg:flex-row lg:items-center gap-3 mb-4">
@@ -131,20 +125,6 @@ export function ClientsToolbar(props: ClientsToolbarProps) {
           onClear={onClearTags}
           onMatchModeChange={onTagMatchModeChange}
         />
-
-        <button
-          type="button"
-          onClick={onToggleNeedsFollowUp}
-          className={cn(
-            "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm transition-colors outline-none",
-            needsFollowUpOnly
-              ? "border-amber-300 bg-amber-50 text-amber-800"
-              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-          )}
-        >
-          <Clock3 className="h-3.5 w-3.5" />
-          Needs follow-up
-        </button>
 
         {anyFilter ? (
           <Button

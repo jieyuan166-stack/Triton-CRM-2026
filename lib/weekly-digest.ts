@@ -200,8 +200,8 @@ export async function sendWeeklyDigestForUser(
 
   const fromName = settings.email.fromName || emailDefaults.fromName;
   const fromEmail = settings.email.fromEmail || emailDefaults.fromEmail || emailDefaults.user;
-  const recipient = settings.weeklyDigest.recipientEmail || settings.profile.email || user.email || emailDefaults.user;
-  if (!recipient) return { sent: false, skipped: "No recipient configured" };
+  const recipient = user.email;
+  if (!recipient) return { sent: false, skipped: "User sign-in email is not configured" };
 
   const info = await transporter.sendMail({
     from: fromName ? `${fromName} <${fromEmail}>` : fromEmail,
