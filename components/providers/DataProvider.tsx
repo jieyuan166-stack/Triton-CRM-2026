@@ -484,7 +484,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         normalizedPatch.lastName = toTitleCaseName(patch.lastName);
       }
       if (patch.notes !== undefined) {
-        normalizedPatch.notes = normalizeClientNotes(patch.notes);
+        normalizedPatch.notes = normalizeClientNotes(patch.notes) ?? "";
       }
       const updated: Client | null = current
         ? {

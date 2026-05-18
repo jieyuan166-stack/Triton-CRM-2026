@@ -32,7 +32,7 @@ export function ClientNotesCard({ client }: ClientNotesCardProps) {
     setStatus("saving");
 
     const timer = window.setTimeout(() => {
-      const saved = updateClient(client.id, { notes: nextNotes || undefined });
+      const saved = updateClient(client.id, { notes: nextNotes });
       if (!saved) {
         setStatus("idle");
         toast.error("Unable to save client notes.");
