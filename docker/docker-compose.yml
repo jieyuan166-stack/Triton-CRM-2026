@@ -44,6 +44,11 @@ services:
     # the tunnel and routes hostnames to the upstream Next.js service.
     # Token mode is gone — tokens used to leak through `docker ps` and
     # `docker inspect` because they had to be passed as a CLI arg.
+    #
+    # Migration: see scripts/migrate-cloudflared-to-credentials.sh.
+    # Until the migration is complete, the host directory will be empty
+    # and cloudflared will fail to start. That is the intended fail-fast
+    # behaviour — switching modes must be a deliberate operator action.
     command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run
     volumes:
       - /volume1/docker/triton-crm/cloudflared:/etc/cloudflared:ro
