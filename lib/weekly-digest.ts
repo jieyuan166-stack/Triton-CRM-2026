@@ -141,7 +141,10 @@ export function isWeeklyDigestDue(settings: AppSettings, now = new Date()) {
   if (local.weekday !== settings.weeklyDigest.weekday) return false;
   const target = minutesFromTime(settings.weeklyDigest.time);
   const current = local.hour * 60 + local.minute;
-  return current >= target && current < target + 30;
+  // Send once any time after the scheduled time on the chosen day. The audit
+  // cycle key below prevents duplicate sends, while this wider window avoids a
+  // missed digest after deploys, NAS restarts, or cron delays.
+  return current >= target;
 }
 
 async function alreadySentAutomaticDigest(userId: string, cycleKey: string, now: Date) {

@@ -33,8 +33,8 @@ interface SettingsContextValue {
   changePassword(current: string, next: string): Promise<{ ok: boolean; error?: string }>;
   requestPasswordReset(): Promise<{ ok: boolean }>;
   updateEmailConfig(patch: Partial<EmailConfig>): void;
-  updateWeeklyDigest(patch: Partial<AppSettings["weeklyDigest"]>): void;
-  updateEmailAutomation(patch: Partial<AppSettings["emailAutomation"]>): void;
+  updateWeeklyDigest(patch: Partial<AppSettings["weeklyDigest"]>): Promise<{ ok: boolean; error?: string }>;
+  updateEmailAutomation(patch: Partial<AppSettings["emailAutomation"]>): Promise<{ ok: boolean; error?: string }>;
 
   // templates + signature
   updateTemplate(id: EmailTemplateId, patch: Partial<Omit<EmailTemplate, "id" | "label" | "variables">>): void;
@@ -82,15 +82,23 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [signature, setSignature] = useState<EmailSignature>(userDefaults.signature);
   const [backups, setBackups] = useState<BackupRecord[]>([]);
 
-  const persistSettings = useCallback((next: Partial<AppSettings>) => {
-    void fetch("/api/settings", {
+  const persistSettings = useCallback(async (next: Partial<AppSettings>) => {
+    const response = await fetch("/api/settings", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(next),
-    }).catch(() => {
-      // The UI remains responsive if a background settings write fails;
-      // the next explicit save/action will surface API errors where needed.
     });
+    const payload = (await response.json().catch(() => ({}))) as {
+      settings?: AppSettings;
+      error?: string;
+    };
+    if (!response.ok || !payload.settings) {
+      return {
+        ok: false as const,
+        error: payload.error || `Settings save failed (${response.status})`,
+      };
+    }
+    return { ok: true as const, settings: payload.settings };
   }, []);
 
   const refreshBackups = useCallback(async () => {
@@ -175,25 +183,35 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, [persistSettings]);
 
   const updateWeeklyDigest = useCallback(
-    (patch: Partial<AppSettings["weeklyDigest"]>) => {
-      setWeeklyDigest((prev) => {
-        const next = { ...prev, ...patch };
-        persistSettings({ weeklyDigest: next });
-        return next;
-      });
+    async (patch: Partial<AppSettings["weeklyDigest"]>) => {
+      const previous = weeklyDigest;
+      const next = { ...weeklyDigest, ...patch };
+      setWeeklyDigest(next);
+      const result = await persistSettings({ weeklyDigest: next });
+      if (!result.ok) {
+        setWeeklyDigest(previous);
+        return { ok: false, error: result.error };
+      }
+      setWeeklyDigest(result.settings.weeklyDigest ?? next);
+      return { ok: true };
     },
-    [persistSettings]
+    [persistSettings, weeklyDigest]
   );
 
   const updateEmailAutomation = useCallback(
-    (patch: Partial<AppSettings["emailAutomation"]>) => {
-      setEmailAutomation((prev) => {
-        const next = { ...prev, ...patch };
-        persistSettings({ emailAutomation: next });
-        return next;
-      });
+    async (patch: Partial<AppSettings["emailAutomation"]>) => {
+      const previous = emailAutomation;
+      const next = { ...emailAutomation, ...patch };
+      setEmailAutomation(next);
+      const result = await persistSettings({ emailAutomation: next });
+      if (!result.ok) {
+        setEmailAutomation(previous);
+        return { ok: false, error: result.error };
+      }
+      setEmailAutomation(result.settings.emailAutomation ?? next);
+      return { ok: true };
     },
-    [persistSettings]
+    [emailAutomation, persistSettings]
   );
 
   const requestPasswordReset = useCallback(async () => {

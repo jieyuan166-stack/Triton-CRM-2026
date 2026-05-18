@@ -37,6 +37,9 @@ export function EmailConfigSection() {
   const [user, setUser] = useState(email.user);
   const [fromName, setFromName] = useState(email.fromName);
   const [fromEmail, setFromEmail] = useState(email.fromEmail);
+  const [savingDigest, setSavingDigest] = useState(false);
+  const [savingPremiumAutomation, setSavingPremiumAutomation] = useState(false);
+  const [savingBirthdayAutomation, setSavingBirthdayAutomation] = useState(false);
 
   useEffect(() => {
     setHost(email.host);
@@ -256,20 +259,24 @@ export function EmailConfigSection() {
               type="button"
               size="sm"
               variant={digest.enabled ? "default" : "outline"}
+              disabled={savingDigest}
               className={cn(
                 "h-8 shrink-0",
                 digest.enabled && "bg-amber-600 text-white hover:bg-amber-700"
               )}
-              onClick={() => {
-                updateWeeklyDigest({ enabled: !digest.enabled });
-                toast.success(
-                  digest.enabled
-                    ? "Weekly digest disabled"
-                    : "Weekly digest enabled"
-                );
+              onClick={async () => {
+                setSavingDigest(true);
+                const nextEnabled = !digest.enabled;
+                const result = await updateWeeklyDigest({ enabled: nextEnabled });
+                setSavingDigest(false);
+                if (!result.ok) {
+                  toast.error(result.error || "Weekly digest could not be saved");
+                  return;
+                }
+                toast.success(nextEnabled ? "Weekly digest enabled" : "Weekly digest disabled");
               }}
             >
-              {digest.enabled ? "Enabled" : "Disabled"}
+              {savingDigest ? "Saving..." : digest.enabled ? "Enabled" : "Disabled"}
             </Button>
           </div>
 
@@ -350,16 +357,24 @@ export function EmailConfigSection() {
                   type="button"
                   size="sm"
                   variant={automation.premiumRemindersEnabled ? "default" : "outline"}
+                  disabled={savingPremiumAutomation}
                   className={cn(
                     "h-8 shrink-0",
                     automation.premiumRemindersEnabled && "bg-navy text-white hover:bg-[#0B2747]"
                   )}
-                  onClick={() => {
-                    updateEmailAutomation({ premiumRemindersEnabled: !automation.premiumRemindersEnabled });
-                    toast.success(automation.premiumRemindersEnabled ? "Premium automation disabled" : "Premium automation enabled");
+                  onClick={async () => {
+                    setSavingPremiumAutomation(true);
+                    const nextEnabled = !automation.premiumRemindersEnabled;
+                    const result = await updateEmailAutomation({ premiumRemindersEnabled: nextEnabled });
+                    setSavingPremiumAutomation(false);
+                    if (!result.ok) {
+                      toast.error(result.error || "Premium automation could not be saved");
+                      return;
+                    }
+                    toast.success(nextEnabled ? "Premium automation enabled" : "Premium automation disabled");
                   }}
                 >
-                  {automation.premiumRemindersEnabled ? "Enabled" : "Disabled"}
+                  {savingPremiumAutomation ? "Saving..." : automation.premiumRemindersEnabled ? "Enabled" : "Disabled"}
                 </Button>
               </div>
             </div>
@@ -375,16 +390,24 @@ export function EmailConfigSection() {
                   type="button"
                   size="sm"
                   variant={automation.birthdayGreetingsEnabled ? "default" : "outline"}
+                  disabled={savingBirthdayAutomation}
                   className={cn(
                     "h-8 shrink-0",
                     automation.birthdayGreetingsEnabled && "bg-navy text-white hover:bg-[#0B2747]"
                   )}
-                  onClick={() => {
-                    updateEmailAutomation({ birthdayGreetingsEnabled: !automation.birthdayGreetingsEnabled });
-                    toast.success(automation.birthdayGreetingsEnabled ? "Birthday automation disabled" : "Birthday automation enabled");
+                  onClick={async () => {
+                    setSavingBirthdayAutomation(true);
+                    const nextEnabled = !automation.birthdayGreetingsEnabled;
+                    const result = await updateEmailAutomation({ birthdayGreetingsEnabled: nextEnabled });
+                    setSavingBirthdayAutomation(false);
+                    if (!result.ok) {
+                      toast.error(result.error || "Birthday automation could not be saved");
+                      return;
+                    }
+                    toast.success(nextEnabled ? "Birthday automation enabled" : "Birthday automation disabled");
                   }}
                 >
-                  {automation.birthdayGreetingsEnabled ? "Enabled" : "Disabled"}
+                  {savingBirthdayAutomation ? "Saving..." : automation.birthdayGreetingsEnabled ? "Enabled" : "Disabled"}
                 </Button>
               </div>
             </div>
