@@ -241,7 +241,7 @@ export function EmailConfigSection() {
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div className="flex gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700 ring-1 ring-amber-100">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#F4EAD8] text-navy ring-1 ring-[#E8DCC4]">
                 <CalendarClock className="h-4 w-4" />
               </div>
               <div>
@@ -262,7 +262,7 @@ export function EmailConfigSection() {
               disabled={savingDigest}
               className={cn(
                 "h-8 shrink-0",
-                digest.enabled && "bg-amber-600 text-white hover:bg-amber-700"
+                digest.enabled && "bg-navy text-white hover:bg-[#0B2747]"
               )}
               onClick={async () => {
                 setSavingDigest(true);
