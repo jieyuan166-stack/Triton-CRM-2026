@@ -335,7 +335,13 @@ function buildAddress(client: Client) {
     .join(", ");
 }
 
-function policyPartySummary(policy: Policy) {
+type ReportPolicy = Policy & { owner?: Client };
+
+function policyOwnerLabel(policy: ReportPolicy, fallbackClient: Client) {
+  return clientName(policy.owner ?? fallbackClient);
+}
+
+function policyPartySummary(policy: ReportPolicy) {
   const parts = [];
   const owners = [policy.policyOwnerName, policy.policyOwner2Name]
     .filter(Boolean)
@@ -371,7 +377,8 @@ function ReportDocument({
   carrierLogoDataUris?: Partial<Record<Carrier, string>>;
   generatedDate: Date;
 }) {
-  const activePolicies = policies.filter((policy) => policy.status !== "lapsed");
+  const reportPolicies = policies as ReportPolicy[];
+  const activePolicies = reportPolicies.filter((policy) => policy.status !== "lapsed");
   const totalFaceAmount = activePolicies.reduce((sum, policy) => sum + (policy.sumAssured || 0), 0);
   const totalPremium = activePolicies.reduce((sum, policy) => sum + (policy.premium || 0), 0);
   const name = clientName(client);
@@ -451,7 +458,7 @@ function ReportDocument({
           </View>
           <View style={styles.sectionBody}>
             <View style={styles.tableHeader}>
-              {["Carrier", "Category", "Product", "Policy #", "Death Benefit", "Premium", "Status"].map((label, index) => (
+            {["Carrier", "Category", "Product / Owner", "Policy #", "Death Benefit", "Premium", "Status"].map((label, index) => (
                 <Text key={label} style={[styles.th, { width: columns[index].width }]}>{label}</Text>
               ))}
             </View>
@@ -460,7 +467,7 @@ function ReportDocument({
                 No products recorded for this client.
               </Text>
             ) : (
-              policies.slice(0, 10).map((policy) => (
+              reportPolicies.slice(0, 10).map((policy) => (
                 <View key={policy.id} style={styles.tableRow}>
                   <View style={[styles.carrierCell, { width: columns[0].width }]}>
                     {carrierLogoDataUris?.[policy.carrier] ? (
@@ -476,6 +483,11 @@ function ReportDocument({
                   <Text style={[styles.td, { width: columns[1].width }]}>{policy.category}</Text>
                   <View style={{ width: columns[2].width }}>
                     <Text style={styles.td}>{policy.productType}</Text>
+                    {family?.linkedClients?.length ? (
+                      <Text style={styles.partyLine}>
+                        Owner: {policyOwnerLabel(policy, client)}
+                      </Text>
+                    ) : null}
                     {policyPartySummary(policy) ? (
                       <Text style={styles.partyLine}>{policyPartySummary(policy)}</Text>
                     ) : null}

@@ -221,6 +221,7 @@ export async function POST(request: NextRequest) {
   const buffer = await renderPdf({
     client: snapshot.client,
     policies: snapshot.policies,
+    family: snapshot.family,
   });
   await auditLog({
     action: "download_report",
