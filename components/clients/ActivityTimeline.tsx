@@ -277,8 +277,8 @@ export function ActivityTimeline({
     <>
       <div id="activity" className="scroll-mt-28 rounded-xl border border-slate-200 bg-card shadow-sm">
         <div className="border-b border-slate-100 px-5 py-5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
+          <div className="flex flex-col gap-3">
+            <div className="min-w-0">
               <h3 className="text-sm font-bold uppercase tracking-widest text-slate-700">
                 Activity Timeline
               </h3>
@@ -286,24 +286,26 @@ export function ActivityTimeline({
                 Client touchpoints, notes, and sent emails.
               </p>
             </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 shrink-0"
-              onClick={() => setEntryDialog({ mode: "create" })}
-            >
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
-              Add Activity
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 shrink-0 border-[#C99A3A]/40 bg-[#C99A3A]/5 text-navy hover:bg-[#C99A3A]/10"
-              onClick={() => setFollowUpDialogOpen(true)}
-            >
-              <ListChecks className="mr-1.5 h-3.5 w-3.5" />
-              Add Follow-up
-            </Button>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 min-w-0 justify-center px-2 text-xs"
+                onClick={() => setEntryDialog({ mode: "create" })}
+              >
+                <Plus className="mr-1 h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">Add Activity</span>
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 min-w-0 justify-center border-[#C99A3A]/40 bg-[#C99A3A]/5 px-2 text-xs text-navy hover:bg-[#C99A3A]/10"
+                onClick={() => setFollowUpDialogOpen(true)}
+              >
+                <ListChecks className="mr-1 h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">Add Follow-up</span>
+              </Button>
+            </div>
           </div>
 
           <div className="mt-4 inline-flex rounded-full bg-slate-50 p-1 ring-1 ring-slate-100">
