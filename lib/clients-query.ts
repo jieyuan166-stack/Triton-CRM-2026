@@ -9,13 +9,14 @@
 
 import { calculateClientTags } from "./client-tags";
 import { TAG_VALUES, type TagValue } from "./constants";
-import { parseCalendarDate } from "./date-utils";
+import { daysUntil, parseCalendarDate } from "./date-utils";
 import { tokenMatch } from "./text-utils";
 import type { Client, FollowUp, Policy } from "./types";
 
 // ===== Contract =====
 
 export type ClientSortKey = "name" | "email" | "province" | "lastContact";
+export type FollowUpSortKey = "deadline" | "importance";
 export type SortDir = "asc" | "desc";
 export type RowsPerPage = 25 | 50 | 100;
 
@@ -28,6 +29,8 @@ export interface ClientQuery {
   tags?: string[];
   tagMatchMode?: "any" | "all";
   needsFollowUpOnly?: boolean;
+  followUpDueOnly?: boolean;
+  followUpSort?: FollowUpSortKey;
   sortKey?: ClientSortKey;
   sortDir?: SortDir;
   /** 1-indexed page number. */
@@ -50,6 +53,9 @@ export interface ClientRow {
   aum: number;
   policyCount: number;
   activePolicyCount: number;
+  followUpDueCount: number;
+  nextFollowUpDeadline?: string;
+  highestFollowUpImportance?: "High" | "Medium" | "Low";
 }
 
 export interface ClientQueryResult {
@@ -106,6 +112,34 @@ function needsFollowUp(lastContactAt: string | undefined): boolean {
   return Date.now() - time > 90 * 24 * 60 * 60 * 1000;
 }
 
+const IMPORTANCE_WEIGHT: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
+
+function followUpTargetDate(followUp: FollowUp): string | undefined {
+  return followUp.deadline || followUp.date;
+}
+
+function isFollowUpDue(followUp: FollowUp): boolean {
+  if (followUp.deadline) return daysUntil(followUp.deadline) <= 30;
+  return followUp.importance === "High";
+}
+
+function summarizeFollowUps(followUps: FollowUp[]) {
+  const due = followUps.filter(isFollowUpDue);
+  const dated = due
+    .map((followUp) => followUpTargetDate(followUp))
+    .filter((date): date is string => !!date)
+    .sort((a, b) => parseCalendarDate(a).getTime() - parseCalendarDate(b).getTime());
+  const importance = due
+    .map((followUp) => followUp.importance)
+    .filter((value): value is "High" | "Medium" | "Low" => !!value)
+    .sort((a, b) => IMPORTANCE_WEIGHT[a] - IMPORTANCE_WEIGHT[b])[0];
+  return {
+    dueCount: due.length,
+    nextDeadline: dated[0],
+    highestImportance: importance,
+  };
+}
+
 function buildRow(
   client: Client,
   policies: Policy[],
@@ -116,8 +150,11 @@ function buildRow(
     .filter((p) => p.status === "active")
     .reduce((s, p) => s + p.sumAssured, 0);
 
+  const clientFollowUps = followUps.filter((f) => f.clientId === client.id);
+  const followUpSummary = summarizeFollowUps(clientFollowUps);
+
   const lastContactAt = latestContactDate([
-    ...followUps.filter((f) => f.clientId === client.id).map((f) => f.date),
+    ...clientFollowUps.map((f) => f.date),
     ...(client.emailHistory ?? []).map((entry) => entry.date),
   ]);
 
@@ -133,6 +170,9 @@ function buildRow(
     aum,
     policyCount: cps.length,
     activePolicyCount: cps.filter((p) => p.status === "active").length,
+    followUpDueCount: followUpSummary.dueCount,
+    nextFollowUpDeadline: followUpSummary.nextDeadline,
+    highestFollowUpImportance: followUpSummary.highestImportance,
   };
 }
 
@@ -172,6 +212,8 @@ export function queryClients(
     tags = [],
     tagMatchMode = "any",
     needsFollowUpOnly = false,
+    followUpDueOnly = false,
+    followUpSort,
     sortKey = "name",
     sortDir = "asc",
     page = 1,
@@ -231,11 +273,22 @@ export function queryClients(
       if (!matchesTags) return false;
     }
     if (needsFollowUpOnly && !needsFollowUp(r.lastContactAt)) return false;
+    if (followUpDueOnly && r.followUpDueCount === 0) return false;
     return true;
   });
 
   // 4. Sort
   filtered = filtered.sort((a, b) => {
+    if (followUpDueOnly && followUpSort === "deadline") {
+      const av = a.nextFollowUpDeadline ? parseCalendarDate(a.nextFollowUpDeadline).getTime() : Number.POSITIVE_INFINITY;
+      const bv = b.nextFollowUpDeadline ? parseCalendarDate(b.nextFollowUpDeadline).getTime() : Number.POSITIVE_INFINITY;
+      if (av !== bv) return av - bv;
+    }
+    if (followUpDueOnly && followUpSort === "importance") {
+      const av = a.highestFollowUpImportance ? IMPORTANCE_WEIGHT[a.highestFollowUpImportance] : 99;
+      const bv = b.highestFollowUpImportance ? IMPORTANCE_WEIGHT[b.highestFollowUpImportance] : 99;
+      if (av !== bv) return av - bv;
+    }
     const c = compare(a, b, sortKey);
     return sortDir === "asc" ? c : -c;
   });
@@ -283,6 +336,8 @@ export function parseClientQueryParams(params: URLSearchParams): ClientQuery {
     tags: list(params.get("tags")),
     tagMatchMode: params.get("tagMatchMode") === "all" ? "all" : "any",
     needsFollowUpOnly: params.get("needsFollowUp") === "true",
+    followUpDueOnly: params.get("followUpDue") === "true",
+    followUpSort: params.get("followUpSort") === "importance" ? "importance" : "deadline",
     sortKey,
     sortDir,
     page: num(params.get("page")) ?? 1,

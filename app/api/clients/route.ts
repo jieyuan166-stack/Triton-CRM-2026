@@ -140,7 +140,11 @@ function mapPolicyRow(p: Awaited<ReturnType<typeof db.policy.findMany>>[number])
   } as Policy;
 }
 
-function mapFollowUpRow(f: Awaited<ReturnType<typeof db.followUp.findMany>>[number]): FollowUp {
+function mapFollowUpRow(
+  f: Awaited<ReturnType<typeof db.followUp.findMany>>[number] & {
+    createdBy?: { name: string | null };
+  }
+): FollowUp {
   return {
     id: f.id,
     clientId: f.clientId,
@@ -148,7 +152,10 @@ function mapFollowUpRow(f: Awaited<ReturnType<typeof db.followUp.findMany>>[numb
     date: f.date.toISOString().slice(0, 10),
     summary: f.summary,
     details: f.details ?? undefined,
+    deadline: f.deadline?.toISOString().slice(0, 10),
+    importance: f.importance as FollowUp["importance"],
     createdById: f.createdById,
+    createdByName: f.createdBy?.name ?? undefined,
     createdAt: f.createdAt.toISOString(),
   } as FollowUp;
 }
@@ -184,6 +191,7 @@ export async function GET(request: Request) {
           }),
           db.followUp.findMany({
             where: { clientId: { in: clientIds } },
+            include: { createdBy: { select: { name: true } } },
           }),
         ])
       : [[], []];

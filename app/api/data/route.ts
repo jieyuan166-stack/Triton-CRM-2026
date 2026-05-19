@@ -216,6 +216,8 @@ function serializeFollowUp(
     date: dateOnly(f.date) ?? f.date.toISOString(),
     summary: f.summary,
     details: f.details ?? undefined,
+    deadline: dateOnly(f.deadline) ?? undefined,
+    importance: f.importance as FollowUp["importance"],
     createdById: f.createdById,
     createdByName: f.createdBy?.name,
     createdAt: f.createdAt.toISOString(),
@@ -537,6 +539,8 @@ async function replaceAll(snapshot: {
       date: toDate(f.date) ?? new Date(),
       summary: f.summary,
       details: f.details ?? null,
+      deadline: toNullDate(f.deadline),
+      importance: f.importance ?? null,
       createdAt: toDate(f.createdAt) ?? new Date(),
     }));
 
@@ -746,6 +750,8 @@ export async function POST(request: Request) {
             date: toDate(f.date) ?? new Date(),
             summary: f.summary,
             details: f.details ?? null,
+            deadline: toNullDate(f.deadline),
+            importance: f.importance ?? null,
             createdAt: toDate(f.createdAt) ?? new Date(),
           },
         });

@@ -15,7 +15,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Check, ChevronDown, MapPin, Search, Tag, X } from "lucide-react";
+import { Check, ChevronDown, Clock3, MapPin, Search, Tag, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DynamicTagBadge } from "@/components/ui-shared/DynamicTagBadge";
@@ -39,6 +39,11 @@ export interface ClientsToolbarProps {
   onClearTags: () => void;
   onTagMatchModeChange: (mode: "any" | "all") => void;
 
+  followUpDueOnly: boolean;
+  followUpSort: "deadline" | "importance";
+  onToggleFollowUpDue: () => void;
+  onFollowUpSortChange: (value: "deadline" | "importance") => void;
+
   onClearAll: () => void;
 }
 
@@ -56,13 +61,18 @@ export function ClientsToolbar(props: ClientsToolbarProps) {
     onToggleTag,
     onClearTags,
     onTagMatchModeChange,
+    followUpDueOnly,
+    followUpSort,
+    onToggleFollowUpDue,
+    onFollowUpSortChange,
     onClearAll,
   } = props;
 
   const anyFilter =
     !!search.trim() ||
     selectedProvinces.length > 0 ||
-    selectedTags.length > 0;
+    selectedTags.length > 0 ||
+    followUpDueOnly;
 
   return (
     <div className="flex flex-col lg:flex-row lg:items-center gap-3 mb-4">
@@ -125,6 +135,40 @@ export function ClientsToolbar(props: ClientsToolbarProps) {
           onClear={onClearTags}
           onMatchModeChange={onTagMatchModeChange}
         />
+
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onToggleFollowUpDue}
+          className={cn(
+            "h-9 rounded-lg border px-3 text-sm",
+            followUpDueOnly
+              ? "border-[#C99A3A]/50 bg-[#C99A3A]/10 text-navy hover:bg-[#C99A3A]/15"
+              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+          )}
+        >
+          <Clock3 className="mr-1.5 h-3.5 w-3.5" />
+          Follow-up Due
+        </Button>
+
+        {followUpDueOnly ? (
+          <label className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-600">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              Sort
+            </span>
+            <select
+              value={followUpSort}
+              onChange={(event) =>
+                onFollowUpSortChange(event.target.value as "deadline" | "importance")
+              }
+              className="bg-transparent text-sm font-medium text-slate-700 outline-none"
+            >
+              <option value="deadline">Deadline soonest</option>
+              <option value="importance">Importance high first</option>
+            </select>
+          </label>
+        ) : null}
 
         {anyFilter ? (
           <Button

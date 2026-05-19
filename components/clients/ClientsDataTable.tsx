@@ -126,6 +126,8 @@ export function ClientsDataTable() {
   const [provinces, setProvinces] = useState<string[]>([]);
   const [tagsFilter, setTagsFilter] = useState<string[]>([]);
   const [tagMatchMode, setTagMatchMode] = useState<"any" | "all">("any");
+  const [followUpDueOnly, setFollowUpDueOnly] = useState(false);
+  const [followUpSort, setFollowUpSort] = useState<"deadline" | "importance">("deadline");
   const [sort, setSort] = useState<SortState>({ key: "name", dir: "asc" });
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState<RowsPerPage>(25);
@@ -187,6 +189,8 @@ export function ClientsDataTable() {
           provinces,
           tags: tagsFilter,
           tagMatchMode,
+          followUpDueOnly,
+          followUpSort,
           sortKey: sort.key,
           sortDir: sort.dir,
           page,
@@ -199,6 +203,8 @@ export function ClientsDataTable() {
       provinces,
       tagsFilter,
       tagMatchMode,
+      followUpDueOnly,
+      followUpSort,
       sort,
       page,
       perPage,
@@ -241,6 +247,8 @@ export function ClientsDataTable() {
     setProvinces([]);
     setTagsFilter([]);
     setTagMatchMode("any");
+    setFollowUpDueOnly(false);
+    setFollowUpSort("deadline");
     setPage(1);
   }
 
@@ -359,7 +367,10 @@ export function ClientsDataTable() {
 
   const empty = result.total === 0;
   const hasFilters =
-    !!search.trim() || provinces.length > 0 || tagsFilter.length > 0;
+    !!search.trim() ||
+    provinces.length > 0 ||
+    tagsFilter.length > 0 ||
+    followUpDueOnly;
 
   if (dataStatus === "loading") {
     return <ClientsTableSkeleton />;
@@ -408,6 +419,16 @@ export function ClientsDataTable() {
         }}
         onTagMatchModeChange={(mode) => {
           setTagMatchMode(mode);
+          setPage(1);
+        }}
+        followUpDueOnly={followUpDueOnly}
+        followUpSort={followUpSort}
+        onToggleFollowUpDue={() => {
+          setFollowUpDueOnly((current) => !current);
+          setPage(1);
+        }}
+        onFollowUpSortChange={(value) => {
+          setFollowUpSort(value);
           setPage(1);
         }}
         onClearAll={clearAll}

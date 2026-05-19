@@ -108,6 +108,14 @@ export const FOLLOW_UP_TYPES: FollowUpType[] = [
   "WeChat",
 ];
 
+export type FollowUpImportance = "High" | "Medium" | "Low";
+
+export const FOLLOW_UP_IMPORTANCE: FollowUpImportance[] = [
+  "High",
+  "Medium",
+  "Low",
+];
+
 export type UserRole = "admin" | "advisor" | "viewer";
 
 // === Entities ===
@@ -323,9 +331,11 @@ export interface FollowUp {
   id: string;
   clientId: string;
   type: FollowUpType;
-  date: string;                // ISO date
+  date: string;                // ISO date of the touchpoint / creation day
   summary: string;
   details?: string;
+  deadline?: string;            // Optional due date for structured follow-up work
+  importance?: FollowUpImportance;
   createdById: string;
   createdByName?: string;
   createdAt: string;

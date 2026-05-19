@@ -26,6 +26,7 @@ import {
   EmailHistoryPreviewDialog,
   type EmailHistoryPreview,
 } from "@/components/dashboard/EmailHistoryPreviewDialog";
+import { FollowUpEntryDialog } from "@/components/clients/FollowUpEntryDialog";
 import {
   isManualCommunicationLabel,
   parseCommunicationTypes,
@@ -58,6 +59,7 @@ interface ActivityItem {
   preview: EmailHistoryPreview;
   rawId: string;
   rawEntry?: EmailHistoryEntry;
+  rawFollowUp?: FollowUp;
 }
 
 const FILTERS: Array<{ value: ActivityFilter; label: string }> = [
@@ -129,6 +131,7 @@ export function ActivityTimeline({
     updateEmailHistory,
     deleteEmailHistory,
     deleteFollowUp,
+    createFollowUp,
     getClient,
     getPoliciesByClient,
   } = useData();
@@ -136,6 +139,7 @@ export function ActivityTimeline({
   const [entryDialog, setEntryDialog] = useState<
     { mode: "create" } | { mode: "edit"; entry: EmailHistoryEntry } | null
   >(null);
+  const [followUpDialogOpen, setFollowUpDialogOpen] = useState(false);
   const [preview, setPreview] = useState<EmailHistoryPreview | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ActivityItem | null>(null);
   const policies = getPoliciesByClient(clientId);
@@ -150,11 +154,16 @@ export function ActivityTimeline({
         tab: "notes" as const,
         date: followUpTimestamp(followUp),
         title: followUp.summary,
-        subtitle: `${followUp.type}${followUp.createdByName ? ` · ${followUp.createdByName}` : ""}`,
+        subtitle: [
+          followUp.type,
+          followUp.createdByName,
+          followUp.deadline ? `Deadline ${formatDate(followUp.deadline)}` : undefined,
+        ].filter(Boolean).join(" · "),
         body: followUp.details,
         icon: Icon,
         accentClassName: FOLLOWUP_ACCENT[followUp.type],
         muted: false,
+        rawFollowUp: followUp,
         preview: {
           date: followUpTimestamp(followUp),
           subject: followUp.summary,
@@ -284,7 +293,16 @@ export function ActivityTimeline({
               onClick={() => setEntryDialog({ mode: "create" })}
             >
               <Plus className="mr-1.5 h-3.5 w-3.5" />
-              Add
+              Add Activity
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 shrink-0 border-[#C99A3A]/40 bg-[#C99A3A]/5 text-navy hover:bg-[#C99A3A]/10"
+              onClick={() => setFollowUpDialogOpen(true)}
+            >
+              <ListChecks className="mr-1.5 h-3.5 w-3.5" />
+              Add Follow-up
             </Button>
           </div>
 
@@ -390,6 +408,25 @@ export function ActivityTimeline({
                           {formatTimestamp(item.date)}
                         </span>
                         {item.subtitle ? <span>{item.subtitle}</span> : null}
+                        {item.rawFollowUp?.deadline ? (
+                          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-700">
+                            Due {formatDate(item.rawFollowUp.deadline)}
+                          </span>
+                        ) : null}
+                        {item.rawFollowUp?.importance ? (
+                          <span
+                            className={cn(
+                              "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
+                              item.rawFollowUp.importance === "High"
+                                ? "bg-rose-50 text-rose-700"
+                                : item.rawFollowUp.importance === "Medium"
+                                  ? "bg-[#C99A3A]/10 text-[#8A641F]"
+                                  : "bg-slate-100 text-slate-500"
+                            )}
+                          >
+                            {item.rawFollowUp.importance}
+                          </span>
+                        ) : null}
                         {item.rawEntry
                           ? parseCommunicationTypes(
                               item.rawEntry.templateLabel ||
@@ -419,6 +456,17 @@ export function ActivityTimeline({
           if (!open) setPreview(null);
         }}
         email={preview}
+      />
+
+      <FollowUpEntryDialog
+        open={followUpDialogOpen}
+        onOpenChange={setFollowUpDialogOpen}
+        clientId={clientId}
+        onSave={(input) => {
+          const saved = createFollowUp(input);
+          toast.success("Follow-up added", { description: input.summary });
+          return saved;
+        }}
       />
 
       <ActivityEntryDialog

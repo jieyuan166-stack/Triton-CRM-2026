@@ -43,7 +43,10 @@ export async function buildWeeklyDigest(userId: string) {
   const [clients, policies, followUps] = await Promise.all([
     db.client.findMany({ where: { userId }, orderBy: [{ lastName: "asc" }, { firstName: "asc" }] }),
     db.policy.findMany({ where: { userId, status: "active" }, orderBy: { premiumDate: "asc" } }),
-    db.followUp.findMany({ where: { client: { userId } }, orderBy: { date: "asc" } }),
+    db.followUp.findMany({
+      where: { client: { userId } },
+      orderBy: [{ deadline: "asc" }, { date: "asc" }],
+    }),
   ]);
   const clientsById = new Map(clients.map((client) => [client.id, client]));
 
@@ -66,7 +69,10 @@ export async function buildWeeklyDigest(userId: string) {
     .slice(0, 20);
 
   const overdueFollowUps = followUps
-    .filter((followUp) => daysUntil(followUp.date.toISOString().slice(0, 10)) < 0)
+    .filter((followUp) => {
+      const target = (followUp.deadline ?? followUp.date).toISOString().slice(0, 10);
+      return daysUntil(target) < 0 || (!followUp.deadline && followUp.importance === "High");
+    })
     .slice(0, 20);
 
   return { premiumRows, birthdayRows, overdueFollowUps, clientsById };
@@ -86,7 +92,9 @@ export function renderWeeklyDigestHtml(digest: Awaited<ReturnType<typeof buildWe
     .map((followUp) => {
       const client = digest.clientsById.get(followUp.clientId);
       const name = client ? `${client.firstName} ${client.lastName}` : "Unknown client";
-      return `<li><strong>${escapeHtml(name)}</strong> — ${escapeHtml(followUp.summary)} (${formatDate(followUp.date.toISOString().slice(0, 10))})</li>`;
+      const target = (followUp.deadline ?? followUp.date).toISOString().slice(0, 10);
+      const meta = [formatDate(target), followUp.importance].filter(Boolean).join(" · ");
+      return `<li><strong>${escapeHtml(name)}</strong> — ${escapeHtml(followUp.summary)} (${escapeHtml(meta)})</li>`;
     })
     .join("");
 
