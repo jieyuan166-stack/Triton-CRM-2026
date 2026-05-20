@@ -195,6 +195,7 @@ export function EmailPreviewDialog({
           policy.jointWithClientId === activePayload.clientId
       )
     : [];
+  const selectedPolicy = selectedPolicyId ? getPolicy(selectedPolicyId) : undefined;
 
   function formatBytes(bytes: number) {
     if (bytes < 1024) return `${bytes} B`;
@@ -723,13 +724,19 @@ export function EmailPreviewDialog({
                       }
                     }}
                   >
-                    <SelectTrigger id="email-policy-select" className="w-full min-w-0">
-                      <span
-                        className={selectedPolicyId ? "min-w-0 truncate text-left" : "text-muted-foreground"}
-                        title={selectedPolicyId ? policyOptionLabel(selectedPolicyId) : undefined}
-                      >
-                        {selectedPolicyId ? policyOptionLabel(selectedPolicyId) : "Select policy"}
-                      </span>
+                    <SelectTrigger id="email-policy-select" className="h-auto min-h-8 w-full min-w-0 items-start whitespace-normal py-2 pr-8">
+                      {selectedPolicy ? (
+                        <span className="min-w-0 flex-1 text-left leading-snug" title={policyOptionLabel(selectedPolicy.id)}>
+                          <span className="block whitespace-normal break-words text-slate-800">
+                            {selectedPolicy.productName || selectedPolicy.productType || "Policy"}
+                          </span>
+                          <span className="mt-0.5 block whitespace-normal break-words text-[11px] text-triton-muted">
+                            {selectedPolicy.carrier} · #{selectedPolicy.policyNumber}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Select policy</span>
+                      )}
                     </SelectTrigger>
                     <SelectContent className="max-w-[min(34rem,calc(100vw-2rem))]">
                       {clientPolicies.map((policy) => (
