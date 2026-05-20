@@ -723,8 +723,13 @@ export function EmailPreviewDialog({
                       }
                     }}
                   >
-                    <SelectTrigger id="email-policy-select" className="min-w-0">
-                      <SelectValue placeholder="Select policy" />
+                    <SelectTrigger id="email-policy-select" className="w-full min-w-0">
+                      <span
+                        className={selectedPolicyId ? "min-w-0 truncate text-left" : "text-muted-foreground"}
+                        title={selectedPolicyId ? policyOptionLabel(selectedPolicyId) : undefined}
+                      >
+                        {selectedPolicyId ? policyOptionLabel(selectedPolicyId) : "Select policy"}
+                      </span>
                     </SelectTrigger>
                     <SelectContent className="max-w-[min(34rem,calc(100vw-2rem))]">
                       {clientPolicies.map((policy) => (
