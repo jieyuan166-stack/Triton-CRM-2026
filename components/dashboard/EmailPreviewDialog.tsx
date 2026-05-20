@@ -726,13 +726,11 @@ export function EmailPreviewDialog({
                   >
                     <SelectTrigger id="email-policy-select" className="h-auto min-h-8 w-full min-w-0 items-start whitespace-normal py-2 pr-8">
                       {selectedPolicy ? (
-                        <span className="min-w-0 flex-1 text-left leading-snug" title={policyOptionLabel(selectedPolicy.id)}>
-                          <span className="block whitespace-normal break-words text-slate-800">
-                            {selectedPolicy.productName || selectedPolicy.productType || "Policy"}
-                          </span>
-                          <span className="mt-0.5 block whitespace-normal break-words text-[11px] text-triton-muted">
-                            {selectedPolicy.carrier} · #{selectedPolicy.policyNumber}
-                          </span>
+                        <span
+                          className="min-w-0 flex-1 overflow-hidden text-left text-sm leading-snug text-slate-800 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]"
+                          title={policyOptionLabel(selectedPolicy.id)}
+                        >
+                          {policyOptionLabel(selectedPolicy.id)}
                         </span>
                       ) : (
                         <span className="text-muted-foreground">Select policy</span>
