@@ -35,7 +35,7 @@ export const CSV_EXPORT_HEADERS = [
 ] as const;
 
 const SUPPORTED_PROVINCES = ["BC", "AB", "ON"] as const;
-const SUPPORTED_CARRIERS = ["Canada Life", "Manulife", "Sun Life", "iA", "Equitable Life"] as const satisfies readonly Carrier[];
+const SUPPORTED_CARRIERS = ["Canada Life", "Manulife", "Sun Life", "iA Financial", "Equitable Life"] as const satisfies readonly Carrier[];
 const SUPPORTED_PRODUCT_TYPES = [
   "Critical Illness",
   "Medical",
@@ -241,6 +241,7 @@ function parseFullAddress(value: string) {
 
 function findCarrier(value: string) {
   const normalized = value.trim().toLowerCase();
+  if (normalized === "ia") return "iA Financial";
   return SUPPORTED_CARRIERS.find((carrier) => carrier.toLowerCase() === normalized);
 }
 

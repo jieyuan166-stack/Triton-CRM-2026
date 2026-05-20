@@ -5,14 +5,14 @@ export type Carrier =
   | "Canada Life"
   | "Manulife"
   | "Sun Life"
-  | "iA"
+  | "iA Financial"
   | "Equitable Life";
 
 export const CARRIERS: Carrier[] = [
   "Canada Life",
   "Manulife",
   "Sun Life",
-  "iA",
+  "iA Financial",
   "Equitable Life",
 ];
 

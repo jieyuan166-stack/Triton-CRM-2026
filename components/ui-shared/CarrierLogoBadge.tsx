@@ -23,7 +23,7 @@ const IMAGE_SIZES: Record<CarrierLogoBadgeSize, number> = {
 };
 
 function carrierInitial(carrier: Carrier) {
-  if (carrier === "iA") return "iA";
+  if (carrier === "iA Financial") return "iA";
   return carrier.charAt(0);
 }
 
