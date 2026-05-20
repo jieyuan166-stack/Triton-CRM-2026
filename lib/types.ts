@@ -164,6 +164,12 @@ export interface EmailReminderSend {
   createdAt: string;
 }
 
+export interface EmailHistoryAttachment {
+  filename: string;
+  contentType?: string;
+  size?: number;
+}
+
 export interface EmailHistoryEntry {
   id: string;
   /** ISO timestamp of when the send succeeded. */
@@ -180,6 +186,7 @@ export interface EmailHistoryEntry {
   policyNumber?: string;
   policyLabel?: string;
   communicationType?: string;
+  attachments?: EmailHistoryAttachment[];
 }
 
 export interface Client {

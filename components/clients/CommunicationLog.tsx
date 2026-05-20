@@ -351,6 +351,9 @@ export function CommunicationLog({ clientId, history }: CommunicationLogProps) {
                         subject: entry.subject,
                         body: entry.body,
                         templateLabel: entry.templateLabel,
+                        policyLabel: entry.policyLabel,
+                        policyNumber: entry.policyNumber,
+                        attachments: entry.attachments,
                       })
                     }
                     className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent-blue/10 text-accent-blue transition-colors hover:bg-accent-blue/15"

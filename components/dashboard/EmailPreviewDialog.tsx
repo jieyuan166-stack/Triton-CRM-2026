@@ -22,6 +22,8 @@ import { ConfirmDialog } from "@/components/ui-shared/ConfirmDialog";
 import { useData } from "@/components/providers/DataProvider";
 import { useSettings } from "@/components/providers/SettingsProvider";
 import type { EmailTemplateAttachment } from "@/lib/settings-types";
+import { MANUAL_COMMUNICATION_TYPES } from "@/lib/communication-log";
+import type { EmailHistoryAttachment } from "@/lib/types";
 import {
   applyTemplate,
   plainTextToEmailHtml,
@@ -145,6 +147,7 @@ export function EmailPreviewDialog({
   const [attachments, setAttachments] = useState<ComposeAttachment[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<"custom" | "birthday" | "renewal" | "festival">("custom");
   const [selectedPolicyId, setSelectedPolicyId] = useState<string | undefined>(undefined);
+  const [selectedCommunicationType, setSelectedCommunicationType] = useState("External Email");
   const [sending, setSending] = useState(false);
   const [birthdayConfirmOpen, setBirthdayConfirmOpen] = useState(false);
   const [birthdayWarning, setBirthdayWarning] = useState("");
@@ -159,6 +162,7 @@ export function EmailPreviewDialog({
       setAttachments(payload.attachments ?? []);
       setSelectedTemplate(payload.template ?? "custom");
       setSelectedPolicyId(payload.policyId);
+      setSelectedCommunicationType("External Email");
       setSending(false);
       setBirthdayConfirmOpen(false);
       setBirthdayWarning("");
@@ -184,11 +188,33 @@ export function EmailPreviewDialog({
       : "";
 
   const totalAttachmentBytes = attachments.reduce((sum, file) => sum + file.size, 0);
+  const clientPolicies = activePayload.clientId
+    ? policies.filter(
+        (policy) =>
+          policy.clientId === activePayload.clientId ||
+          policy.jointWithClientId === activePayload.clientId
+      )
+    : [];
 
   function formatBytes(bytes: number) {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function attachmentMetadata(): EmailHistoryAttachment[] | undefined {
+    if (attachments.length === 0) return undefined;
+    return attachments.map(({ filename, contentType, size }) => ({
+      filename,
+      contentType,
+      size,
+    }));
+  }
+
+  function policyOptionLabel(policyId?: string) {
+    const policy = policyId ? getPolicy(policyId) : undefined;
+    if (!policy) return "";
+    return `${policy.productName || policy.productType || "Policy"} · ${policy.carrier} · #${policy.policyNumber}`;
   }
 
   function templateVars(policyId?: string) {
@@ -361,6 +387,7 @@ export function EmailPreviewDialog({
       clientId?: string;
       template?: "renewal" | "birthday" | "festival" | "custom";
       policyId?: string;
+      communicationType?: string;
       reminderStage?: "first" | "second";
       reminderCycleKey?: string;
       reminderDedupeKey?: string;
@@ -407,10 +434,12 @@ export function EmailPreviewDialog({
 
       const clientId = message.clientId;
       const template = message.template ?? "custom";
+      const targetPolicy = message.policyId ? getPolicy(message.policyId) : undefined;
       const renewalPolicy =
         template === "renewal" && message.policyId
           ? getPolicy(message.policyId)
           : undefined;
+      const customCommunicationType = message.communicationType || "External Email";
       const templateLabel =
         template === "renewal"
           ? renewalPolicy
@@ -420,17 +449,17 @@ export function EmailPreviewDialog({
           ? "Birthday Greeting"
           : template === "festival"
           ? "Festival Greeting"
-          : "Custom";
+          : customCommunicationType;
 
       if (clientId) {
         appendEmailHistory(clientId, {
           subject: prepared.subject,
           body: prepared.body,
           templateLabel,
-          policyId: renewalPolicy?.id,
-          policyNumber: renewalPolicy?.policyNumber,
-          policyLabel: renewalPolicy
-            ? `${renewalPolicy.carrier} ${renewalPolicy.productName || renewalPolicy.productType}`.trim()
+          policyId: targetPolicy?.id,
+          policyNumber: targetPolicy?.policyNumber,
+          policyLabel: targetPolicy
+            ? `${targetPolicy.carrier} ${targetPolicy.productName || targetPolicy.productType}`.trim()
             : undefined,
           communicationType:
             template === "renewal"
@@ -439,7 +468,8 @@ export function EmailPreviewDialog({
                 ? "Birthday Greeting"
                 : template === "festival"
                   ? "Festival Greeting"
-                  : "Email",
+                  : customCommunicationType,
+          attachments: attachmentMetadata(),
         });
 
       }
@@ -506,7 +536,11 @@ export function EmailPreviewDialog({
         body,
         clientId: activePayload.clientId,
         template: selectedTemplate,
-        policyId: selectedPolicyId ?? activePayload.policyId,
+        policyId:
+          selectedTemplate === "custom" || selectedTemplate === "renewal"
+            ? selectedPolicyId ?? activePayload.policyId
+            : undefined,
+        communicationType: selectedTemplate === "custom" ? selectedCommunicationType : undefined,
         reminderStage: activePayload.reminderStage,
         reminderCycleKey: activePayload.reminderCycleKey,
         reminderDedupeKey: activePayload.reminderDedupeKey,
@@ -656,30 +690,59 @@ export function EmailPreviewDialog({
                   </SelectContent>
                 </Select>
               </div>
-              {selectedTemplate === "renewal" && activePayload.clientId ? (
+              {selectedTemplate === "custom" ? (
                 <div className="space-y-1.5">
-                  <Label htmlFor="email-policy-select">Policy</Label>
+                  <Label htmlFor="email-type-select">Type</Label>
+                  <Select
+                    value={selectedCommunicationType}
+                    onValueChange={(value) => setSelectedCommunicationType(value || "External Email")}
+                  >
+                    <SelectTrigger id="email-type-select">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MANUAL_COMMUNICATION_TYPES.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
+              {(selectedTemplate === "custom" || selectedTemplate === "renewal") && activePayload.clientId ? (
+                <div className="space-y-1.5">
+                  <Label htmlFor="email-policy-select">Target Policy</Label>
                   <Select
                     value={selectedPolicyId ?? ""}
                     onValueChange={(value) => {
                       const nextPolicyId = value || undefined;
                       setSelectedPolicyId(nextPolicyId);
-                      applySelectedTemplate("renewal", nextPolicyId);
+                      if (selectedTemplate === "renewal") {
+                        applySelectedTemplate("renewal", nextPolicyId);
+                      }
                     }}
                   >
-                    <SelectTrigger id="email-policy-select">
+                    <SelectTrigger id="email-policy-select" className="min-w-0">
                       <SelectValue placeholder="Select policy" />
                     </SelectTrigger>
-                    <SelectContent>
-                      {policies
-                        .filter((policy) => policy.clientId === activePayload.clientId || policy.jointWithClientId === activePayload.clientId)
-                        .map((policy) => (
-                          <SelectItem key={policy.id} value={policy.id}>
-                            {policy.carrier} · #{policy.policyNumber}
-                          </SelectItem>
-                        ))}
+                    <SelectContent className="max-w-[min(34rem,calc(100vw-2rem))]">
+                      {clientPolicies.map((policy) => (
+                        <SelectItem key={policy.id} value={policy.id} className="whitespace-normal break-words leading-snug">
+                          {policyOptionLabel(policy.id)}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
+                  {selectedPolicyId ? (
+                    <p className="truncate text-[11px] text-triton-muted" title={policyOptionLabel(selectedPolicyId)}>
+                      {policyOptionLabel(selectedPolicyId)}
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-triton-muted">
+                      Optional. Used only for activity and policy notes.
+                    </p>
+                  )}
                 </div>
               ) : null}
             </div>

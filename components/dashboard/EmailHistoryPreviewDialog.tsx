@@ -1,11 +1,12 @@
 "use client";
 
-import { Mail, MessageCircle, StickyNote } from "lucide-react";
+import { Mail, MessageCircle, Paperclip, StickyNote } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { isManualCommunicationLabel } from "@/lib/communication-log";
 import { formatDate } from "@/lib/date-utils";
+import type { EmailHistoryAttachment } from "@/lib/types";
 
 export interface EmailHistoryPreview {
   to?: string;
@@ -13,6 +14,9 @@ export interface EmailHistoryPreview {
   subject: string;
   body: string;
   templateLabel?: string;
+  policyLabel?: string;
+  policyNumber?: string;
+  attachments?: EmailHistoryAttachment[];
 }
 
 interface EmailHistoryPreviewDialogProps {
@@ -29,6 +33,12 @@ export function EmailHistoryPreviewDialog({
   if (!email) return null;
   const isManual = isManualCommunicationLabel(email.templateLabel);
   const PreviewIcon = isManual ? MessageCircle : Mail;
+  function formatBytes(bytes?: number) {
+    if (!bytes || bytes < 0) return "";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -63,6 +73,35 @@ export function EmailHistoryPreviewDialog({
               <div className="md:col-span-2">
                 <p className="label-caps">Action</p>
                 <p className="mt-1 text-slate-800">{email.templateLabel}</p>
+              </div>
+            ) : null}
+            {email.policyLabel || email.policyNumber ? (
+              <div className="md:col-span-2">
+                <p className="label-caps">Target Policy</p>
+                <p className="mt-1 text-slate-800">
+                  {[email.policyLabel, email.policyNumber ? `#${email.policyNumber}` : ""].filter(Boolean).join(" · ")}
+                </p>
+              </div>
+            ) : null}
+            {email.attachments && email.attachments.length > 0 ? (
+              <div className="md:col-span-2">
+                <p className="label-caps">Attachments</p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {email.attachments.map((attachment, index) => (
+                    <span
+                      key={`${attachment.filename}-${index}`}
+                      className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs text-slate-700 ring-1 ring-slate-200"
+                    >
+                      <Paperclip className="h-3 w-3 shrink-0 text-slate-400" />
+                      <span className="min-w-0 truncate">{attachment.filename}</span>
+                      {formatBytes(attachment.size) ? (
+                        <span className="shrink-0 text-[10px] text-slate-400">
+                          {formatBytes(attachment.size)}
+                        </span>
+                      ) : null}
+                    </span>
+                  ))}
+                </div>
               </div>
             ) : null}
           </div>

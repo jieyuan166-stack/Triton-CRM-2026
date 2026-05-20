@@ -104,6 +104,7 @@ interface DataContextValue {
       policyId?: string | null;
       policyNumber?: string | null;
       policyLabel?: string | null;
+      attachments?: EmailHistoryEntry["attachments"] | null;
     }
   ): EmailHistoryEntry | null;
   /** Delete one or more sent-email history entries for a client. Returns
@@ -702,6 +703,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         policyNumber: entry.policyNumber,
         policyLabel: entry.policyLabel,
         communicationType: entry.communicationType,
+        attachments: entry.attachments,
       };
       setClients((prev) =>
         prev.map((c) => {
@@ -775,6 +777,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 Object.prototype.hasOwnProperty.call(patch, "policyLabel")
                   ? patch.policyLabel ?? undefined
                   : entry.policyLabel,
+              attachments:
+                Object.prototype.hasOwnProperty.call(patch, "attachments")
+                  ? patch.attachments ?? undefined
+                  : entry.attachments,
             };
             updated = nextEntry;
             return nextEntry;

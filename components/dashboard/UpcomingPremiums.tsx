@@ -464,6 +464,11 @@ export function UpcomingPremiums() {
                                     history?.body ??
                                     `Reminder completed for ${row.policy.carrier} ${row.policy.productName || row.policy.productType} policy #${row.policy.policyNumber}.`,
                                   templateLabel: history?.templateLabel ?? "Renewal Reminder",
+                                  policyLabel:
+                                    history?.policyLabel ??
+                                    `${row.policy.carrier} ${row.policy.productName || row.policy.productType}`.trim(),
+                                  policyNumber: history?.policyNumber ?? row.policy.policyNumber,
+                                  attachments: history?.attachments,
                                 })
                               }
                               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-accent-blue/10 hover:text-accent-blue"

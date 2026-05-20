@@ -214,6 +214,9 @@ export function ActivityTimeline({
           subject: entry.subject,
           body: entry.body,
           templateLabel: entry.templateLabel,
+          policyLabel: entry.policyLabel,
+          policyNumber: entry.policyNumber,
+          attachments: entry.attachments,
         },
         rawEntry: entry,
       };

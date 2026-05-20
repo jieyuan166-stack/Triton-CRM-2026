@@ -16,6 +16,7 @@ import type {
   Beneficiary,
   Client,
   ClientRelationship,
+  EmailHistoryAttachment,
   EmailHistoryEntry,
   EmailReminderSend,
   FollowUp,
@@ -81,6 +82,44 @@ function iso(value: Date | string | null | undefined): string | undefined {
   return d.toISOString();
 }
 
+function normalizeEmailAttachments(value: unknown): EmailHistoryAttachment[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const attachments = value
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const record = item as Record<string, unknown>;
+      const filename = typeof record.filename === "string" ? record.filename.trim() : "";
+      if (!filename) return null;
+      return {
+        filename: filename.slice(0, 240),
+        contentType:
+          typeof record.contentType === "string" && record.contentType.trim()
+            ? record.contentType.trim().slice(0, 120)
+            : undefined,
+        size:
+          typeof record.size === "number" && Number.isFinite(record.size)
+            ? Math.max(0, Math.floor(record.size))
+            : undefined,
+      };
+    })
+    .filter(Boolean) as EmailHistoryAttachment[];
+  return attachments.length > 0 ? attachments : undefined;
+}
+
+function parseEmailAttachments(value: string | null | undefined): EmailHistoryAttachment[] | undefined {
+  if (!value) return undefined;
+  try {
+    return normalizeEmailAttachments(JSON.parse(value));
+  } catch {
+    return undefined;
+  }
+}
+
+function serializeEmailAttachments(value: unknown): string | null {
+  const attachments = normalizeEmailAttachments(value);
+  return attachments ? JSON.stringify(attachments) : null;
+}
+
 function toDate(value: unknown): Date | undefined {
   if (!value || typeof value !== "string") return undefined;
   const d = new Date(value);
@@ -115,6 +154,7 @@ function serializeClient(
       policyNumber: string | null;
       policyLabel: string | null;
       communicationType: string | null;
+      attachments: string | null;
     }>;
   }
 ): Client {
@@ -146,6 +186,7 @@ function serializeClient(
       policyNumber: entry.policyNumber ?? undefined,
       policyLabel: entry.policyLabel ?? undefined,
       communicationType: entry.communicationType ?? undefined,
+      attachments: parseEmailAttachments(entry.attachments),
     })),
     lastBirthdayEmailAt: iso(c.lastBirthdayEmailAt),
     lastContactedAt: iso(c.lastContactedAt),
@@ -433,6 +474,7 @@ async function replaceAll(snapshot: {
       policyNumber: entry.policyNumber ?? null,
       policyLabel: entry.policyLabel ?? null,
       communicationType: entry.communicationType ?? null,
+      attachments: serializeEmailAttachments(entry.attachments),
     }))
   );
 
@@ -786,6 +828,7 @@ export async function POST(request: Request) {
             policyNumber: entry.policyNumber ?? null,
             policyLabel: entry.policyLabel ?? null,
             communicationType: entry.communicationType ?? null,
+            attachments: serializeEmailAttachments(entry.attachments),
           },
         });
         await db.client.update({
@@ -803,6 +846,7 @@ export async function POST(request: Request) {
           policyId?: string | null;
           policyNumber?: string | null;
           policyLabel?: string | null;
+          attachments?: EmailHistoryAttachment[] | null;
         };
         const data: {
           subject?: string;
@@ -812,6 +856,7 @@ export async function POST(request: Request) {
           policyNumber?: string | null;
           policyLabel?: string | null;
           communicationType?: string | null;
+          attachments?: string | null;
         } = {};
         if (typeof patch.subject === "string") data.subject = patch.subject;
         if (typeof patch.body === "string") data.body = patch.body;
@@ -830,6 +875,9 @@ export async function POST(request: Request) {
         }
         if (Object.prototype.hasOwnProperty.call(patch, "policyLabel")) {
           data.policyLabel = patch.policyLabel ?? null;
+        }
+        if (Object.prototype.hasOwnProperty.call(patch, "attachments")) {
+          data.attachments = serializeEmailAttachments(patch.attachments);
         }
         if (Object.keys(data).length === 0) {
           return NextResponse.json({ ok: false, error: "No email history fields provided" }, { status: 400 });

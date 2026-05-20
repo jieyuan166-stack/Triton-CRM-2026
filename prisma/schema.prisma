@@ -167,6 +167,7 @@ model EmailHistory {
   policyNumber  String?
   policyLabel   String?
   communicationType String?
+  attachments   String?
 
   @@index([clientId, date])
   @@index([policyId, date])

@@ -329,6 +329,14 @@ function communicationPolicyContext(
   return "";
 }
 
+function communicationAttachmentSummary(entry: EmailHistoryEntry) {
+  if (!entry.attachments || entry.attachments.length === 0) return "";
+  return `Attachments: ${entry.attachments
+    .map((attachment) => attachment.filename)
+    .filter(Boolean)
+    .join(", ")}`;
+}
+
 function buildAddress(client: Client) {
   return [client.streetAddress, client.unit ? `Unit ${client.unit}` : "", client.city, client.province, client.postalCode]
     .filter(Boolean)
@@ -569,6 +577,11 @@ function ReportDocument({
                   {compactText(entry.body) ? (
                     <Text style={styles.communicationBody}>
                       {compactText(entry.body)}
+                    </Text>
+                  ) : null}
+                  {communicationAttachmentSummary(entry) ? (
+                    <Text style={styles.communicationBody}>
+                      {communicationAttachmentSummary(entry)}
                     </Text>
                   ) : null}
                 </View>
