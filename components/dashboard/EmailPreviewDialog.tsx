@@ -724,17 +724,10 @@ export function EmailPreviewDialog({
                       }
                     }}
                   >
-                    <SelectTrigger id="email-policy-select" className="h-auto min-h-8 w-full min-w-0 items-start whitespace-normal py-2 pr-8">
-                      {selectedPolicy ? (
-                        <span
-                          className="min-w-0 flex-1 overflow-hidden text-left text-sm leading-snug text-slate-800 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]"
-                          title={policyOptionLabel(selectedPolicy.id)}
-                        >
-                          {policyOptionLabel(selectedPolicy.id)}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">Select policy</span>
-                      )}
+                    <SelectTrigger id="email-policy-select" className="w-full min-w-0 overflow-hidden">
+                      <span className={selectedPolicy ? "block min-w-0 flex-1 truncate text-left text-slate-800" : "text-muted-foreground"}>
+                        {selectedPolicy ? `${selectedPolicy.productName || selectedPolicy.productType || "Policy"} · #${selectedPolicy.policyNumber}` : "Select policy"}
+                      </span>
                     </SelectTrigger>
                     <SelectContent className="max-w-[min(34rem,calc(100vw-2rem))]">
                       {clientPolicies.map((policy) => (
@@ -745,9 +738,12 @@ export function EmailPreviewDialog({
                     </SelectContent>
                   </Select>
                   {selectedPolicyId ? (
-                    <p className="truncate text-[11px] text-triton-muted" title={policyOptionLabel(selectedPolicyId)}>
+                    <div
+                      className="max-w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-600 [overflow-wrap:anywhere]"
+                      title={policyOptionLabel(selectedPolicyId)}
+                    >
                       {policyOptionLabel(selectedPolicyId)}
-                    </p>
+                    </div>
                   ) : (
                     <p className="text-[11px] text-triton-muted">
                       Optional. Used only for activity and policy notes.
