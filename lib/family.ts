@@ -38,6 +38,7 @@ export function inverseRelationship(
     relationship === "Sibling" ||
     relationship === "Beneficiary" ||
     relationship === "Trustee" ||
+    relationship === "Owner" ||
     relationship === "Business Associate"
   ) {
     return relationship;

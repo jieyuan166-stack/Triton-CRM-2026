@@ -623,6 +623,11 @@ export function ClientsDataTable() {
                                   Corp
                                 </span>
                               ) : null}
+                              {r.companyName ? (
+                                <p className="mt-0.5 max-w-[18rem] truncate text-[11px] font-medium text-slate-500">
+                                  {r.companyName}
+                                </p>
+                              ) : null}
                               {r.email ? (
                                 <p className="text-xs text-slate-500 truncate md:hidden">
                                   {r.email}

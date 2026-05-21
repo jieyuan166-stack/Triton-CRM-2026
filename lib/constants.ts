@@ -60,6 +60,7 @@ export const RELATIONSHIP_TYPES = [
   "Beneficiary",
   "Sibling",
   "Trustee",
+  "Owner",
   "Business Associate",
 ] as const;
 export type RelationshipType = (typeof RELATIONSHIP_TYPES)[number];

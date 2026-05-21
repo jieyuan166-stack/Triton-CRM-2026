@@ -194,6 +194,7 @@ export interface Client {
   slug?: string;
   firstName: string;
   lastName: string;
+  companyName?: string;
   /** Required + unique. Enforced by Zod (client) and DB unique index (server). */
   email: string;
   phone?: string;

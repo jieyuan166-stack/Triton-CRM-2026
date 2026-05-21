@@ -59,6 +59,7 @@ export function ClientInfoCard({ client, onEdit }: ClientInfoCardProps) {
       className={onEdit ? "cursor-pointer transition group-hover:border-accent-blue/30 group-hover:shadow-md" : undefined}
     >
       <ul className="space-y-5">
+        <Row label="Company" value={client.companyName} />
         <Row
           label="Birthday"
           value={

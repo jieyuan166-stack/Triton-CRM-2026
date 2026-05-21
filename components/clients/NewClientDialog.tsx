@@ -87,6 +87,7 @@ interface NewClientDialogProps {
 const DEFAULTS: Partial<ClientFormValues> = {
   firstName: "",
   lastName: "",
+  companyName: "",
   email: "",
   phone: "",
   streetAddress: "",
@@ -154,6 +155,7 @@ export function NewClientDialog({
       reset({
         firstName: client.firstName,
         lastName: client.lastName,
+        companyName: client.companyName ?? "",
         email: client.email,
         phone: client.phone ?? "",
         streetAddress: client.streetAddress ?? "",
@@ -309,6 +311,7 @@ export function NewClientDialog({
     const patch = {
       firstName: toTitleCaseName(values.firstName),
       lastName: toTitleCaseName(values.lastName),
+      companyName: values.companyName?.trim() || undefined,
       email: values.email,
       phone: values.phone,
       streetAddress: values.streetAddress,
@@ -402,6 +405,18 @@ export function NewClientDialog({
                 />
                 <FieldError message={errors.lastName?.message} />
               </div>
+            </div>
+            <div className="mt-4 space-y-1.5">
+              <Label htmlFor="cli-companyName">Company Name</Label>
+              <Input
+                id="cli-companyName"
+                autoComplete="organization"
+                placeholder="1934401 Alberta Ltd / ABC Holdings"
+                {...register("companyName")}
+              />
+              <p className="text-[11px] text-slate-400">
+                Optional. Use this for corporate clients, employer, or business owner records.
+              </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
               <div className="space-y-1.5">
@@ -568,7 +583,7 @@ export function NewClientDialog({
                     No linked clients yet
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
-                    Add family members or business relationships here.
+                    Add family members, owners, or business relationships here.
                   </p>
                 </div>
               ) : (
@@ -663,7 +678,7 @@ export function NewClientDialog({
                 }
               >
                 <Plus className="mr-1.5 h-3.5 w-3.5" />
-                Add Linked Client
+                Add Linked Client / Owner
               </Button>
             </div>
           </Section>

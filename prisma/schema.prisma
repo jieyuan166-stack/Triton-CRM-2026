@@ -30,6 +30,7 @@ model Client {
   slug                 String?        @unique
   firstName            String
   lastName             String
+  companyName          String?
   email                String         @unique
   phone                String?
   streetAddress        String?

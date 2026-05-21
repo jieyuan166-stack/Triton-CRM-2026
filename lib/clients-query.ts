@@ -42,6 +42,7 @@ export interface ClientRow {
   id: string;
   firstName: string;
   lastName: string;
+  companyName?: string;
   email: string;
   phone?: string;
   province?: string;
@@ -162,6 +163,7 @@ function buildRow(
     id: client.id,
     firstName: client.firstName,
     lastName: client.lastName,
+    companyName: client.companyName,
     email: client.email,
     phone: client.phone,
     province: client.province,
@@ -242,6 +244,7 @@ export function queryClients(
         r.lastName,
         `${r.firstName} ${r.lastName}`,
         `${r.lastName} ${r.firstName}`,
+        r.companyName ?? "",
         r.email ?? "",
         r.phone ?? "",
         r.province ?? "",
