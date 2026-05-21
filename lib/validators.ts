@@ -216,9 +216,10 @@ const optionalString = z
   .optional()
   .or(z.literal("").transform(() => undefined));
 
-export const clientFormSchema = z.object({
-    firstName: z.string().trim().min(1, "First name is required"),
-    lastName: z.string().trim().min(1, "Last name is required"),
+export const clientFormSchema = z
+  .object({
+    firstName: optionalString,
+    lastName: optionalString,
     companyName: optionalString,
     email: z
       .string()
@@ -247,6 +248,17 @@ export const clientFormSchema = z.object({
     birthday: optionalString,
 
     notes: optionalString,
-  });
+  })
+  .refine(
+    (data) => {
+      const hasCompany = !!data.companyName?.trim();
+      const hasPersonalName = !!data.firstName?.trim() && !!data.lastName?.trim();
+      return hasCompany || hasPersonalName;
+    },
+    {
+      message: "Enter a company name, or both first and last name.",
+      path: ["companyName"],
+    }
+  );
 
 export type ClientFormValues = z.infer<typeof clientFormSchema>;

@@ -237,8 +237,11 @@ export async function POST(request: Request) {
   }
 
   const data = parsed.data;
-  const firstName = toTitleCaseName(data.firstName);
-  const lastName = toTitleCaseName(data.lastName);
+  const companyName = data.companyName?.trim() || "";
+  const firstNameInput = data.firstName?.trim() || companyName;
+  const lastNameInput = data.lastName?.trim() || "";
+  const firstName = firstNameInput === companyName ? companyName : toTitleCaseName(firstNameInput);
+  const lastName = lastNameInput ? toTitleCaseName(lastNameInput) : "";
   const emailLower = data.email.toLowerCase();
   if (await db.client.findUnique({ where: { email: emailLower } })) {
     return NextResponse.json(
@@ -255,7 +258,7 @@ export async function POST(request: Request) {
       userId: session.user.id,
       firstName,
       lastName,
-      companyName: data.companyName || null,
+      companyName: companyName || null,
       email: emailLower,
       phone: data.phone || null,
       streetAddress: data.streetAddress || null,

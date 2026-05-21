@@ -200,6 +200,7 @@ export function NewClientDialog({
   const postalCode = watch("postalCode") ?? "";
   const firstName = watch("firstName") ?? "";
   const lastName = watch("lastName") ?? "";
+  const companyName = watch("companyName") ?? "";
 
   function handlePhoneChange(e: ChangeEvent<HTMLInputElement>) {
     setValue("phone", formatPhone(e.target.value), { shouldValidate: false });
@@ -213,7 +214,8 @@ export function NewClientDialog({
   function generateNoEmailAddress() {
     const first = emailSlugPart(firstName);
     const last = emailSlugPart(lastName);
-    const baseLocal = [first, last, "noemail"].filter(Boolean).join(".");
+    const company = emailSlugPart(companyName);
+    const baseLocal = [first, last, "noemail"].filter(Boolean).join(".") || [company, "noemail"].filter(Boolean).join(".");
     const local = baseLocal || "client.noemail";
     let candidate = `${local}@tritonwealth.ca`;
     let index = 2;
@@ -307,11 +309,15 @@ export function NewClientDialog({
     const nextRelationships = validateRelationshipDrafts();
     if (!nextRelationships) return;
 
+    const trimmedCompanyName = values.companyName?.trim() || "";
+    const submittedFirstName = values.firstName?.trim() || trimmedCompanyName;
+    const submittedLastName = values.lastName?.trim() || "";
+
     // Common patch payload (sans id / createdAt — those stay).
     const patch = {
-      firstName: toTitleCaseName(values.firstName),
-      lastName: toTitleCaseName(values.lastName),
-      companyName: values.companyName?.trim() || undefined,
+      firstName: submittedFirstName === trimmedCompanyName ? trimmedCompanyName : toTitleCaseName(submittedFirstName),
+      lastName: submittedLastName ? toTitleCaseName(submittedLastName) : "",
+      companyName: trimmedCompanyName || undefined,
       email: values.email,
       phone: values.phone,
       streetAddress: values.streetAddress,
@@ -374,7 +380,7 @@ export function NewClientDialog({
           <DialogDescription>
             {isEdit
               ? "Update the client's profile. Tags are recalculated automatically."
-              : "Required: First Name, Last Name, Email. Everything else can be filled in later."}
+              : "Required: Email, plus either Company Name or First + Last Name."}
           </DialogDescription>
         </DialogHeader>
 
@@ -384,7 +390,7 @@ export function NewClientDialog({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="cli-firstName">
-                  First Name <span className="text-accent-red">*</span>
+                  First Name
                 </Label>
                 <Input
                   id="cli-firstName"
@@ -396,7 +402,7 @@ export function NewClientDialog({
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="cli-lastName">
-                  Last Name <span className="text-accent-red">*</span>
+                  Last Name
                 </Label>
                 <Input
                   id="cli-lastName"
@@ -415,7 +421,7 @@ export function NewClientDialog({
                 {...register("companyName")}
               />
               <p className="text-[11px] text-slate-400">
-                Optional. Use this for corporate clients, employer, or business owner records.
+                For company clients, this can replace First / Last Name.
               </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
