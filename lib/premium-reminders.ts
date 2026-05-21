@@ -198,6 +198,15 @@ export function buildPremiumReminderState({
     }
   }
 
+  completedRows.sort((a, b) => {
+    const sentDiff =
+      new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime();
+    if (sentDiff !== 0) return sentDiff;
+    return (a.policy.policyNumber || a.policy.id).localeCompare(
+      b.policy.policyNumber || b.policy.id
+    );
+  });
+
   const pendingPolicyIds = new Set(pendingRows.map((row) => row.policy.id));
   const completedPolicyIds = new Set(completedRows.map((row) => row.policy.id));
   const duePolicies = rows.map((row) => row.policy);
