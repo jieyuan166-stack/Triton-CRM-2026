@@ -33,6 +33,8 @@ export function inverseRelationship(
 ): RelationshipType | "Linked" {
   if (relationship === "Parent") return "Child";
   if (relationship === "Child") return "Parent";
+  if (relationship === "Company Owner") return "Company";
+  if (relationship === "Company") return "Company Owner";
   if (
     relationship === "Spouse" ||
     relationship === "Sibling" ||

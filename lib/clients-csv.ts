@@ -205,6 +205,8 @@ function parseRelationship(value: string) {
     "Sibling",
     "Trustee",
     "Owner",
+    "Company Owner",
+    "Company",
     "Business Associate",
     "Other",
   ] as const;
