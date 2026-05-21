@@ -50,6 +50,7 @@ const dataActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("emailHistory.update"), payload: z.object({ clientId: idSchema, entryId: idSchema, patch: objectPayloadSchema }) }),
   z.object({ action: z.literal("emailHistory.delete"), payload: z.object({ clientId: idSchema, entryIds: z.array(idSchema).min(1) }) }),
   z.object({ action: z.literal("emailReminderSend.record"), payload: z.object({ reminderSend: objectPayloadSchema.extend({ dedupeKey: idSchema, clientId: idSchema, type: z.enum(["premium", "birthday"]), cycleKey: idSchema }) }) }),
+  z.object({ action: z.literal("emailReminderSend.markSeen"), payload: z.object({ ids: z.array(idSchema).min(1), seenAt: z.string().optional() }) }),
   z.object({ action: z.literal("policy.markRenewalEmailSent"), payload: z.object({ policyId: idSchema, at: z.string().optional() }) }),
   z.object({ action: z.literal("client.markBirthdayEmailSent"), payload: z.object({ clientId: idSchema, at: z.string().optional() }) }),
   z.object({ action: z.literal("client.prependNote"), payload: z.object({ clientId: idSchema, block: z.string() }) }),
@@ -294,6 +295,7 @@ function serializeEmailReminderSend(send: {
   cycleKey: string;
   source: string;
   messageId: string | null;
+  seenAt: Date | null;
   sentAt: Date;
   createdAt: Date;
 }): EmailReminderSend {
@@ -307,6 +309,7 @@ function serializeEmailReminderSend(send: {
     cycleKey: send.cycleKey,
     source: send.source as EmailReminderSend["source"],
     messageId: send.messageId ?? undefined,
+    seenAt: send.seenAt?.toISOString(),
     sentAt: send.sentAt.toISOString(),
     createdAt: send.createdAt.toISOString(),
   };
@@ -569,6 +572,7 @@ async function replaceAll(snapshot: {
       cycleKey: send.cycleKey,
       source: send.source ?? "manual",
       messageId: send.messageId ?? null,
+      seenAt: toDate(send.seenAt) ?? null,
       sentAt: toDate(send.sentAt) ?? new Date(),
       createdAt: toDate(send.createdAt) ?? new Date(),
     }));
@@ -971,6 +975,7 @@ export async function POST(request: Request) {
             cycleKey: send.cycleKey,
             source: send.source ?? "manual",
             messageId: send.messageId ?? null,
+            seenAt: toDate(send.seenAt) ?? null,
             sentAt: toDate(send.sentAt) ?? new Date(),
             createdAt: toDate(send.createdAt) ?? new Date(),
           },
@@ -984,6 +989,24 @@ export async function POST(request: Request) {
           action: "record_email_reminder_send",
           entityType: send.type,
           entityId: send.policyId ?? send.clientId,
+        });
+        break;
+      }
+      case "emailReminderSend.markSeen": {
+        const ids = payload.ids as string[];
+        const seenAt = toDate(payload.seenAt as string | undefined) ?? new Date();
+        await db.emailReminderSend.updateMany({
+          where: {
+            id: { in: ids },
+            client: { userId: session.user.id },
+            seenAt: null,
+          },
+          data: { seenAt },
+        });
+        await auditLog({
+          action: "mark_email_reminders_seen",
+          entityType: "email_reminder_send",
+          metadata: { count: ids.length },
         });
         break;
       }

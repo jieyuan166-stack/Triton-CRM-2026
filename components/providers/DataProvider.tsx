@@ -87,6 +87,7 @@ interface DataContextValue {
   deleteFollowUp(id: string): boolean;
 
   recordEmailReminderSend(input: Omit<EmailReminderSend, "id" | "createdAt"> & Partial<Pick<EmailReminderSend, "id" | "createdAt">>): EmailReminderSend | null;
+  markEmailReminderSendsSeen(ids: string[], seenAt?: string): void;
 
   // mutations — communication log
   /** Append a sent-email record to the given client's history. Generates
@@ -810,6 +811,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         cycleKey: input.cycleKey,
         source: input.source ?? "manual",
         messageId: input.messageId,
+        seenAt: input.seenAt,
         sentAt: input.sentAt,
         createdAt: input.createdAt ?? new Date().toISOString(),
       };
@@ -817,6 +819,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
       persistInBackground("emailReminderSend.record", { reminderSend: saved });
       return saved;
     }, [clients, emailReminderSends]);
+
+  const markEmailReminderSendsSeen: DataContextValue["markEmailReminderSendsSeen"] =
+    useCallback((ids, seenAt) => {
+      const uniqueIds = Array.from(new Set(ids)).filter(Boolean);
+      if (uniqueIds.length === 0) return;
+      const stamp = seenAt ?? new Date().toISOString();
+      setEmailReminderSends((prev) =>
+        prev.map((send) =>
+          uniqueIds.includes(send.id) && !send.seenAt
+            ? { ...send, seenAt: stamp }
+            : send
+        )
+      );
+      persistInBackground("emailReminderSend.markSeen", { ids: uniqueIds, seenAt: stamp });
+    }, []);
 
   const markRenewalEmailSent: DataContextValue["markRenewalEmailSent"] =
     useCallback((policyId, at) => {
@@ -988,6 +1005,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateEmailHistory,
       deleteEmailHistory,
       recordEmailReminderSend,
+      markEmailReminderSendsSeen,
       markRenewalEmailSent,
       markBirthdayEmailSent,
       prependClientNote,
@@ -1024,6 +1042,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateEmailHistory,
       deleteEmailHistory,
       recordEmailReminderSend,
+      markEmailReminderSendsSeen,
       markRenewalEmailSent,
       markBirthdayEmailSent,
       prependClientNote,

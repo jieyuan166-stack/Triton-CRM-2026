@@ -43,6 +43,7 @@ export function parseTagList(value: string | null | undefined): TagValue[] | und
 
 export function getMissingInformationReasons(client: Client): string[] {
   const reasons: string[] = [];
+  const isCompanyClient = !!client.companyName?.trim();
 
   if (!client.email?.trim()) {
     reasons.push("Email is missing");
@@ -50,7 +51,7 @@ export function getMissingInformationReasons(client: Client): string[] {
     reasons.push("Email format looks invalid");
   }
 
-  if (!client.birthday) reasons.push("Birthday is missing");
+  if (!isCompanyClient && !client.birthday) reasons.push("Birthday is missing");
   if (!client.streetAddress?.trim()) reasons.push("Street address is missing");
   if (!client.city?.trim()) reasons.push("City is missing");
   if (!client.province) reasons.push("Province is missing");

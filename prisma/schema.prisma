@@ -186,6 +186,7 @@ model EmailReminderSend {
   cycleKey    String
   source      String   @default("auto")
   messageId   String?
+  seenAt      DateTime?
   sentAt      DateTime @default(now())
   createdAt   DateTime @default(now())
 

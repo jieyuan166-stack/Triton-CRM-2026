@@ -1,7 +1,7 @@
 // components/dashboard/UpcomingPremiums.tsx
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CalendarClock, Mail, MailX, RotateCcw, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -40,7 +40,13 @@ import { cn } from "@/lib/utils";
 const WINDOW_DAYS = PREMIUM_REMINDER_WINDOW_DAYS;
 
 export function UpcomingPremiums() {
-  const { policies, clients, emailReminderSends, recordEmailReminderSend } = useData();
+  const {
+    policies,
+    clients,
+    emailReminderSends,
+    recordEmailReminderSend,
+    markEmailReminderSendsSeen,
+  } = useData();
   const { settings } = useSettings();
   const renewalTpl = settings.templates.find((t) => t.id === "renewal") ?? { subject: "", body: "", attachments: [] };
 
@@ -50,6 +56,15 @@ export function UpcomingPremiums() {
   );
   const upcomingRows = premiumReminderState.pendingRows;
   const completedRows = premiumReminderState.completedRows;
+  const unseenCompletedRows = completedRows.filter((row) => !row.reminderSend?.seenAt);
+  const unseenCompletedIds = useMemo(
+    () =>
+      completedRows
+        .filter((row) => !row.reminderSend?.seenAt)
+        .map((row) => row.reminderSend?.id)
+        .filter((id): id is string => !!id),
+    [completedRows]
+  );
 
   function findRenewalHistory(clientId: string, policyNumber: string) {
     const client = clients.find((c) => c.id === clientId);
@@ -82,6 +97,14 @@ export function UpcomingPremiums() {
   const [sentPreview, setSentPreview] = useState<EmailHistoryPreview | null>(null);
   const [dismissingReminderId, setDismissingReminderId] = useState<string | null>(null);
   const [bulkRemoveOpen, setBulkRemoveOpen] = useState(false);
+
+  useEffect(() => {
+    if (activeTab !== "completed" || unseenCompletedIds.length === 0) return;
+    const timer = window.setTimeout(() => {
+      markEmailReminderSendsSeen(unseenCompletedIds);
+    }, 2200);
+    return () => window.clearTimeout(timer);
+  }, [activeTab, markEmailReminderSendsSeen, unseenCompletedIds]);
 
   const allIds = upcomingRows.map((r) => r.id);
   const allChecked = allIds.length > 0 && allIds.every((id) => selected.has(id));
@@ -309,6 +332,11 @@ export function UpcomingPremiums() {
                 <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
                   {completedRows.length}
                 </span>
+                {unseenCompletedRows.length > 0 ? (
+                  <span className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
+                    {unseenCompletedRows.length} new
+                  </span>
+                ) : null}
               </TabsTrigger>
             </TabsList>
           </div>
@@ -427,11 +455,23 @@ export function UpcomingPremiums() {
                   const client = clients.find((c) => c.id === row.clientId);
                   const clientName = client ? `${client.firstName} ${client.lastName}` : "—";
                   const history = findRenewalHistory(row.clientId, row.policy.policyNumber);
+                  const isNew = !row.reminderSend?.seenAt;
                   return (
-                    <li key={row.id} className="px-5 py-2 md:px-6">
+                    <li
+                      key={row.id}
+                      className={cn(
+                        "px-5 py-2 transition-colors md:px-6",
+                        isNew && "bg-amber-50/45"
+                      )}
+                    >
                       <UniversalDataCard
-                        accentColor="#CBD5E1"
-                        className="rounded-lg border border-slate-100 bg-white/70 p-3 shadow-none"
+                        accentColor={isNew ? "#D6A84F" : "#CBD5E1"}
+                        className={cn(
+                          "rounded-lg border p-3 shadow-none transition-colors",
+                          isNew
+                            ? "border-amber-200 bg-white shadow-[0_8px_24px_-16px_rgba(146,64,14,0.45)]"
+                            : "border-slate-100 bg-white/70"
+                        )}
                         title={
                           client ? (
                             <Link href={clientPath(client)}>
@@ -447,7 +487,22 @@ export function UpcomingPremiums() {
                           )
                         }
                         subtitle={`${row.policy.carrier} · ${row.policy.productName || row.policy.productType} · #${row.policy.policyNumber} · due ${formatDate(row.dueDate)} · completed ${formatRelative(row.completedAt)}`}
-                        badges={<StatusBadge kind="custom" label={row.stageLabel.toUpperCase()} className="bg-slate-50 text-slate-500 ring-slate-100" />}
+                        badges={
+                          <div className="flex flex-wrap justify-end gap-1.5">
+                            {isNew ? (
+                              <StatusBadge
+                                kind="custom"
+                                label="NEW"
+                                className="bg-amber-50 text-amber-700 ring-amber-200"
+                              />
+                            ) : null}
+                            <StatusBadge
+                              kind="custom"
+                              label={row.stageLabel.toUpperCase()}
+                              className="bg-slate-50 text-slate-500 ring-slate-100"
+                            />
+                          </div>
+                        }
                         actions={
                           <div className="flex items-center gap-1">
                             <button

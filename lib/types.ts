@@ -162,6 +162,7 @@ export interface EmailReminderSend {
   cycleKey: string;
   source?: "auto" | "manual" | "manual_resend" | "dismissed";
   messageId?: string;
+  seenAt?: string;
   sentAt: string;
   createdAt: string;
 }
