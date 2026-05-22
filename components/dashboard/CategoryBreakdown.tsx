@@ -1,6 +1,7 @@
 // components/dashboard/CategoryBreakdown.tsx
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
   Activity,
@@ -16,6 +17,7 @@ import {
   Tooltip,
 } from "recharts";
 import { useData } from "@/components/providers/DataProvider";
+import { CarrierLogoBadge } from "@/components/ui-shared/CarrierLogoBadge";
 import { EmptyState } from "@/components/ui-shared/EmptyState";
 import { WidgetCard } from "@/components/ui-shared/WidgetCard";
 import { CARRIER_COLORS } from "@/lib/carrier-colors";
@@ -226,6 +228,10 @@ function GrowthBadge({ current, previous }: { current: number; previous: number 
   );
 }
 
+function carrierPolicyHref(carrier: Carrier) {
+  return `/policies?carrier=${encodeURIComponent(carrier)}&view=table`;
+}
+
 function NewMoneySection({
   title,
   subtitle,
@@ -293,7 +299,14 @@ function NewMoneySection({
               {rows.map((row) => (
                 <tr key={row.company} className="transition-colors hover:bg-[#F8F0E2]/60">
                   <td className="py-2.5 pr-4 text-xs font-semibold text-navy">
-                    {row.company}
+                    <Link
+                      href={carrierPolicyHref(row.company)}
+                      className="inline-flex min-w-0 items-center gap-2 rounded-md text-navy transition-colors hover:text-[#8A641E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-amber/30"
+                      aria-label={`View ${row.company} policies`}
+                    >
+                      <CarrierLogoBadge carrier={row.company} size="sm" />
+                      <span className="min-w-0">{row.company}</span>
+                    </Link>
                   </td>
                   <td className={cn("py-2.5 px-4 text-right font-finance text-xs font-bold", accentClass)}>
                     {formatCurrencyShort(row.ytdNew)}

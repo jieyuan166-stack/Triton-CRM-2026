@@ -41,11 +41,16 @@ function parseCarrier(value: string | null): Carrier | "all" {
     : "all";
 }
 
+function parseView(value: string | null): "cards" | "table" | "client" {
+  return value === "table" || value === "client" ? value : "cards";
+}
+
 function PoliciesContent() {
   const searchParams = useSearchParams();
   const { policies, getClient, dataStatus, dataError } = useData();
   const carrierFromUrl = parseCarrier(searchParams.get("carrier"));
-  const [view, setView] = useState<"cards" | "table" | "client">("cards");
+  const viewFromUrl = parseView(searchParams.get("view"));
+  const [view, setView] = useState<"cards" | "table" | "client">(viewFromUrl);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<Policy["status"] | "all">("all");
   const [carrierFilter, setCarrierFilter] = useState<Carrier | "all">(carrierFromUrl);
@@ -53,6 +58,10 @@ function PoliciesContent() {
   useEffect(() => {
     setCarrierFilter(carrierFromUrl);
   }, [carrierFromUrl]);
+
+  useEffect(() => {
+    setView(viewFromUrl);
+  }, [viewFromUrl]);
 
   const visiblePolicies = useMemo(() => {
     const q = search.trim().toLowerCase();

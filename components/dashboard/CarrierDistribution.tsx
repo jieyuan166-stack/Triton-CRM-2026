@@ -104,7 +104,7 @@ export function CarrierDistribution({ policies: overridePolicies }: { policies?:
             {rows.map((row) => (
               <Link
                 key={row.carrier}
-                href={`/policies?carrier=${encodeURIComponent(row.carrier)}`}
+                href={`/policies?carrier=${encodeURIComponent(row.carrier)}&view=table`}
                 aria-label={`View all ${row.carrier} policies`}
                 className="grid grid-cols-[minmax(0,1.4fr)_minmax(96px,0.8fr)_minmax(96px,0.8fr)] items-center gap-3 px-4 py-4 transition-colors hover:bg-[#F8F0E2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-amber/30"
               >
