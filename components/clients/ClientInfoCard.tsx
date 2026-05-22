@@ -1,7 +1,8 @@
 // components/clients/ClientInfoCard.tsx
 "use client";
 
-import { Pencil } from "lucide-react";
+import { Copy, Pencil } from "lucide-react";
+import { toast } from "sonner";
 import { WidgetCard } from "@/components/ui-shared/WidgetCard";
 import { calcAge, formatDate } from "@/lib/date-utils";
 import type { Client } from "@/lib/types";
@@ -28,6 +29,36 @@ interface ClientInfoCardProps {
 }
 
 export function ClientInfoCard({ client, onEdit }: ClientInfoCardProps) {
+  const clientName = [client.firstName, client.lastName].filter(Boolean).join(" ");
+  const address = [
+    [client.streetAddress, client.unit].filter(Boolean).join(", "),
+    [client.city, client.province, client.postalCode]
+      .filter(Boolean)
+      .join(" "),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  async function copyClientInfoCard(event: React.MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    const lines = [
+      `Name: ${clientName || "—"}`,
+      client.companyName ? `Company: ${client.companyName}` : undefined,
+      client.birthday ? `Birthday: ${formatDate(client.birthday)} (${calcAge(client.birthday)} yrs)` : undefined,
+      `Email: ${client.email || "—"}`,
+      client.phone ? `Phone: ${client.phone}` : undefined,
+      address ? `Address: ${address}` : undefined,
+    ].filter(Boolean);
+
+    try {
+      await navigator.clipboard.writeText(lines.join("\n"));
+      toast.success("Client info copied");
+    } catch {
+      toast.error("Could not copy client info");
+    }
+  }
+
   return (
     <div
       role={onEdit ? "button" : undefined}
@@ -49,12 +80,24 @@ export function ClientInfoCard({ client, onEdit }: ClientInfoCardProps) {
     <WidgetCard
       title="Basic Info"
       action={
-        onEdit ? (
-          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400 transition group-hover:text-accent-blue">
-            <Pencil className="h-3 w-3" />
-            Click to edit
-          </span>
-        ) : undefined
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={copyClientInfoCard}
+            className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium text-slate-400 transition hover:bg-slate-50 hover:text-navy"
+            aria-label="Copy client info card"
+            title="Copy client info card"
+          >
+            <Copy className="h-3 w-3" />
+            Copy
+          </button>
+          {onEdit ? (
+            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400 transition group-hover:text-accent-blue">
+              <Pencil className="h-3 w-3" />
+              Click to edit
+            </span>
+          ) : null}
+        </div>
       }
       className={onEdit ? "cursor-pointer transition group-hover:border-accent-blue/30 group-hover:shadow-md" : undefined}
     >
@@ -74,19 +117,7 @@ export function ClientInfoCard({ client, onEdit }: ClientInfoCardProps) {
           }
         />
         <Row label="Email" value={client.email} />
-        <Row
-          label="Address"
-          value={
-            [
-              [client.streetAddress, client.unit].filter(Boolean).join(", "),
-              [client.city, client.province, client.postalCode]
-                .filter(Boolean)
-                .join(" "),
-            ]
-              .filter(Boolean)
-              .join(" · ") || undefined
-          }
-        />
+        <Row label="Address" value={address || undefined} />
       </ul>
     </WidgetCard>
     </div>
