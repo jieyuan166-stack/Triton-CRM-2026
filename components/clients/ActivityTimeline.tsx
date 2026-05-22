@@ -7,6 +7,7 @@ import {
   Mail,
   MessageCircle,
   MessageSquare,
+  Paperclip,
   Pencil,
   Phone,
   Plus,
@@ -58,6 +59,7 @@ interface ActivityItem {
   muted: boolean;
   preview: EmailHistoryPreview;
   rawId: string;
+  attachmentCount?: number;
   rawEntry?: EmailHistoryEntry;
   rawFollowUp?: FollowUp;
 }
@@ -185,6 +187,7 @@ export function ActivityTimeline({
       const isManual = !!manualLabel;
       const isExternalEmail = entry.templateLabel === "External Email";
       const Icon = manualLabel ? MANUAL_ICON[manualLabel] : Mail;
+      const attachmentCount = entry.attachments?.length ?? 0;
       return {
         id: `history:${entry.id}`,
         rawId: entry.id,
@@ -194,13 +197,15 @@ export function ActivityTimeline({
         title: historyDescription(entry),
         subtitle: isManual
           ? isExternalEmail
-            ? "External email"
+            ? attachmentCount > 0
+              ? `External email · ${attachmentCount} attachment${attachmentCount === 1 ? "" : "s"}`
+              : "External email"
             : entry.policyNumber
-              ? `Manual log · #${entry.policyNumber}`
-              : "Manual log"
+              ? `Manual log · #${entry.policyNumber}${attachmentCount > 0 ? ` · ${attachmentCount} attachment${attachmentCount === 1 ? "" : "s"}` : ""}`
+              : `Manual log${attachmentCount > 0 ? ` · ${attachmentCount} attachment${attachmentCount === 1 ? "" : "s"}` : ""}`
           : entry.policyNumber
-            ? `System email · #${entry.policyNumber}`
-            : "System email",
+            ? `System email · #${entry.policyNumber}${attachmentCount > 0 ? ` · ${attachmentCount} attachment${attachmentCount === 1 ? "" : "s"}` : ""}`
+            : `System email${attachmentCount > 0 ? ` · ${attachmentCount} attachment${attachmentCount === 1 ? "" : "s"}` : ""}`,
         body: entry.body,
         icon: Icon,
         accentClassName:
@@ -218,6 +223,7 @@ export function ActivityTimeline({
           policyNumber: entry.policyNumber,
           attachments: entry.attachments,
         },
+        attachmentCount,
         rawEntry: entry,
       };
     });
@@ -384,7 +390,15 @@ export function ActivityTimeline({
                               : "font-medium text-slate-800"
                           )}
                         >
-                          <span className="line-clamp-2">{item.title}</span>
+                          <span className="line-clamp-2">
+                            {item.title}
+                            {item.attachmentCount ? (
+                              <span className="ml-1 inline-flex items-center gap-0.5 rounded-full bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 ring-1 ring-slate-200">
+                                <Paperclip className="h-2.5 w-2.5" />
+                                {item.attachmentCount}
+                              </span>
+                            ) : null}
+                          </span>
                         </button>
                         <Button
                           variant="ghost"
