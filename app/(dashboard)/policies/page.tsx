@@ -62,6 +62,14 @@ function parseDateOnly(value: string | undefined): Date | null {
   return new Date(year, month - 1, day);
 }
 
+function policySortDate(policy: Policy, isNewMoneyView: boolean): number {
+  const date =
+    isNewMoneyView || policy.category === "Investment"
+      ? policy.effectiveDate
+      : policy.premiumDate || policy.effectiveDate;
+  return parseDateOnly(date)?.getTime() ?? 0;
+}
+
 function PoliciesContent() {
   const searchParams = useSearchParams();
   const { policies, getClient, dataStatus, dataError } = useData();
@@ -89,40 +97,60 @@ function PoliciesContent() {
       ? new Date(newMoneyYear, today.getMonth(), today.getDate())
       : null;
 
-    return policies.filter((policy) => {
-      const client = getClient(policy.clientId);
-      const haystack = [
-        policy.policyNumber,
-        policy.carrier,
-        policy.productName,
-        policy.productType,
-        policy.category,
-        policy.status,
-        policy.lender,
-        policy.policyOwnerName,
-        policy.policyOwner2Name,
-        client ? `${client.firstName} ${client.lastName}` : "",
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
+    return policies
+      .filter((policy) => {
+        const client = getClient(policy.clientId);
+        const haystack = [
+          policy.policyNumber,
+          policy.carrier,
+          policy.productName,
+          policy.productType,
+          policy.category,
+          policy.status,
+          policy.lender,
+          policy.policyOwnerName,
+          policy.policyOwner2Name,
+          client ? `${client.firstName} ${client.lastName}` : "",
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
 
-      if (categoryFromUrl && policy.category !== categoryFromUrl) return false;
+        if (categoryFromUrl && policy.category !== categoryFromUrl) return false;
 
-      if (newMoneyYear && newMoneyCutoff) {
-        const effectiveDate = parseDateOnly(policy.effectiveDate);
-        if (!effectiveDate) return false;
-        if (policy.status !== "active") return false;
-        if (effectiveDate.getFullYear() !== newMoneyYear) return false;
-        if (effectiveDate > newMoneyCutoff) return false;
-      }
+        if (newMoneyYear && newMoneyCutoff) {
+          const effectiveDate = parseDateOnly(policy.effectiveDate);
+          if (!effectiveDate) return false;
+          if (policy.status !== "active") return false;
+          if (effectiveDate.getFullYear() !== newMoneyYear) return false;
+          if (effectiveDate > newMoneyCutoff) return false;
+        }
 
-      return (
-        (newMoneyYear !== null || statusFilter === "all" || policy.status === statusFilter) &&
-        (carrierFilter === "all" || policy.carrier === carrierFilter) &&
-        (!q || haystack.includes(q))
-      );
-    });
+        return (
+          (newMoneyYear !== null || statusFilter === "all" || policy.status === statusFilter) &&
+          (carrierFilter === "all" || policy.carrier === carrierFilter) &&
+          (!q || haystack.includes(q))
+        );
+      })
+      .sort((a, b) => {
+        const dateDiff =
+          policySortDate(b, newMoneyYear !== null) -
+          policySortDate(a, newMoneyYear !== null);
+        if (dateDiff !== 0) return dateDiff;
+
+        const clientA = getClient(a.clientId);
+        const clientB = getClient(b.clientId);
+        const clientNameA = clientA
+          ? `${clientA.lastName} ${clientA.firstName}`.trim()
+          : "";
+        const clientNameB = clientB
+          ? `${clientB.lastName} ${clientB.firstName}`.trim()
+          : "";
+        const clientDiff = clientNameA.localeCompare(clientNameB);
+        if (clientDiff !== 0) return clientDiff;
+
+        return (a.policyNumber || "").localeCompare(b.policyNumber || "");
+      });
   }, [carrierFilter, categoryFromUrl, getClient, newMoneyYear, policies, search, statusFilter]);
 
   const groupedByClient = useMemo(() => {
