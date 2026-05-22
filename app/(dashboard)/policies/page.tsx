@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select";
 import { calculateClientTags } from "@/lib/client-tags";
 import { clientPath } from "@/lib/client-slug";
-import { CARRIERS, type Carrier, type Policy } from "@/lib/types";
+import { CARRIERS, type Carrier, type Policy, type PolicyCategory } from "@/lib/types";
 import { formatDate, formatMonthDay } from "@/lib/date-utils";
 import { formatCurrencyShort } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -45,11 +45,30 @@ function parseView(value: string | null): "cards" | "table" | "client" {
   return value === "table" || value === "client" ? value : "cards";
 }
 
+function parseCategory(value: string | null): PolicyCategory | null {
+  return value === "Insurance" || value === "Investment" ? value : null;
+}
+
+function parseNewMoneyYear(value: string | null): number | null {
+  if (!value) return null;
+  const year = Number(value);
+  return Number.isInteger(year) && year >= 2000 && year <= 2100 ? year : null;
+}
+
+function parseDateOnly(value: string | undefined): Date | null {
+  if (!value) return null;
+  const [year, month, day] = value.slice(0, 10).split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+}
+
 function PoliciesContent() {
   const searchParams = useSearchParams();
   const { policies, getClient, dataStatus, dataError } = useData();
   const carrierFromUrl = parseCarrier(searchParams.get("carrier"));
   const viewFromUrl = parseView(searchParams.get("view"));
+  const categoryFromUrl = parseCategory(searchParams.get("category"));
+  const newMoneyYear = parseNewMoneyYear(searchParams.get("newMoneyYear"));
   const [view, setView] = useState<"cards" | "table" | "client">(viewFromUrl);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<Policy["status"] | "all">("all");
@@ -65,6 +84,11 @@ function PoliciesContent() {
 
   const visiblePolicies = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const today = new Date();
+    const newMoneyCutoff = newMoneyYear
+      ? new Date(newMoneyYear, today.getMonth(), today.getDate())
+      : null;
+
     return policies.filter((policy) => {
       const client = getClient(policy.clientId);
       const haystack = [
@@ -83,13 +107,23 @@ function PoliciesContent() {
         .join(" ")
         .toLowerCase();
 
+      if (categoryFromUrl && policy.category !== categoryFromUrl) return false;
+
+      if (newMoneyYear && newMoneyCutoff) {
+        const effectiveDate = parseDateOnly(policy.effectiveDate);
+        if (!effectiveDate) return false;
+        if (policy.status !== "active") return false;
+        if (effectiveDate.getFullYear() !== newMoneyYear) return false;
+        if (effectiveDate > newMoneyCutoff) return false;
+      }
+
       return (
-        (statusFilter === "all" || policy.status === statusFilter) &&
+        (newMoneyYear !== null || statusFilter === "all" || policy.status === statusFilter) &&
         (carrierFilter === "all" || policy.carrier === carrierFilter) &&
         (!q || haystack.includes(q))
       );
     });
-  }, [carrierFilter, getClient, policies, search, statusFilter]);
+  }, [carrierFilter, categoryFromUrl, getClient, newMoneyYear, policies, search, statusFilter]);
 
   const groupedByClient = useMemo(() => {
     const groups = new Map<
@@ -131,7 +165,9 @@ function PoliciesContent() {
       <PageHeader
         title="Policies"
         description={
-          carrierFilter === "all"
+          newMoneyYear && categoryFromUrl && carrierFilter !== "all"
+            ? `${newMoneyYear} YTD ${categoryFromUrl === "Investment" ? "new assets" : "first year premium"} · ${carrierFilter}`
+            : carrierFilter === "all"
             ? "All policies across your book"
             : `Showing ${carrierFilter} policies`
         }

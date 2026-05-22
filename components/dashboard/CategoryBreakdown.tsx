@@ -232,6 +232,18 @@ function carrierPolicyHref(carrier: Carrier) {
   return `/policies?carrier=${encodeURIComponent(carrier)}&view=table`;
 }
 
+function newMoneyPolicyHref({
+  carrier,
+  category,
+  year,
+}: {
+  carrier: Carrier;
+  category: Policy["category"];
+  year: number;
+}) {
+  return `/policies?carrier=${encodeURIComponent(carrier)}&view=table&category=${category}&newMoneyYear=${year}`;
+}
+
 function NewMoneySection({
   title,
   subtitle,
@@ -239,6 +251,7 @@ function NewMoneySection({
   rows,
   icon: Icon,
   accentClass,
+  category,
   year,
   previousYear,
 }: {
@@ -248,6 +261,7 @@ function NewMoneySection({
   rows: NewMoneyRow[];
   icon: typeof Activity;
   accentClass: string;
+  category: Policy["category"];
   year: number;
   previousYear: number;
 }) {
@@ -282,12 +296,15 @@ function NewMoneySection({
         />
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[34rem] text-left">
+          <table className="w-full min-w-[40rem] text-left">
             <thead>
               <tr className="border-b border-[#E8DCC4]/75 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                 <th className="pb-2 pr-4 font-semibold">Company</th>
                 <th className="pb-2 px-4 text-right font-semibold">
                   {year} YTD
+                </th>
+                <th className="pb-2 px-4 text-right font-semibold">
+                  {previousYear} YTD
                 </th>
                 <th className="pb-2 px-4 text-right font-semibold">YoY</th>
                 <th className="pb-2 pl-4 text-right font-semibold">
@@ -309,7 +326,30 @@ function NewMoneySection({
                     </Link>
                   </td>
                   <td className={cn("py-2.5 px-4 text-right font-finance text-xs font-bold", accentClass)}>
-                    {formatCurrencyShort(row.ytdNew)}
+                    <Link
+                      href={newMoneyPolicyHref({
+                        carrier: row.company,
+                        category,
+                        year,
+                      })}
+                      className="rounded-md transition-colors hover:text-[#8A641E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-amber/30"
+                      aria-label={`View ${row.company} ${year} new money policies`}
+                    >
+                      {formatCurrencyShort(row.ytdNew)}
+                    </Link>
+                  </td>
+                  <td className="py-2.5 px-4 text-right font-finance text-xs font-semibold text-slate-600">
+                    <Link
+                      href={newMoneyPolicyHref({
+                        carrier: row.company,
+                        category,
+                        year: previousYear,
+                      })}
+                      className="rounded-md transition-colors hover:text-[#8A641E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-amber/30"
+                      aria-label={`View ${row.company} ${previousYear} YTD new money policies`}
+                    >
+                      {formatCurrencyShort(row.lastYearYtd)}
+                    </Link>
                   </td>
                   <td className="py-2.5 px-4 text-right">
                     <GrowthBadge current={row.ytdNew} previous={row.lastYearYtd} />
@@ -519,6 +559,7 @@ export function CategoryBreakdown({ policies: overridePolicies }: { policies?: R
               rows={investmentNewMoney}
               icon={Activity}
               accentClass="text-emerald-600"
+              category="Investment"
               year={currentYear}
               previousYear={previousYear}
             />
@@ -529,6 +570,7 @@ export function CategoryBreakdown({ policies: overridePolicies }: { policies?: R
               rows={insuranceNewPremium}
               icon={Shield}
               accentClass="text-blue-600"
+              category="Insurance"
               year={currentYear}
               previousYear={previousYear}
             />
