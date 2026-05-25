@@ -79,6 +79,8 @@ export interface EmailPreviewPayload {
   /** Required when template === "renewal" — identifies the policy whose
    *  renewal-suppression timestamp should be stamped. */
   policyId?: string;
+  draftEntryId?: string;
+  communicationType?: string;
   reminderStage?: "first" | "second";
   reminderCycleKey?: string;
   reminderDedupeKey?: string;
@@ -130,6 +132,8 @@ export function EmailPreviewDialog({
 }: EmailPreviewDialogProps) {
   const {
     appendEmailHistory,
+    updateEmailHistory,
+    deleteEmailHistory,
     markRenewalEmailSent,
     markBirthdayEmailSent,
     recordEmailReminderSend,
@@ -162,7 +166,7 @@ export function EmailPreviewDialog({
       setAttachments(payload.attachments ?? []);
       setSelectedTemplate(payload.template ?? "custom");
       setSelectedPolicyId(payload.policyId);
-      setSelectedCommunicationType("External Email");
+      setSelectedCommunicationType(payload.communicationType || "External Email");
       setSending(false);
       setBirthdayConfirmOpen(false);
       setBirthdayWarning("");
@@ -367,7 +371,7 @@ export function EmailPreviewDialog({
         ? getPolicy(selectedPolicyId)
         : undefined;
 
-    const saved = appendEmailHistory(activePayload.clientId, {
+    const draftPatch = {
       subject: trimmedSubject || "(No subject)",
       body: body,
       templateLabel: draftTemplateLabel(),
@@ -381,13 +385,17 @@ export function EmailPreviewDialog({
         ? `${targetPolicy.carrier} ${targetPolicy.productName || targetPolicy.productType}`.trim()
         : undefined,
       attachments: attachmentMetadata(),
-    });
+    };
+
+    const saved = activePayload.draftEntryId
+      ? updateEmailHistory(activePayload.clientId, activePayload.draftEntryId, draftPatch)
+      : appendEmailHistory(activePayload.clientId, draftPatch);
 
     if (!saved) {
       toast.error("Could not save email draft.");
       return;
     }
-    toast.success("Email draft saved", {
+    toast.success(activePayload.draftEntryId ? "Email draft updated" : "Email draft saved", {
       description: activePayload.contextLabel,
     });
     onOpenChange(false);
@@ -541,6 +549,9 @@ export function EmailPreviewDialog({
       }
       if (template === "birthday" && clientId) {
         markBirthdayEmailSent(clientId);
+      }
+      if (clientId && activePayload.draftEntryId) {
+        deleteEmailHistory(clientId, [activePayload.draftEntryId]);
       }
 
       return { clientId, template, subject: prepared.subject, body: prepared.body };

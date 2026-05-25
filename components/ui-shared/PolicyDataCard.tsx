@@ -9,6 +9,7 @@ import { UniversalDataCard, type UniversalDataMetric } from "@/components/ui-sha
 import { CARRIER_COLORS } from "@/lib/carrier-colors";
 import { formatDate, formatMonthDay, formatRelative } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/format";
+import { investmentProductTone } from "@/lib/investment-product-style";
 import { partyDisplayName } from "@/lib/policy-parties";
 import { PAYMENT_FREQUENCY_LABELS, type Client, type Policy } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -146,6 +147,19 @@ export function PolicyDataCard({
       />
     </span>
   ) : null;
+  const productTypeNode =
+    policy.category === "Investment" ? (
+      <span
+        className={cn(
+          "inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold leading-none ring-1",
+          investmentProductTone(policy.productType)
+        )}
+      >
+        {policy.productType}
+      </span>
+    ) : (
+      <span>{policy.productType}</span>
+    );
 
   return (
     <UniversalDataCard
@@ -159,7 +173,9 @@ export function PolicyDataCard({
               <CarrierLogoBadge carrier={policy.carrier} size="sm" />
               <span className="font-semibold text-slate-700">{policy.carrier}</span>
             </span>
-            <span>{` · ${policy.productType} · #${policy.policyNumber}`}</span>
+            <span aria-hidden="true">·</span>
+            {productTypeNode}
+            <span>{`· #${policy.policyNumber}`}</span>
           </span>
           {jointDisplayClient ? (
             <span className="mt-1 block text-purple-600">

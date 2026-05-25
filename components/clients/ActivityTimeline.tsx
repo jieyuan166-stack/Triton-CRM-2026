@@ -134,6 +134,17 @@ function followUpTimestamp(followUp: FollowUp): string {
   return followUp.createdAt || `${followUp.date}T12:00:00.000`;
 }
 
+function isEmailDraft(entry?: EmailHistoryEntry) {
+  return entry?.templateLabel?.startsWith("Email Draft") ?? false;
+}
+
+function draftTemplate(entry: EmailHistoryEntry): EmailPreviewPayload["template"] {
+  if (entry.templateLabel === "Email Draft · Birthday") return "birthday";
+  if (entry.templateLabel === "Email Draft · Renewal") return "renewal";
+  if (entry.templateLabel === "Email Draft · Festival") return "festival";
+  return "custom";
+}
+
 export function ActivityTimeline({
   clientId,
   followUps,
@@ -180,6 +191,32 @@ export function ActivityTimeline({
       body: "",
       clientId: client.id,
       template: "custom",
+    });
+    setComposeOpen(true);
+  }
+
+  function openDraftEmail(entry: EmailHistoryEntry) {
+    if (!client || !canSendToEmail(client.email)) {
+      toast.error("No valid client email", {
+        description: "Add a real email address before continuing this draft.",
+      });
+      return;
+    }
+    const fullName =
+      `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim() ||
+      client.companyName ||
+      "Client";
+    setComposePayload({
+      contextLabel: fullName,
+      to: client.email,
+      subject: entry.subject ?? "",
+      body: entry.body ?? "",
+      clientId: client.id,
+      template: draftTemplate(entry),
+      policyId: entry.policyId,
+      draftEntryId: entry.id,
+      communicationType: entry.communicationType || "External Email",
+      attachments: [],
     });
     setComposeOpen(true);
   }
@@ -415,6 +452,14 @@ export function ActivityTimeline({
           <ul className="max-h-[38rem] overflow-y-auto px-4 py-3">
             {filteredItems.map((item) => {
               const Icon = item.icon;
+              const opensDraft = isEmailDraft(item.rawEntry);
+              const handlePrimaryClick = () => {
+                if (opensDraft && item.rawEntry) {
+                  openDraftEmail(item.rawEntry);
+                  return;
+                }
+                setPreview(item.preview);
+              };
               return (
                 <li
                   key={item.id}
@@ -428,8 +473,8 @@ export function ActivityTimeline({
                   <div className="flex gap-3">
                     <button
                       type="button"
-                      aria-label={`Preview ${item.title}`}
-                      onClick={() => setPreview(item.preview)}
+                      aria-label={opensDraft ? `Continue ${item.title}` : `Preview ${item.title}`}
+                      onClick={handlePrimaryClick}
                       className={cn(
                         "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ring-1 transition-colors",
                         item.accentClassName
@@ -441,7 +486,7 @@ export function ActivityTimeline({
                       <div className="flex items-start justify-between gap-2">
                         <button
                           type="button"
-                          onClick={() => setPreview(item.preview)}
+                          onClick={handlePrimaryClick}
                           className={cn(
                             "min-w-0 text-left text-sm leading-snug",
                             item.muted

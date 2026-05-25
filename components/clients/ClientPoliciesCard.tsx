@@ -24,6 +24,7 @@ import { CarrierLogoBadge } from "@/components/ui-shared/CarrierLogoBadge";
 import { StatusBadge } from "@/components/ui-shared/StatusBadge";
 import { formatDate, formatMonthDay } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/format";
+import { investmentProductTone } from "@/lib/investment-product-style";
 import { parseCommunicationTypes } from "@/lib/communication-log";
 import type { EmailHistoryEntry, Policy } from "@/lib/types";
 import { CARRIERS, PAYMENT_FREQUENCY_LABELS } from "@/lib/types";
@@ -396,7 +397,19 @@ function CompactPolicyRow({
             )}
           </div>
           <p className="mt-1 text-xs text-slate-500">
-            {policy.carrier} · {policy.productType}
+            {policy.carrier} ·{" "}
+            {policy.category === "Investment" ? (
+              <span
+                className={cn(
+                  "inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold leading-none ring-1",
+                  investmentProductTone(policy.productType)
+                )}
+              >
+                {policy.productType}
+              </span>
+            ) : (
+              policy.productType
+            )}
             {policy.status !== "active" ? ` · ${policy.status}` : ""}
           </p>
         </button>
