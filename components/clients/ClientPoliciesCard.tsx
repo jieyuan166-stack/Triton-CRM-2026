@@ -365,12 +365,20 @@ function CompactPolicyRow({
 }) {
   const primaryAmountLabel =
     policy.category === "Investment" ? "Initial Amount" : "Death Benefit";
-  const dateLabel = policy.category === "Investment" ? "Effective Date" : "Due Date";
-  const dateValue =
+  const effectiveDateValue = policy.effectiveDate ? formatDate(policy.effectiveDate) : "—";
+  const ongoingStartValue = policy.ongoingInvestmentStartDate
+    ? formatDate(policy.ongoingInvestmentStartDate)
+    : "—";
+  const ongoingDateRange = policy.ongoingInvestmentEndDate
+    ? `${ongoingStartValue} – ${formatDate(policy.ongoingInvestmentEndDate)}`
+    : ongoingStartValue;
+  const ongoingFrequency =
+    policy.ongoingInvestmentFrequency === "Custom"
+      ? policy.ongoingInvestmentFrequencyCustom || "Custom"
+      : policy.ongoingInvestmentFrequency || "—";
+  const insuranceDateValue =
     policy.category === "Investment"
-      ? policy.effectiveDate
-        ? formatDate(policy.effectiveDate)
-        : "—"
+      ? "—"
       : policy.premiumDate
         ? formatMonthDay(policy.premiumDate)
         : "—";
@@ -415,12 +423,21 @@ function CompactPolicyRow({
           </p>
         </button>
 
-        <Metric label={primaryAmountLabel} value={formatCurrency(policy.sumAssured)} />
+        <Metric
+          label={primaryAmountLabel}
+          value={formatCurrency(policy.sumAssured)}
+          helper={policy.category === "Investment" ? `Effective Date: ${effectiveDateValue}` : undefined}
+        />
         <div>
           {policy.category === "Investment" ? (
             <Metric
               label="Ongoing Amount"
               value={policy.ongoingInvestmentAmount ? formatCurrency(policy.ongoingInvestmentAmount) : "—"}
+              helper={
+                policy.ongoingInvestmentAmount
+                  ? `Start Date: ${ongoingDateRange}`
+                  : undefined
+              }
             />
           ) : (
             <Metric
@@ -429,7 +446,11 @@ function CompactPolicyRow({
             />
           )}
         </div>
-        <Metric label={dateLabel} value={dateValue} />
+        {policy.category === "Investment" ? (
+          <Metric label="Frequency" value={ongoingFrequency} />
+        ) : (
+          <Metric label="Due Date" value={insuranceDateValue} />
+        )}
         <div className="flex justify-start gap-1 lg:justify-end">
           <button
             type="button"
@@ -489,13 +510,18 @@ function CompactPolicyRow({
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({ label, value, helper }: { label: string; value: string; helper?: string }) {
   return (
     <div className="min-w-0 lg:text-right">
       <p className="label-caps leading-none">{label}</p>
       <p className="mt-1 whitespace-nowrap font-finance text-xs font-medium text-slate-800">
         {value}
       </p>
+      {helper ? (
+        <p className="mt-1 text-[9px] font-medium leading-tight text-triton-muted">
+          {helper}
+        </p>
+      ) : null}
     </div>
   );
 }

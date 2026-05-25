@@ -55,6 +55,14 @@ function ongoingFrequencyLabel(policy: Policy): string {
   return policy.ongoingInvestmentFrequency;
 }
 
+function ongoingDateRange(policy: Policy): string {
+  const start = policy.ongoingInvestmentStartDate
+    ? formatDate(policy.ongoingInvestmentStartDate)
+    : "—";
+  if (!policy.ongoingInvestmentEndDate) return `Start Date: ${start}`;
+  return `Start Date: ${start} · End Date: ${formatDate(policy.ongoingInvestmentEndDate)}`;
+}
+
 function buildPolicyMetrics(policy: Policy): UniversalDataMetric[] {
   const amountLabel = policy.category === "Investment" ? "Initial Amount" : "Death Benefit";
   const dateLabel = policy.category === "Investment" ? "Effective Date" : "Due Date";
@@ -63,6 +71,10 @@ function buildPolicyMetrics(policy: Policy): UniversalDataMetric[] {
     {
       label: amountLabel,
       value: <span className="font-finance">{formatCurrency(policy.sumAssured)}</span>,
+      helper:
+        policy.category === "Investment"
+          ? `Effective Date: ${policy.effectiveDate ? formatDate(policy.effectiveDate) : "—"}`
+          : undefined,
     },
   ];
 
@@ -70,22 +82,13 @@ function buildPolicyMetrics(policy: Policy): UniversalDataMetric[] {
     metrics.push({
       label: "Ongoing Amount",
       value: <span className="font-finance">{formatCurrency(policy.ongoingInvestmentAmount || 0)}</span>,
+      helper: policy.ongoingInvestmentAmount ? ongoingDateRange(policy) : undefined,
     });
     if (policy.ongoingInvestmentAmount) {
       metrics.push({
         label: "Frequency",
         value: ongoingFrequencyLabel(policy),
       });
-      metrics.push({
-        label: "Start Date",
-        value: policy.ongoingInvestmentStartDate ? formatDate(policy.ongoingInvestmentStartDate) : "—",
-      });
-      if (policy.ongoingInvestmentEndDate) {
-        metrics.push({
-          label: "End Date",
-          value: formatDate(policy.ongoingInvestmentEndDate),
-        });
-      }
     }
   }
 
@@ -103,21 +106,13 @@ function buildPolicyMetrics(policy: Policy): UniversalDataMetric[] {
     });
   }
 
-  metrics.push({
-    label: dateLabel,
-    value:
-      policy.category === "Investment"
-        ? policy.effectiveDate
-          ? formatDate(policy.effectiveDate)
-          : "—"
-        : policy.premiumDate
-          ? formatMonthDay(policy.premiumDate)
-          : "—",
-    helper:
-      policy.premiumDate && policy.category !== "Investment"
-        ? formatRelative(policy.premiumDate)
-        : undefined,
-  });
+  if (policy.category !== "Investment") {
+    metrics.push({
+      label: dateLabel,
+      value: policy.premiumDate ? formatMonthDay(policy.premiumDate) : "—",
+      helper: policy.premiumDate ? formatRelative(policy.premiumDate) : undefined,
+    });
+  }
 
   return metrics;
 }
