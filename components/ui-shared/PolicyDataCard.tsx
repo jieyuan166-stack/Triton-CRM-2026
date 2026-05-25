@@ -9,7 +9,7 @@ import { UniversalDataCard, type UniversalDataMetric } from "@/components/ui-sha
 import { CARRIER_COLORS } from "@/lib/carrier-colors";
 import { formatDate, formatMonthDay, formatRelative } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/format";
-import { investmentProductTone } from "@/lib/investment-product-style";
+import { insuranceProductTone, investmentProductTone } from "@/lib/investment-product-style";
 import { displayPolicyNumberWithHash } from "@/lib/policy-number";
 import { partyDisplayName } from "@/lib/policy-parties";
 import { PAYMENT_FREQUENCY_LABELS, type Client, type Policy } from "@/lib/types";
@@ -178,14 +178,16 @@ export function PolicyDataCard({
     policy.category === "Investment" ? (
       <span
         className={cn(
-          "inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold leading-none ring-1",
+          "font-bold",
           investmentProductTone(policy.productType)
         )}
       >
         {policy.productType}
       </span>
     ) : (
-      <span>{policy.productType}</span>
+      <span className={cn("font-bold", insuranceProductTone(policy.productType))}>
+        {policy.productType}
+      </span>
     );
 
   return (
