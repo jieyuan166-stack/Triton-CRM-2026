@@ -9,6 +9,7 @@ import {
   INSURANCE_PRODUCTS,
   INVESTMENT_PRODUCTS,
   LENDERS,
+  ONGOING_INVESTMENT_FREQUENCIES,
   PAYMENT_FREQUENCIES,
 } from "./types";
 
@@ -61,7 +62,7 @@ export const policyFormSchema = z
       .trim()
       .optional()
       .or(z.literal("").transform(() => undefined)),
-    policyNumber: z.string().trim().min(1, "Policy number is required"),
+    policyNumber: z.string().trim().optional().or(z.literal("")),
     // sumAssured is Death Benefit for Insurance and Initial Investment for
     // Investment. Premium/paymentFrequency only surface for Insurance.
     // Currency string-to-number coercion happens at the form layer (see
@@ -103,6 +104,16 @@ export const policyFormSchema = z
       .optional(),
     loanAmount: z.number().min(0).optional(),
 
+    // Ongoing investment fields. Only used when category === "Investment".
+    ongoingInvestmentAmount: z.number().min(0).optional(),
+    ongoingInvestmentFrequency: z
+      .enum(ONGOING_INVESTMENT_FREQUENCIES as unknown as [string, ...string[]])
+      .or(z.literal("").transform(() => undefined))
+      .optional(),
+    ongoingInvestmentFrequencyCustom: optionalPolicyString,
+    ongoingInvestmentStartDate: optionalPolicyString,
+    ongoingInvestmentEndDate: optionalPolicyString,
+
     // Joint account fields. Applies to both Insurance and Investment.
     isJoint: z.boolean().optional(),
     jointWithClientId: z
@@ -129,6 +140,47 @@ export const policyFormSchema = z
       message: "Product type does not match category",
       path: ["productType"],
     }
+  )
+
+  .refine(
+    (d) => {
+      const policyNumber = d.policyNumber?.trim() ?? "";
+      if (d.status === "pending") return true;
+      return policyNumber.length > 0 && !policyNumber.startsWith("PENDING-");
+    },
+    { message: "Policy number is required", path: ["policyNumber"] }
+  )
+  .refine(
+    (d) => {
+      if (d.category !== "Investment") return true;
+      if (!d.ongoingInvestmentAmount || d.ongoingInvestmentAmount <= 0) return true;
+      return !!d.ongoingInvestmentFrequency;
+    },
+    { message: "Frequency is required", path: ["ongoingInvestmentFrequency"] }
+  )
+  .refine(
+    (d) => {
+      if (d.category !== "Investment") return true;
+      if (!d.ongoingInvestmentAmount || d.ongoingInvestmentAmount <= 0) return true;
+      if (d.ongoingInvestmentFrequency !== "Custom") return true;
+      return !!d.ongoingInvestmentFrequencyCustom?.trim();
+    },
+    { message: "Custom frequency is required", path: ["ongoingInvestmentFrequencyCustom"] }
+  )
+  .refine(
+    (d) => {
+      if (d.category !== "Investment") return true;
+      if (!d.ongoingInvestmentAmount || d.ongoingInvestmentAmount <= 0) return true;
+      return !!d.ongoingInvestmentStartDate;
+    },
+    { message: "Start date is required", path: ["ongoingInvestmentStartDate"] }
+  )
+  .refine(
+    (d) => {
+      if (!d.ongoingInvestmentStartDate || !d.ongoingInvestmentEndDate) return true;
+      return d.ongoingInvestmentEndDate >= d.ongoingInvestmentStartDate;
+    },
+    { message: "End date cannot be before start date", path: ["ongoingInvestmentEndDate"] }
   )
   .refine(
     (d) => {

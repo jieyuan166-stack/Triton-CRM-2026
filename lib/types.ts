@@ -73,6 +73,21 @@ export type PaymentFrequency =
   | "Semi-Annual"
   | "Annual";
 
+export type OngoingInvestmentFrequency =
+  | "Weekly"
+  | "Bi-weekly"
+  | "Semi-monthly"
+  | "Monthly"
+  | "Custom";
+
+export const ONGOING_INVESTMENT_FREQUENCIES: OngoingInvestmentFrequency[] = [
+  "Weekly",
+  "Bi-weekly",
+  "Semi-monthly",
+  "Monthly",
+  "Custom",
+];
+
 /** Form-visible payment frequencies. Quarterly/Semi-Annual remain in the
  *  type union for legacy records but are no longer offered for new policies. */
 export const PAYMENT_FREQUENCIES: PaymentFrequency[] = ["Monthly", "Annual"];
@@ -319,6 +334,13 @@ export interface Policy {
   loanAmount?: number;
   /** @deprecated Loan Rate dropped from the form; field kept for legacy data. */
   loanRate?: number;
+
+  // Ongoing investment contribution fields. Only meaningful when category === "Investment".
+  ongoingInvestmentAmount?: number;
+  ongoingInvestmentFrequency?: OngoingInvestmentFrequency;
+  ongoingInvestmentFrequencyCustom?: string;
+  ongoingInvestmentStartDate?: string;
+  ongoingInvestmentEndDate?: string;
 
   // Joint-account fields. Meaningful for both Insurance and Investment.
   isJoint?: boolean;

@@ -12,6 +12,7 @@ import {
 import type { Carrier, Client, EmailHistoryEntry, Policy } from "@/lib/types";
 import { formatDate as formatCalendarDate } from "@/lib/date-utils";
 import { formatCurrency as formatMoney } from "@/lib/format";
+import { displayPolicyNumber } from "@/lib/policy-number";
 
 const styles = StyleSheet.create({
   page: {
@@ -500,7 +501,7 @@ function ReportDocument({
                       <Text style={styles.partyLine}>{policyPartySummary(policy)}</Text>
                     ) : null}
                   </View>
-                  <Text style={[styles.td, { width: columns[3].width }]}>{policy.policyNumber || "N/A"}</Text>
+                  <Text style={[styles.td, { width: columns[3].width }]}>{displayPolicyNumber(policy.policyNumber)}</Text>
                   <Text style={[styles.td, { width: columns[4].width }]}>{formatCurrency(policy.sumAssured)}</Text>
                   <Text style={[styles.td, { width: columns[5].width }]}>{formatCurrency(policy.premium)}</Text>
                   <Text style={[styles.td, { width: columns[6].width }]}>{policy.status || "active"}</Text>

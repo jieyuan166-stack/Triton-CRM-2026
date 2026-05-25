@@ -14,6 +14,7 @@ import { ClientNameDisplay } from "@/components/ui-shared/ClientNameDisplay";
 import { EmptyState } from "@/components/ui-shared/EmptyState";
 import { calculateClientTags } from "@/lib/client-tags";
 import { clientPath } from "@/lib/client-slug";
+import { displayPolicyNumber, isInternalPendingPolicyNumber } from "@/lib/policy-number";
 import {
   Dialog,
   DialogContent,
@@ -60,7 +61,7 @@ export default function PolicyDetailPage() {
     carrier: policy.carrier,
     productType: policy.productType,
     productName: policy.productName ?? "",
-    policyNumber: policy.policyNumber,
+    policyNumber: isInternalPendingPolicyNumber(policy.policyNumber) ? "" : policy.policyNumber,
     sumAssured:
       policy.category === "Investment" && policy.sumAssured <= 0
         ? policy.loanAmount
@@ -73,6 +74,11 @@ export default function PolicyDetailPage() {
     isInvestmentLoan: !!policy.isInvestmentLoan,
     lender: (policy.lender ?? "") as never,
     loanAmount: policy.loanAmount,
+    ongoingInvestmentAmount: policy.ongoingInvestmentAmount,
+    ongoingInvestmentFrequency: (policy.ongoingInvestmentFrequency ?? "") as never,
+    ongoingInvestmentFrequencyCustom: policy.ongoingInvestmentFrequencyCustom ?? "",
+    ongoingInvestmentStartDate: policy.ongoingInvestmentStartDate ?? "",
+    ongoingInvestmentEndDate: policy.ongoingInvestmentEndDate ?? "",
     isCorporateInsurance: !!policy.isCorporateInsurance,
     businessName: policy.businessName ?? "",
     isJoint: !!policy.isJoint,
@@ -89,6 +95,8 @@ export default function PolicyDetailPage() {
     const isInvestmentLoan = isInv && !!values.isInvestmentLoan;
     const isCorporateInsurance = !isInv && !!values.isCorporateInsurance;
     const isJoint = !!values.isJoint && !!values.jointWithClientId;
+    const hasOngoingInvestment =
+      isInv && typeof values.ongoingInvestmentAmount === "number" && values.ongoingInvestmentAmount > 0;
     const sumAssured = isInv
       ? values.sumAssured ?? values.loanAmount ?? 0
       : values.sumAssured ?? 0;
@@ -105,7 +113,7 @@ export default function PolicyDetailPage() {
       carrier: values.carrier as never,
       productType: values.productType as never,
       productName: values.productName?.trim() || values.productType,
-      policyNumber: values.policyNumber,
+      policyNumber: values.policyNumber ?? "",
       sumAssured,
       premium,
       paymentFrequency,
@@ -117,6 +125,14 @@ export default function PolicyDetailPage() {
       isInvestmentLoan,
       lender: isInvestmentLoan ? (values.lender as never) : undefined,
       loanAmount: isInvestmentLoan ? values.loanAmount : undefined,
+      ongoingInvestmentAmount: hasOngoingInvestment ? values.ongoingInvestmentAmount : 0,
+      ongoingInvestmentFrequency: hasOngoingInvestment ? (values.ongoingInvestmentFrequency as never) : ("" as never),
+      ongoingInvestmentFrequencyCustom:
+        hasOngoingInvestment && values.ongoingInvestmentFrequency === "Custom"
+          ? values.ongoingInvestmentFrequencyCustom
+          : "",
+      ongoingInvestmentStartDate: hasOngoingInvestment ? values.ongoingInvestmentStartDate : "",
+      ongoingInvestmentEndDate: hasOngoingInvestment ? values.ongoingInvestmentEndDate : "",
       isJoint,
       jointWithClientId: isJoint ? values.jointWithClientId : undefined,
       policyOwnerName: values.policyOwnerName?.trim() || undefined,
@@ -162,7 +178,7 @@ export default function PolicyDetailPage() {
 
       <PageHeader
         title={policy.productName}
-        description={`${policy.carrier} · ${policy.policyNumber}${client ? ` · ${client.firstName} ${client.lastName}` : ""}`}
+        description={`${policy.carrier} · ${displayPolicyNumber(policy.policyNumber)}${client ? ` · ${client.firstName} ${client.lastName}` : ""}`}
         action={
           <Button
             variant="outline"
@@ -222,7 +238,7 @@ export default function PolicyDetailPage() {
           <DialogHeader>
             <DialogTitle>Delete this policy?</DialogTitle>
             <DialogDescription>
-              {policy.productName} ({policy.policyNumber}) will be permanently
+              {policy.productName} ({displayPolicyNumber(policy.policyNumber)}) will be permanently
               removed from {client ? `${client.firstName} ${client.lastName}` : "this client"}
               &apos;s portfolio. This cannot be undone.
             </DialogDescription>

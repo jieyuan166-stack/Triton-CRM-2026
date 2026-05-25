@@ -23,6 +23,7 @@ import {
   parseCommunicationTypes,
   serializeCommunicationTypes,
 } from "@/lib/communication-log";
+import { displayPolicyNumberWithHash } from "@/lib/policy-number";
 import type { EmailHistoryEntry, Policy } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -57,13 +58,13 @@ function policyLabel(policy: Policy): string {
 
 function policyDisplayName(policy: Policy): string {
   const product = policy.productName || policy.productType || "Policy";
-  return `${product} · ${policy.carrier} · #${policy.policyNumber || "N/A"}`;
+  return `${product} · ${policy.carrier} · ${displayPolicyNumberWithHash(policy.policyNumber)}`;
 }
 
 function policyShortDisplayName(policy: Policy): string {
   const product = policy.productName || policy.productType || "Policy";
   const shortProduct = product.length > 28 ? `${product.slice(0, 27).trim()}…` : product;
-  return `${shortProduct} · #${policy.policyNumber || "N/A"}`;
+  return `${shortProduct} · ${displayPolicyNumberWithHash(policy.policyNumber)}`;
 }
 
 function splitKnownAndCustom(label: string) {

@@ -31,6 +31,7 @@ import {
   INSURANCE_PRODUCTS,
   INVESTMENT_PRODUCTS,
   LENDERS,
+  ONGOING_INVESTMENT_FREQUENCIES,
   PAYMENT_FREQUENCIES,
   PAYMENT_FREQUENCY_LABELS,
 } from "@/lib/types";
@@ -166,6 +167,11 @@ function makeDefaults(defaultClientId?: string): Partial<PolicyFormValues> {
     policyOwner2Name: "",
     policyOwner2ClientId: "",
     insuredPersons: [],
+    ongoingInvestmentAmount: undefined,
+    ongoingInvestmentFrequency: "" as never,
+    ongoingInvestmentFrequencyCustom: "",
+    ongoingInvestmentStartDate: "",
+    ongoingInvestmentEndDate: "",
   };
 }
 
@@ -211,6 +217,8 @@ export function PolicyForm({
   const isCorporateInsurance = watch("isCorporateInsurance") ?? false;
   const isJoint = watch("isJoint") ?? false;
   const loanAmount = watch("loanAmount");
+  const ongoingInvestmentAmount = watch("ongoingInvestmentAmount");
+  const ongoingInvestmentFrequency = watch("ongoingInvestmentFrequency");
   const businessName = watch("businessName") ?? "";
   const policyOwnerName = watch("policyOwnerName") ?? "";
   const policyOwnerClientId = watch("policyOwnerClientId") ?? "";
@@ -313,6 +321,11 @@ export function PolicyForm({
       setValue("isInvestmentLoan", false, { shouldValidate: false });
       setValue("lender", "" as never, { shouldValidate: false });
       setValue("loanAmount", undefined as never, { shouldValidate: false });
+      setValue("ongoingInvestmentAmount", undefined as never, { shouldValidate: false });
+      setValue("ongoingInvestmentFrequency", "" as never, { shouldValidate: false });
+      setValue("ongoingInvestmentFrequencyCustom", "", { shouldValidate: false });
+      setValue("ongoingInvestmentStartDate", "", { shouldValidate: false });
+      setValue("ongoingInvestmentEndDate", "", { shouldValidate: false });
     } else {
       // Wipe Insurance-only fields. Initial Investment reuses sumAssured, so
       // keep it under Investment; Corporate Insurance doesn't render there.
@@ -327,6 +340,11 @@ export function PolicyForm({
       "productType",
       "lender",
       "loanAmount",
+      "ongoingInvestmentAmount",
+      "ongoingInvestmentFrequency",
+      "ongoingInvestmentFrequencyCustom",
+      "ongoingInvestmentStartDate",
+      "ongoingInvestmentEndDate",
       "businessName",
       "sumAssured",
       "premium",
@@ -448,11 +466,32 @@ export function PolicyForm({
       sumAssured: toCurrencyNumber(values.sumAssured) as never,
       premium: toCurrencyNumber(values.premium) as never,
       loanAmount: toCurrencyNumber(values.loanAmount) as never,
+      ongoingInvestmentAmount: toCurrencyNumber(values.ongoingInvestmentAmount) as never,
       policyOwnerName: values.policyOwnerName?.trim() || undefined,
       policyOwnerClientId: values.policyOwnerClientId || undefined,
       policyOwner2Name: values.policyOwner2Name?.trim() || undefined,
       policyOwner2ClientId: values.policyOwner2ClientId || undefined,
       productName: values.productName?.trim() || values.productType,
+      policyNumber:
+        values.status === "pending" && !values.policyNumber?.trim()
+          ? `PENDING-${values.clientId.slice(-6)}-${Date.now().toString(36)}`
+          : values.policyNumber?.trim() || "",
+      ongoingInvestmentFrequency:
+        values.category === "Investment" && values.ongoingInvestmentAmount
+          ? values.ongoingInvestmentFrequency
+          : undefined,
+      ongoingInvestmentFrequencyCustom:
+        values.category === "Investment" && values.ongoingInvestmentFrequency === "Custom"
+          ? values.ongoingInvestmentFrequencyCustom?.trim() || undefined
+          : undefined,
+      ongoingInvestmentStartDate:
+        values.category === "Investment" && values.ongoingInvestmentAmount
+          ? values.ongoingInvestmentStartDate || undefined
+          : undefined,
+      ongoingInvestmentEndDate:
+        values.category === "Investment" && values.ongoingInvestmentAmount
+          ? values.ongoingInvestmentEndDate || undefined
+          : undefined,
       insuredPersons:
         values.category === "Investment"
           ? []
@@ -620,11 +659,13 @@ export function PolicyForm({
           {/* Policy Number */}
           <div className="space-y-1.5">
             <Label htmlFor="policyNumber">
-              Policy Number <span className="text-accent-red">*</span>
+              Policy Number {watch("status") === "pending" ? null : (
+                <span className="text-accent-red">*</span>
+              )}
             </Label>
             <Input
               id="policyNumber"
-              placeholder="e.g. SUN-771204"
+              placeholder={watch("status") === "pending" ? "Optional while pending" : "e.g. SUN-771204"}
               {...register("policyNumber")}
             />
             <FieldError message={errors.policyNumber?.message} />
@@ -715,6 +756,84 @@ export function PolicyForm({
                 </p>
               ) : null}
               <FieldError message={errors.sumAssured?.message} />
+            </div>
+          ) : null}
+
+          {isInvestment ? (
+            <div className="space-y-3 rounded-xl border border-slate-100 bg-slate-50/70 p-4 md:col-span-2">
+              <div>
+                <p className="label-caps">Ongoing Investment</p>
+                <p className="mt-1 text-xs text-triton-muted">
+                  Optional scheduled contribution amount. Counts once toward Investment AUM.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="ongoingInvestmentAmount">Ongoing Investment Amount</Label>
+                  <CurrencyInput
+                    id="ongoingInvestmentAmount"
+                    value={ongoingInvestmentAmount}
+                    onValueChange={(n) =>
+                      setValue("ongoingInvestmentAmount", n as never, { shouldValidate: true })
+                    }
+                  />
+                  <FieldError message={errors.ongoingInvestmentAmount?.message} />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="ongoingInvestmentFrequency">Frequency</Label>
+                  <Select
+                    value={ongoingInvestmentFrequency ?? ""}
+                    onValueChange={(v) =>
+                      setValue("ongoingInvestmentFrequency", v as never, { shouldValidate: true })
+                    }
+                  >
+                    <SelectTrigger id="ongoingInvestmentFrequency" className="w-full">
+                      <SelectValue placeholder="Select frequency" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ONGOING_INVESTMENT_FREQUENCIES.map((frequency) => (
+                        <SelectItem key={frequency} value={frequency}>
+                          {frequency}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FieldError message={errors.ongoingInvestmentFrequency?.message as string} />
+                </div>
+
+                {ongoingInvestmentFrequency === "Custom" ? (
+                  <div className="space-y-1.5 md:col-span-2">
+                    <Label htmlFor="ongoingInvestmentFrequencyCustom">Custom Frequency</Label>
+                    <Input
+                      id="ongoingInvestmentFrequencyCustom"
+                      placeholder="e.g. Quarterly top-up"
+                      {...register("ongoingInvestmentFrequencyCustom")}
+                    />
+                    <FieldError message={errors.ongoingInvestmentFrequencyCustom?.message as string} />
+                  </div>
+                ) : null}
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="ongoingInvestmentStartDate">Start Date</Label>
+                  <Input
+                    id="ongoingInvestmentStartDate"
+                    type="date"
+                    {...register("ongoingInvestmentStartDate")}
+                  />
+                  <FieldError message={errors.ongoingInvestmentStartDate?.message as string} />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="ongoingInvestmentEndDate">End Date</Label>
+                  <Input
+                    id="ongoingInvestmentEndDate"
+                    type="date"
+                    {...register("ongoingInvestmentEndDate")}
+                  />
+                  <FieldError message={errors.ongoingInvestmentEndDate?.message as string} />
+                </div>
+              </div>
             </div>
           ) : null}
 

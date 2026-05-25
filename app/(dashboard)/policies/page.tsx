@@ -25,6 +25,8 @@ import { clientPath } from "@/lib/client-slug";
 import { CARRIERS, type Carrier, type Policy, type PolicyCategory } from "@/lib/types";
 import { formatDate, formatMonthDay } from "@/lib/date-utils";
 import { formatCurrencyShort } from "@/lib/format";
+import { getPolicyPortfolioAmount } from "@/lib/portfolio-metrics";
+import { displayPolicyNumberWithHash } from "@/lib/policy-number";
 import { cn } from "@/lib/utils";
 
 export default function PoliciesPage() {
@@ -174,7 +176,7 @@ function PoliciesContent() {
       };
       group.policies.push(policy);
       if (policy.category === "Investment") {
-        group.investment += policy.sumAssured || policy.loanAmount || 0;
+        group.investment += getPolicyPortfolioAmount(policy);
       } else {
         group.insurance += policy.sumAssured || 0;
       }
@@ -431,9 +433,7 @@ function ViewButton({
 }
 
 function policyAmount(policy: Policy) {
-  return policy.category === "Investment"
-    ? policy.sumAssured || policy.loanAmount || 0
-    : policy.sumAssured || 0;
+  return getPolicyPortfolioAmount(policy);
 }
 
 function policyDate(policy: Policy) {
@@ -473,7 +473,7 @@ function PoliciesTable({
                     {policy.productName || policy.productType}
                   </Link>
                   <p className="mt-0.5 text-xs text-slate-500">
-                    #{policy.policyNumber || "—"} · {policy.productType}
+                    {displayPolicyNumberWithHash(policy.policyNumber)} · {policy.productType}
                   </p>
                 </td>
                 <td className="px-4 py-3">
@@ -576,7 +576,7 @@ function ClientGroupedPolicies({
                       {policy.productName || policy.productType}
                     </span>
                     <span className="text-xs text-slate-500">
-                      {policy.carrier} · #{policy.policyNumber || "—"}
+                      {policy.carrier} · {displayPolicyNumberWithHash(policy.policyNumber)}
                     </span>
                   </span>
                   <span className="font-finance text-sm font-semibold text-slate-900">

@@ -34,6 +34,7 @@ import {
   removeBirthdayCardToken,
 } from "@/lib/templates";
 import { sanitizeEmailHtml } from "@/lib/security/sanitize-html";
+import { displayPolicyNumberWithHash } from "@/lib/policy-number";
 
 const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
 
@@ -227,7 +228,7 @@ export function EmailPreviewDialog({
   function policyOptionLabel(policyId?: string) {
     const policy = policyId ? getPolicy(policyId) : undefined;
     if (!policy) return "";
-    return `${policy.productName || policy.productType || "Policy"} · ${policy.carrier} · #${policy.policyNumber}`;
+    return `${policy.productName || policy.productType || "Policy"} · ${policy.carrier} · ${displayPolicyNumberWithHash(policy.policyNumber)}`;
   }
 
   function templateVars(policyId?: string) {

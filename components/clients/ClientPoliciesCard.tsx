@@ -25,6 +25,7 @@ import { StatusBadge } from "@/components/ui-shared/StatusBadge";
 import { formatDate, formatMonthDay } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/format";
 import { investmentProductTone } from "@/lib/investment-product-style";
+import { displayPolicyNumberWithHash } from "@/lib/policy-number";
 import { parseCommunicationTypes } from "@/lib/communication-log";
 import type { EmailHistoryEntry, Policy } from "@/lib/types";
 import { CARRIERS, PAYMENT_FREQUENCY_LABELS } from "@/lib/types";
@@ -388,7 +389,7 @@ function CompactPolicyRow({
             <span className="text-sm font-medium text-slate-900">
               {policy.productName || policy.productType}
             </span>
-            <span className="text-xs text-slate-400">#{policy.policyNumber}</span>
+            <span className="text-xs text-slate-400">{displayPolicyNumberWithHash(policy.policyNumber)}</span>
             {policy.isJoint ? <StatusBadge kind="joint" /> : null}
             {policy.category === "Investment" && policy.isInvestmentLoan ? (
               <StatusBadge kind="loan" lender={policy.lender} />
@@ -415,13 +416,18 @@ function CompactPolicyRow({
         </button>
 
         <Metric label={primaryAmountLabel} value={formatCurrency(policy.sumAssured)} />
-        <div className={policy.category === "Investment" ? "hidden lg:block" : ""}>
-          {policy.category !== "Investment" ? (
+        <div>
+          {policy.category === "Investment" ? (
+            <Metric
+              label="Ongoing Amount"
+              value={policy.ongoingInvestmentAmount ? formatCurrency(policy.ongoingInvestmentAmount) : "—"}
+            />
+          ) : (
             <Metric
               label="Premium"
               value={`${formatCurrency(policy.premium)} /${PAYMENT_FREQUENCY_LABELS[policy.paymentFrequency].toLowerCase()}`}
             />
-          ) : null}
+          )}
         </div>
         <Metric label={dateLabel} value={dateValue} />
         <div className="flex justify-start gap-1 lg:justify-end">

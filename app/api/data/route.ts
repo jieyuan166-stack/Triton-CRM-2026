@@ -229,6 +229,11 @@ function serializePolicy(
     lender: p.lender as Policy["lender"],
     loanAmount: p.loanAmount ?? undefined,
     loanRate: p.loanRate ?? undefined,
+    ongoingInvestmentAmount: p.ongoingInvestmentAmount ?? undefined,
+    ongoingInvestmentFrequency: (p.ongoingInvestmentFrequency ?? undefined) as Policy["ongoingInvestmentFrequency"],
+    ongoingInvestmentFrequencyCustom: p.ongoingInvestmentFrequencyCustom ?? undefined,
+    ongoingInvestmentStartDate: dateOnly(p.ongoingInvestmentStartDate),
+    ongoingInvestmentEndDate: dateOnly(p.ongoingInvestmentEndDate),
     isJoint: p.isJoint,
     jointWithClientId: p.jointWithClientId ?? undefined,
     policyOwnerName: p.policyOwnerName ?? undefined,
@@ -396,6 +401,11 @@ function clientData(input: Partial<Client>, partial = false, userId?: string) {
   });
 }
 
+function buildPendingPolicyNumber(input: Partial<Policy>) {
+  const clientPart = (input.clientId || "client").slice(-6);
+  return `PENDING-${clientPart}-${Date.now().toString(36)}`;
+}
+
 function policyData(input: Partial<Policy>, partial = false, userId?: string) {
   return stripUndefined({
     id: input.id,
@@ -410,7 +420,14 @@ function policyData(input: Partial<Policy>, partial = false, userId?: string) {
           ? undefined
           : input.productType || ""
         : input.productName || input.productType || "",
-    policyNumber: input.policyNumber,
+    policyNumber:
+      input.policyNumber === undefined
+        ? partial
+          ? undefined
+          : input.status === "pending"
+            ? buildPendingPolicyNumber(input)
+            : input.policyNumber
+        : input.policyNumber || (input.status === "pending" ? buildPendingPolicyNumber(input) : input.policyNumber),
     sumAssured: input.sumAssured === undefined ? (partial ? undefined : 0) : Number(input.sumAssured),
     premium: input.premium === undefined ? (partial ? undefined : 0) : Number(input.premium),
     paymentFrequency: input.paymentFrequency === undefined ? (partial ? undefined : "Annual") : input.paymentFrequency,
@@ -425,6 +442,46 @@ function policyData(input: Partial<Policy>, partial = false, userId?: string) {
     lender: input.lender === undefined ? (partial ? undefined : null) : input.lender || null,
     loanAmount: input.loanAmount === undefined ? (partial ? undefined : null) : input.loanAmount,
     loanRate: input.loanRate === undefined ? (partial ? undefined : null) : input.loanRate,
+    ongoingInvestmentAmount:
+      input.category === "Insurance"
+        ? null
+        : input.ongoingInvestmentAmount === undefined
+          ? partial
+            ? undefined
+            : null
+          : input.ongoingInvestmentAmount,
+    ongoingInvestmentFrequency:
+      input.category === "Insurance"
+        ? null
+        : input.ongoingInvestmentFrequency === undefined
+          ? partial
+            ? undefined
+            : null
+          : input.ongoingInvestmentFrequency || null,
+    ongoingInvestmentFrequencyCustom:
+      input.category === "Insurance"
+        ? null
+        : nullableString(input.ongoingInvestmentFrequencyCustom, partial),
+    ongoingInvestmentStartDate:
+      input.category === "Insurance"
+        ? null
+        : input.ongoingInvestmentStartDate === undefined
+          ? partial
+            ? undefined
+            : null
+          : input.ongoingInvestmentStartDate
+            ? toNullDate(input.ongoingInvestmentStartDate)
+            : null,
+    ongoingInvestmentEndDate:
+      input.category === "Insurance"
+        ? null
+        : input.ongoingInvestmentEndDate === undefined
+          ? partial
+            ? undefined
+            : null
+          : input.ongoingInvestmentEndDate
+            ? toNullDate(input.ongoingInvestmentEndDate)
+            : null,
     isJoint: input.isJoint === undefined ? (partial ? undefined : false) : !!input.isJoint,
     jointWithClientId:
       input.isJoint === false

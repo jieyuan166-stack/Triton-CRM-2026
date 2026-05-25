@@ -10,6 +10,7 @@ import { CARRIER_COLORS } from "@/lib/carrier-colors";
 import { formatDate, formatMonthDay, formatRelative } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/format";
 import { investmentProductTone } from "@/lib/investment-product-style";
+import { displayPolicyNumberWithHash } from "@/lib/policy-number";
 import { partyDisplayName } from "@/lib/policy-parties";
 import { PAYMENT_FREQUENCY_LABELS, type Client, type Policy } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -46,6 +47,14 @@ function buildPolicyBadges(policy: Policy, extraBadges?: ReactNode) {
   );
 }
 
+function ongoingFrequencyLabel(policy: Policy): string {
+  if (!policy.ongoingInvestmentFrequency) return "—";
+  if (policy.ongoingInvestmentFrequency === "Custom") {
+    return policy.ongoingInvestmentFrequencyCustom || "Custom";
+  }
+  return policy.ongoingInvestmentFrequency;
+}
+
 function buildPolicyMetrics(policy: Policy): UniversalDataMetric[] {
   const amountLabel = policy.category === "Investment" ? "Initial Amount" : "Death Benefit";
   const dateLabel = policy.category === "Investment" ? "Effective Date" : "Due Date";
@@ -56,6 +65,29 @@ function buildPolicyMetrics(policy: Policy): UniversalDataMetric[] {
       value: <span className="font-finance">{formatCurrency(policy.sumAssured)}</span>,
     },
   ];
+
+  if (policy.category === "Investment") {
+    metrics.push({
+      label: "Ongoing Amount",
+      value: <span className="font-finance">{formatCurrency(policy.ongoingInvestmentAmount || 0)}</span>,
+    });
+    if (policy.ongoingInvestmentAmount) {
+      metrics.push({
+        label: "Frequency",
+        value: ongoingFrequencyLabel(policy),
+      });
+      metrics.push({
+        label: "Start Date",
+        value: policy.ongoingInvestmentStartDate ? formatDate(policy.ongoingInvestmentStartDate) : "—",
+      });
+      if (policy.ongoingInvestmentEndDate) {
+        metrics.push({
+          label: "End Date",
+          value: formatDate(policy.ongoingInvestmentEndDate),
+        });
+      }
+    }
+  }
 
   if (policy.category !== "Investment") {
     metrics.push({
@@ -175,7 +207,7 @@ export function PolicyDataCard({
             </span>
             <span aria-hidden="true">·</span>
             {productTypeNode}
-            <span>{`· #${policy.policyNumber}`}</span>
+            <span>{`· ${displayPolicyNumberWithHash(policy.policyNumber)}`}</span>
           </span>
           {jointDisplayClient ? (
             <span className="mt-1 block text-purple-600">
@@ -199,7 +231,7 @@ export function PolicyDataCard({
       ))}
       actions={actions}
       metrics={buildPolicyMetrics(policy)}
-      metricsClassName={policy.category === "Investment" ? "sm:grid-cols-2" : "sm:grid-cols-3"}
+      metricsClassName={policy.category === "Investment" ? "sm:grid-cols-2 lg:grid-cols-3" : "sm:grid-cols-3"}
       className={className}
     />
   );

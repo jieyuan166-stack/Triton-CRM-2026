@@ -12,7 +12,7 @@ export interface PortfolioMetrics {
 
 export function getPolicyPortfolioAmount(policy: Policy): number {
   if (policy.category === "Investment") {
-    return policy.sumAssured || policy.loanAmount || 0;
+    return (policy.sumAssured || policy.loanAmount || 0) + (policy.ongoingInvestmentAmount || 0);
   }
   return policy.sumAssured || 0;
 }

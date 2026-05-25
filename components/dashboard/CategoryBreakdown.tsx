@@ -111,7 +111,7 @@ function buildNewMoneyRows(
     const contribution =
       category === "Insurance"
         ? annualizedPremium(policy)
-        : getPolicyPortfolioAmount(policy);
+        : policy.sumAssured || policy.loanAmount || 0;
     if (contribution <= 0) continue;
 
     const row = rows.get(policy.carrier);

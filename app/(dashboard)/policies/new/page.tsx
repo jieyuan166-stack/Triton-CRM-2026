@@ -46,6 +46,8 @@ function NewPolicyContent() {
     const isInvestmentLoan = isInv && !!values.isInvestmentLoan;
     const isCorporateInsurance = !isInv && !!values.isCorporateInsurance;
     const isJoint = !!values.isJoint && !!values.jointWithClientId;
+    const hasOngoingInvestment =
+      isInv && typeof values.ongoingInvestmentAmount === "number" && values.ongoingInvestmentAmount > 0;
     const sumAssured = isInv
       ? values.sumAssured ?? values.loanAmount ?? 0
       : values.sumAssured ?? 0;
@@ -65,7 +67,7 @@ function NewPolicyContent() {
         category: values.category,
         productType: values.productType as never,
         productName: values.productName?.trim() || values.productType,
-        policyNumber: values.policyNumber,
+        policyNumber: values.policyNumber ?? "",
         sumAssured,
         premium,
         paymentFrequency,
@@ -77,6 +79,14 @@ function NewPolicyContent() {
         isInvestmentLoan,
         lender: isInvestmentLoan ? (values.lender as never) : undefined,
         loanAmount: isInvestmentLoan ? values.loanAmount : undefined,
+        ongoingInvestmentAmount: hasOngoingInvestment ? values.ongoingInvestmentAmount : 0,
+        ongoingInvestmentFrequency: hasOngoingInvestment ? (values.ongoingInvestmentFrequency as never) : ("" as never),
+        ongoingInvestmentFrequencyCustom:
+          hasOngoingInvestment && values.ongoingInvestmentFrequency === "Custom"
+            ? values.ongoingInvestmentFrequencyCustom
+            : "",
+        ongoingInvestmentStartDate: hasOngoingInvestment ? values.ongoingInvestmentStartDate : "",
+        ongoingInvestmentEndDate: hasOngoingInvestment ? values.ongoingInvestmentEndDate : "",
         isJoint,
         jointWithClientId: isJoint ? values.jointWithClientId : undefined,
         policyOwnerName: values.policyOwnerName?.trim() || undefined,

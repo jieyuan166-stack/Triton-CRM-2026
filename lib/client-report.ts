@@ -1,6 +1,7 @@
 import type { Client, Policy } from "@/lib/types";
 import { formatDate as formatCalendarDate } from "@/lib/date-utils";
 import { formatCurrency as formatMoney } from "@/lib/format";
+import { displayPolicyNumber } from "@/lib/policy-number";
 
 export type ClientReportPayload = {
   client: Client;
@@ -89,7 +90,7 @@ function buildPolicyRows(policies: Policy[]) {
                 : ""
             }
           </td>
-          <td>${escapeHtml(policy.policyNumber || "N/A")}</td>
+          <td>${escapeHtml(displayPolicyNumber(policy.policyNumber))}</td>
           <td class="money">${formatCurrency(policy.sumAssured)}</td>
           <td class="money">${formatCurrency(policy.premium)}</td>
           <td>${escapeHtml(policy.paymentFrequency || "N/A")}</td>

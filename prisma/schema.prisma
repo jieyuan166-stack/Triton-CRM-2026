@@ -103,6 +103,11 @@ model Policy {
   lender               String?
   loanAmount           Float?
   loanRate             Float?
+  ongoingInvestmentAmount Float?
+  ongoingInvestmentFrequency String?
+  ongoingInvestmentFrequencyCustom String?
+  ongoingInvestmentStartDate DateTime?
+  ongoingInvestmentEndDate DateTime?
   isJoint              Boolean       @default(false)
   jointWithClientId    String?
   jointWithClient      Client?       @relation("JointPolicyClient", fields: [jointWithClientId], references: [id], onDelete: SetNull)
