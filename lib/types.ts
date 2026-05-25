@@ -27,6 +27,7 @@ export type ProductType =
   | "TFSA"
   | "RRSP"
   | "Spousal RRSP"
+  | "LIRA"
   | "RESP"
   | "FHSA"
   | "RRIF"
@@ -49,6 +50,7 @@ export const INVESTMENT_PRODUCTS: ProductType[] = [
   "TFSA",
   "RRSP",
   "Spousal RRSP",
+  "LIRA",
   "RESP",
   "FHSA",
   "RRIF",

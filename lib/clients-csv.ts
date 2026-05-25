@@ -46,6 +46,7 @@ const SUPPORTED_PRODUCT_TYPES = [
   "TFSA",
   "RRSP",
   "Spousal RRSP",
+  "LIRA",
   "RRIF",
   "Non-Registered",
   "Whole Life",
