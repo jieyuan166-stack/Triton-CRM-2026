@@ -43,6 +43,14 @@ const PROVINCE_TIMEZONES: Record<string, string> = {
   ON: "America/Toronto",
 };
 
+const CUSTOM_EMAIL_SUMMARY_TEMPLATES = [
+  "Confirmation of Segregated Fund Switch Instructions",
+  "Confirmation of Segregated Fund Free Units Switch Instructions",
+  "Segregated Fund Redemption Request",
+  "Segregated Fund New Purchase",
+  "Change Client Information Request",
+] as const;
+
 interface ComposeAttachment {
   id: string;
   filename: string;
@@ -769,6 +777,33 @@ export function EmailPreviewDialog({
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+              ) : null}
+              {selectedTemplate === "custom" ? (
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="email-summary-template-select">
+                    Summary Template
+                  </Label>
+                  <Select
+                    value=""
+                    onValueChange={(value) => {
+                      if (value) setSubject(value);
+                    }}
+                  >
+                    <SelectTrigger id="email-summary-template-select">
+                      <SelectValue placeholder="Choose a common summary, or type your own below" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CUSTOM_EMAIL_SUMMARY_TEMPLATES.map((template) => (
+                        <SelectItem key={template} value={template}>
+                          {template}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-triton-muted">
+                    Optional. Choosing one fills the subject line; you can still edit it.
+                  </p>
                 </div>
               ) : null}
               {(selectedTemplate === "custom" || selectedTemplate === "renewal") && activePayload.clientId ? (
