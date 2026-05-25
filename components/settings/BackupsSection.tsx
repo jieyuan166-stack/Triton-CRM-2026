@@ -58,25 +58,32 @@ function backupDisplayName(backup: BackupRecord, isAdmin: boolean): string {
   const owner = isAdmin && (backup.ownerName || backup.ownerEmail)
     ? `${backup.ownerName || backup.ownerEmail} · `
     : "";
-  return `${owner}My Backup · ${date}`;
+  const label = backup.source === "auto" ? "Automatic My Backup" : "Manual My Backup";
+  return `${owner}${label} · ${date}`;
 }
 
 function backupTechnicalName(backup: BackupRecord): string {
   return backup.filename;
 }
 
-function backupTone(kind: BackupRecord["kind"]) {
-  return kind === "database"
+function backupTone(backup: BackupRecord) {
+  return backup.kind === "database"
     ? {
         icon: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
         badge: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
         label: "Auto DB",
       }
-    : kind === "user-snapshot"
+    : backup.kind === "user-snapshot" && backup.source === "auto"
+    ? {
+        icon: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
+        badge: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
+        label: "Auto User Backup",
+      }
+    : backup.kind === "user-snapshot"
     ? {
         icon: "bg-blue-50 text-blue-700 ring-1 ring-blue-100",
         badge: "bg-blue-50 text-blue-700 ring-1 ring-blue-100",
-        label: "User Snapshot",
+        label: "Manual User Backup",
       }
     : {
         icon: "bg-blue-50 text-blue-700 ring-1 ring-blue-100",
@@ -276,7 +283,7 @@ export function BackupsSection() {
           <ul className="divide-y divide-slate-100">
             {backups.map((b) => {
               const isRestoring = restoring === b.id;
-              const tone = backupTone(b.kind);
+              const tone = backupTone(b);
               const canRestore =
                 b.kind === "database" ||
                 !isAdmin ||

@@ -29,7 +29,16 @@ const BACKUP_TIME_ZONE = "America/Vancouver";
 const BACKUP_FLAGS_FILENAME = ".backup-flags.json";
 const BACKUP_OWNERS_FILENAME = ".backup-owners.json";
 type BackupFlags = Record<string, { important?: boolean }>;
-type BackupOwners = Record<string, { ownerUserId: string; ownerEmail?: string; ownerName?: string }>;
+type BackupSource = "auto" | "manual";
+type BackupOwners = Record<
+  string,
+  {
+    ownerUserId: string;
+    ownerEmail?: string;
+    ownerName?: string;
+    source?: BackupSource;
+  }
+>;
 type BackupAccessUser = {
   id: string;
   email?: string | null;
@@ -199,6 +208,13 @@ function slugForFilename(value: string) {
 
 function ownerIdFromFilename(filename: string) {
   return filename.match(USER_SNAPSHOT_RE)?.[1];
+}
+
+function sourceFromFilename(filename: string): BackupSource {
+  if (/-auto\.json\.gz$/i.test(filename)) return "auto";
+  if (/-manual\.json\.gz$/i.test(filename)) return "manual";
+  if (/-manual\.db\.gz$/i.test(filename)) return "manual";
+  return "manual";
 }
 
 async function ownerMetadataForFilename(filename: string) {
@@ -403,6 +419,7 @@ export async function listBackupFiles(user: BackupAccessUser): Promise<BackupRec
         filename: entry.name,
         kind,
         scope: isDb ? "database" : "user",
+        source: ownerMeta?.source ?? sourceFromFilename(entry.name),
         ownerUserId,
         ownerEmail: owner?.email ?? ownerMeta?.ownerEmail,
         ownerName: owner?.name ?? ownerMeta?.ownerName,
@@ -421,11 +438,16 @@ export async function listBackupFiles(user: BackupAccessUser): Promise<BackupRec
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
 }
 
-export async function createSnapshotBackup(snapshot: BackupSnapshot, user: BackupAccessUser) {
+export async function createSnapshotBackup(
+  snapshot: BackupSnapshot,
+  user: BackupAccessUser,
+  options: { source?: BackupSource } = {},
+) {
   await ensureBackupDir();
   const ownerUserId = user.id;
   const ownerSlug = slugForFilename(user.name || user.email || "advisor");
-  const filename = `advisor-${ownerSlug}-${timestampLabel().replace("T", "-")}.json.gz`;
+  const source = options.source ?? "manual";
+  const filename = `advisor-${ownerSlug}-${timestampLabel().replace("T", "-")}-${source}.json.gz`;
   const body = Buffer.from(JSON.stringify({
     ...snapshot,
     version: CURRENT_SNAPSHOT_SCHEMA_VERSION,
@@ -444,6 +466,7 @@ export async function createSnapshotBackup(snapshot: BackupSnapshot, user: Backu
     ownerUserId,
     ownerEmail: user.email ?? undefined,
     ownerName: user.name ?? undefined,
+    source,
   };
   await writeBackupOwners(owners);
   const stat = await fs.stat(file);
@@ -455,6 +478,7 @@ export async function createSnapshotBackup(snapshot: BackupSnapshot, user: Backu
     filename,
     kind: "user-snapshot",
     scope: "user",
+    source,
     ownerUserId,
     ownerEmail: user.email ?? undefined,
     ownerName: user.name ?? undefined,

@@ -39,7 +39,7 @@ export async function POST(request: Request) {
   for (const user of users) {
     try {
       const snapshot = await buildUserSnapshot(user.id);
-      const record = await createSnapshotBackup(snapshot, user);
+      const record = await createSnapshotBackup(snapshot, user, { source: "auto" });
       created += 1;
       results.push({
         userId: user.id,

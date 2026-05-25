@@ -24,7 +24,7 @@ export async function POST() {
     const record =
       session.user.role === "admin"
         ? await createDatabaseBackup("manual")
-        : await createSnapshotBackup(await buildUserSnapshot(session.user.id), session.user);
+        : await createSnapshotBackup(await buildUserSnapshot(session.user.id), session.user, { source: "manual" });
     await auditLog({
       action: "create_backup",
       entityType: "backup",

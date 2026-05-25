@@ -58,6 +58,7 @@ export interface BackupRecord {
   filename: string;          // e.g. backup_20260506T1430.tar.gz
   kind?: "snapshot" | "database" | "user-snapshot";
   scope?: "database" | "user";
+  source?: "auto" | "manual";
   ownerUserId?: string;
   ownerEmail?: string;
   ownerName?: string;
