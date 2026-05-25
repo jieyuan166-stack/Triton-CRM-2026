@@ -13,6 +13,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { toast } from "sonner";
 import { calculateClientTags } from "@/lib/client-tags";
 import {
   buildClientSlug,
@@ -314,6 +315,12 @@ async function persistAction(action: string, payload: Record<string, unknown>) {
 function persistInBackground(action: string, payload: Record<string, unknown>) {
   void persistAction(action, payload).catch((error) => {
     console.error(`[DataProvider] ${action} failed`, error);
+    toast.error("Could not save change", {
+      description:
+        error instanceof Error
+          ? error.message
+          : "Please refresh and try again.",
+    });
   });
 }
 

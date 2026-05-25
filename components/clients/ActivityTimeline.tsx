@@ -171,44 +171,46 @@ export function ActivityTimeline({
   const [deleteTarget, setDeleteTarget] = useState<ActivityItem | null>(null);
   const policies = getPoliciesByClient(clientId);
   const client = getClient(clientId);
-  const canEmailClient = canSendToEmail(client?.email);
 
   function openEmailToClient() {
-    if (!client || !canSendToEmail(client.email)) {
-      toast.error("No valid client email", {
-        description: "Add a real email address before sending from the CRM.",
-      });
+    if (!client) {
+      toast.error("Client not found.");
       return;
     }
+    const hasValidEmail = canSendToEmail(client.email);
     const fullName =
       `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim() ||
       client.companyName ||
       "Client";
     setComposePayload({
       contextLabel: fullName,
-      to: client.email,
+      to: hasValidEmail ? client.email : "",
       subject: "",
       body: "",
       clientId: client.id,
       template: "custom",
     });
     setComposeOpen(true);
+    if (!hasValidEmail) {
+      toast.message("Add a recipient email", {
+        description: "This client has no real email on file, so the To field is blank.",
+      });
+    }
   }
 
   function openDraftEmail(entry: EmailHistoryEntry) {
-    if (!client || !canSendToEmail(client.email)) {
-      toast.error("No valid client email", {
-        description: "Add a real email address before continuing this draft.",
-      });
+    if (!client) {
+      toast.error("Client not found.");
       return;
     }
+    const hasValidEmail = canSendToEmail(client.email);
     const fullName =
       `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim() ||
       client.companyName ||
       "Client";
     setComposePayload({
       contextLabel: fullName,
-      to: client.email,
+      to: hasValidEmail ? client.email : "",
       subject: entry.subject ?? "",
       body: entry.body ?? "",
       clientId: client.id,
@@ -219,6 +221,11 @@ export function ActivityTimeline({
       attachments: [],
     });
     setComposeOpen(true);
+    if (!hasValidEmail) {
+      toast.message("Add a recipient email", {
+        description: "This client has no real email on file, so the To field is blank.",
+      });
+    }
   }
 
   const items = useMemo<ActivityItem[]>(() => {
@@ -382,12 +389,7 @@ export function ActivityTimeline({
                 size="sm"
                 className="col-span-2 h-8 min-w-0 justify-center bg-navy px-2 text-xs text-white hover:bg-navy/90"
                 onClick={openEmailToClient}
-                disabled={!canEmailClient}
-                title={
-                  canEmailClient
-                    ? "Compose an email to this client"
-                    : "Add a real client email before sending"
-                }
+                title="Compose an email to this client"
               >
                 <Mail className="mr-1 h-3.5 w-3.5 shrink-0" />
                 <span className="truncate">Email to Client</span>
