@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import {
   CalendarDays,
+  FileText,
   ListChecks,
   Mail,
   MessageCircle,
@@ -27,6 +28,10 @@ import {
   EmailHistoryPreviewDialog,
   type EmailHistoryPreview,
 } from "@/components/dashboard/EmailHistoryPreviewDialog";
+import {
+  EmailPreviewDialog,
+  type EmailPreviewPayload,
+} from "@/components/dashboard/EmailPreviewDialog";
 import { FollowUpEntryDialog } from "@/components/clients/FollowUpEntryDialog";
 import {
   isManualCommunicationLabel,
@@ -34,6 +39,7 @@ import {
   type ManualCommunicationType,
 } from "@/lib/communication-log";
 import { formatDate } from "@/lib/date-utils";
+import { canSendToEmail } from "@/lib/email-address";
 import { cn } from "@/lib/utils";
 import type { EmailHistoryEntry, FollowUp } from "@/lib/types";
 
@@ -110,6 +116,11 @@ function historyDescription(entry: EmailHistoryEntry): string {
   const policyPrefix = entry.policyNumber
     ? `Policy #${entry.policyNumber}${entry.policyLabel ? ` · ${entry.policyLabel}` : ""} — `
     : "";
+  if (entry.templateLabel?.startsWith("Email Draft")) {
+    return entry.subject?.trim()
+      ? `${policyPrefix}Draft email - ${entry.subject.trim()}`
+      : `${policyPrefix}Draft email`;
+  }
   if (isManualCommunicationLabel(entry.templateLabel)) {
     return entry.subject?.trim()
       ? `${entry.templateLabel}: ${policyPrefix}${entry.subject.trim()}`
@@ -141,10 +152,37 @@ export function ActivityTimeline({
   const [entryDialog, setEntryDialog] = useState<
     { mode: "create" } | { mode: "edit"; entry: EmailHistoryEntry } | null
   >(null);
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [composePayload, setComposePayload] =
+    useState<EmailPreviewPayload | null>(null);
   const [followUpDialogOpen, setFollowUpDialogOpen] = useState(false);
   const [preview, setPreview] = useState<EmailHistoryPreview | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ActivityItem | null>(null);
   const policies = getPoliciesByClient(clientId);
+  const client = getClient(clientId);
+  const canEmailClient = canSendToEmail(client?.email);
+
+  function openEmailToClient() {
+    if (!client || !canSendToEmail(client.email)) {
+      toast.error("No valid client email", {
+        description: "Add a real email address before sending from the CRM.",
+      });
+      return;
+    }
+    const fullName =
+      `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim() ||
+      client.companyName ||
+      "Client";
+    setComposePayload({
+      contextLabel: fullName,
+      to: client.email,
+      subject: "",
+      body: "",
+      clientId: client.id,
+      template: "custom",
+    });
+    setComposeOpen(true);
+  }
 
   const items = useMemo<ActivityItem[]>(() => {
     const followUpItems = followUps.map((followUp) => {
@@ -186,16 +224,21 @@ export function ActivityTimeline({
         : undefined;
       const isManual = !!manualLabel;
       const isExternalEmail = entry.templateLabel === "External Email";
-      const Icon = manualLabel ? MANUAL_ICON[manualLabel] : Mail;
+      const isDraft = entry.templateLabel?.startsWith("Email Draft") ?? false;
+      const Icon = isDraft ? FileText : manualLabel ? MANUAL_ICON[manualLabel] : Mail;
       const attachmentCount = entry.attachments?.length ?? 0;
       return {
         id: `history:${entry.id}`,
         rawId: entry.id,
         source: "history" as const,
-        tab: isManual && !isExternalEmail ? "notes" as const : "emails" as const,
+        tab: isManual && !isExternalEmail && !isDraft ? "notes" as const : "emails" as const,
         date: entry.date,
         title: historyDescription(entry),
-        subtitle: isManual
+        subtitle: isDraft
+          ? entry.policyNumber
+            ? `Draft email · #${entry.policyNumber}${attachmentCount > 0 ? ` · ${attachmentCount} attachment${attachmentCount === 1 ? "" : "s"}` : ""}`
+            : `Draft email${attachmentCount > 0 ? ` · ${attachmentCount} attachment${attachmentCount === 1 ? "" : "s"}` : ""}`
+          : isManual
           ? isExternalEmail
             ? attachmentCount > 0
               ? `External email · ${attachmentCount} attachment${attachmentCount === 1 ? "" : "s"}`
@@ -209,10 +252,12 @@ export function ActivityTimeline({
         body: entry.body,
         icon: Icon,
         accentClassName:
-          isManual && !isExternalEmail
+          isDraft
+            ? "bg-amber-50 text-amber-700 ring-amber-100"
+            : isManual && !isExternalEmail
             ? "bg-blue-50 text-blue-600 ring-blue-100"
             : "bg-slate-100 text-slate-400 ring-slate-200",
-        muted: !isManual || isExternalEmail,
+        muted: (!isManual || isExternalEmail) && !isDraft,
         preview: {
           to: getClient(clientId)?.email,
           date: entry.date,
@@ -296,6 +341,20 @@ export function ActivityTimeline({
               </p>
             </div>
             <div className="grid grid-cols-2 gap-2">
+              <Button
+                size="sm"
+                className="col-span-2 h-8 min-w-0 justify-center bg-navy px-2 text-xs text-white hover:bg-navy/90"
+                onClick={openEmailToClient}
+                disabled={!canEmailClient}
+                title={
+                  canEmailClient
+                    ? "Compose an email to this client"
+                    : "Add a real client email before sending"
+                }
+              >
+                <Mail className="mr-1 h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">Email to Client</span>
+              </Button>
               <Button
                 size="sm"
                 variant="outline"
@@ -475,6 +534,12 @@ export function ActivityTimeline({
           if (!open) setPreview(null);
         }}
         email={preview}
+      />
+
+      <EmailPreviewDialog
+        open={composeOpen}
+        onOpenChange={setComposeOpen}
+        payload={composePayload}
       />
 
       <FollowUpEntryDialog

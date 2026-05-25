@@ -3,7 +3,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { FileText, ImageIcon, Loader2, Paperclip, Send, Trash2, X } from "lucide-react";
+import { FileText, ImageIcon, Loader2, Paperclip, Save, Send, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -342,6 +342,55 @@ export function EmailPreviewDialog({
       .join(", ");
     const suffix = offDate.length > 3 ? ` and ${offDate.length - 3} more` : "";
     return `${names}${suffix} ${offDate.length === 1 ? "does" : "do"} not appear to have a birthday today. Send the birthday greeting anyway?`;
+  }
+
+  function draftTemplateLabel() {
+    if (selectedTemplate === "birthday") return "Email Draft · Birthday";
+    if (selectedTemplate === "renewal") return "Email Draft · Renewal";
+    if (selectedTemplate === "festival") return "Email Draft · Festival";
+    return "Email Draft";
+  }
+
+  function saveDraft() {
+    if (isBatch || !activePayload.clientId) return;
+    const trimmedSubject = subject.trim();
+    const trimmedBody = body.trim();
+    if (!trimmedSubject && !trimmedBody) {
+      toast.error("Draft is empty", {
+        description: "Add a subject or message before saving the draft.",
+      });
+      return;
+    }
+
+    const targetPolicy =
+      (selectedTemplate === "custom" || selectedTemplate === "renewal") && selectedPolicyId
+        ? getPolicy(selectedPolicyId)
+        : undefined;
+
+    const saved = appendEmailHistory(activePayload.clientId, {
+      subject: trimmedSubject || "(No subject)",
+      body: body,
+      templateLabel: draftTemplateLabel(),
+      communicationType:
+        selectedTemplate === "custom"
+          ? selectedCommunicationType
+          : `${selectedTemplate[0].toUpperCase()}${selectedTemplate.slice(1)} Draft`,
+      policyId: targetPolicy?.id,
+      policyNumber: targetPolicy?.policyNumber,
+      policyLabel: targetPolicy
+        ? `${targetPolicy.carrier} ${targetPolicy.productName || targetPolicy.productType}`.trim()
+        : undefined,
+      attachments: attachmentMetadata(),
+    });
+
+    if (!saved) {
+      toast.error("Could not save email draft.");
+      return;
+    }
+    toast.success("Email draft saved", {
+      description: activePayload.contextLabel,
+    });
+    onOpenChange(false);
   }
 
   function applyReminderStageFallback(message: {
@@ -872,6 +921,19 @@ export function EmailPreviewDialog({
         </div>
 
         <DialogFooter className="mx-0 mb-0 shrink-0 rounded-none rounded-b-xl border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-8px_24px_-20px_rgba(15,23,42,0.35)] backdrop-blur sm:flex-row">
+          {!isBatch && activePayload.clientId ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="min-w-[120px]"
+              onClick={saveDraft}
+              disabled={sending || (!subject.trim() && !body.trim())}
+              title="Save this email draft to the client activity timeline"
+            >
+              <Save className="h-3.5 w-3.5 mr-1.5" />
+              Save Draft
+            </Button>
+          ) : null}
           <Button
             className="bg-navy hover:bg-navy/90 text-white min-w-[140px]"
             onClick={handleSendClick}
