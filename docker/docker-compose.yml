@@ -74,6 +74,25 @@ services:
       triton-crm:
         condition: service_healthy
 
+  cloudflared-backup:
+    image: cloudflare/cloudflared:latest
+    container_name: triton-tunnel-backup
+    restart: unless-stopped
+    # Secondary connector for the same Cloudflare Tunnel. Cloudflare Tunnel
+    # supports multiple active connectors; if the primary connector exits or
+    # is restarted, this one keeps crm.tritonwealth.ca reachable as long as
+    # the NAS and Docker are running.
+    healthcheck:
+      disable: true
+    command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run
+    volumes:
+      - /volume1/docker/triton-crm/cloudflared:/etc/cloudflared:ro
+    networks:
+      - triton-net
+    depends_on:
+      triton-crm:
+        condition: service_healthy
+
 networks:
   triton-net:
     driver: bridge

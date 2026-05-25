@@ -6,12 +6,14 @@ outage in under 60 seconds.
 
 ## What it checks (in order)
 
-1. `triton-tunnel` container exists and is running.
+1. `triton-tunnel` and `triton-tunnel-backup` containers exist and are
+   running. They are two active Cloudflare Tunnel connectors for the same
+   hostname, both running on the NAS.
 2. `triton-crm` container is running.
 3. Local `http://127.0.0.1:3001/api/ready` responds (otherwise the
    problem is the app, not the tunnel).
 4. `https://crm.tritonwealth.ca` is reachable through Cloudflare.
-   If this fails the watchdog restarts the tunnel.
+   If this fails the watchdog restarts both tunnel connectors.
 5. `https://www.tritonwealth.ca/` (marketing site) — informational,
    does not trigger a restart on its own.
 
@@ -64,6 +66,13 @@ tail -50 /volume1/docker/triton-crm/tunnel-watchdog.log
 
 Empty log = nothing has gone wrong. Lines appear only when the
 watchdog detects and recovers an issue.
+
+## Mac independence
+
+The public CRM path does not depend on the Mac mini. Both Cloudflare
+Tunnel connectors run as Docker containers on the NAS. If the Mac is
+offline, asleep, or sold, `crm.tritonwealth.ca` remains reachable as
+long as the NAS, Docker, and internet connection are running.
 
 ## Manual trigger
 

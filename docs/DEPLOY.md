@@ -60,9 +60,10 @@ group, so it could not read the file.
    deploy.** Stage them in separate deploys with verification between.
 
 4. **Never touch cloudflared and triton-crm in the same deploy.** The
-   tunnel container has its own deploy path
+   tunnel containers have their own deploy path
    (`scripts/migrate-cloudflared-to-credentials.sh` for major mode
-   changes; `docker restart triton-tunnel` for minor restarts).
+   changes; `docker restart triton-tunnel triton-tunnel-backup` for minor
+   restarts).
    `deploy-safe.sh` only restarts `triton-crm`.
 
 5. **Cloudflare config files must be readable by the cloudflared user.**
@@ -110,8 +111,9 @@ If the public URL is down but `triton-crm` is healthy locally
 issue:
 
 ```sh
-docker logs --tail 30 triton-tunnel        # diagnose
-docker restart triton-tunnel               # quickest fix
+docker logs --tail 30 triton-tunnel        # diagnose primary connector
+docker logs --tail 30 triton-tunnel-backup # diagnose backup connector
+docker restart triton-tunnel triton-tunnel-backup
 ```
 
 The watchdog at `scripts/ensure-tunnel-online.sh` runs on a cron

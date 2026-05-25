@@ -15,6 +15,7 @@ PROJECT_DIR="${PROJECT_DIR:-/volume1/docker/triton-crm}"
 COMPOSE_DIR="$PROJECT_DIR/docker"
 LOG_FILE="${LOG_FILE:-$PROJECT_DIR/tunnel-watchdog.log}"
 TUNNEL_CONTAINER="${TUNNEL_CONTAINER:-triton-tunnel}"
+TUNNEL_BACKUP_CONTAINER="${TUNNEL_BACKUP_CONTAINER:-triton-tunnel-backup}"
 APP_CONTAINER="${APP_CONTAINER:-triton-crm}"
 CRM_URL="${CRM_URL:-https://crm.tritonwealth.ca}"
 SITE_URL="${SITE_URL:-https://www.tritonwealth.ca/}"
@@ -32,6 +33,21 @@ restart_tunnel() {
   log "docker restart failed, falling back to compose up"
   cd "$COMPOSE_DIR"
   docker compose up -d cloudflared >> "$LOG_FILE" 2>&1
+}
+
+restart_backup_tunnel() {
+  log "restarting $TUNNEL_BACKUP_CONTAINER"
+  if docker restart "$TUNNEL_BACKUP_CONTAINER" >> "$LOG_FILE" 2>&1; then
+    return 0
+  fi
+  log "docker restart failed, falling back to compose up"
+  cd "$COMPOSE_DIR"
+  docker compose up -d cloudflared-backup >> "$LOG_FILE" 2>&1
+}
+
+restart_all_tunnels() {
+  restart_tunnel
+  restart_backup_tunnel
 }
 
 is_running() {
@@ -52,12 +68,25 @@ http_ok() {
 if ! docker inspect "$TUNNEL_CONTAINER" >/dev/null 2>&1; then
   log "$TUNNEL_CONTAINER does not exist"
   restart_tunnel
-  exit 0
 fi
 
 if ! is_running "$TUNNEL_CONTAINER"; then
   log "$TUNNEL_CONTAINER is not running"
   restart_tunnel
+fi
+
+if ! docker inspect "$TUNNEL_BACKUP_CONTAINER" >/dev/null 2>&1; then
+  log "$TUNNEL_BACKUP_CONTAINER does not exist"
+  restart_backup_tunnel
+fi
+
+if ! is_running "$TUNNEL_BACKUP_CONTAINER"; then
+  log "$TUNNEL_BACKUP_CONTAINER is not running"
+  restart_backup_tunnel
+fi
+
+if ! is_running "$TUNNEL_CONTAINER" && ! is_running "$TUNNEL_BACKUP_CONTAINER"; then
+  log "no tunnel connector is running after restart attempts"
   exit 0
 fi
 
@@ -80,8 +109,8 @@ fi
 if CODE=$(http_ok "$CRM_URL"); then
   : # ok
 else
-  log "$CRM_URL returned HTTP $CODE; restarting tunnel"
-  restart_tunnel
+  log "$CRM_URL returned HTTP $CODE; restarting both tunnel connectors"
+  restart_all_tunnels
   exit 0
 fi
 
