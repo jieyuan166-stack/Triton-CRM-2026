@@ -46,6 +46,14 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: triton-tunnel
     restart: unless-stopped
+    # The official cloudflared image currently ships a CMD-SHELL
+    # healthcheck that calls /bin/sh + wget, but this image is distroless
+    # and has no shell. Leaving that inherited healthcheck enabled marks a
+    # working tunnel as "unhealthy". Availability is monitored by the NAS
+    # watchdog script, which checks the actual public CRM URL and restarts
+    # this container if needed.
+    healthcheck:
+      disable: true
     # Credentials-file mode: the tunnel UUID and signing key live in
     # /etc/cloudflared/credentials.json (mode 600, only the cloudflared
     # process can read it). The companion config.yml on the host names
