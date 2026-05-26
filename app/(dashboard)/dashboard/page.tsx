@@ -9,7 +9,7 @@ import { UpcomingPremiums } from "@/components/dashboard/UpcomingPremiums";
 import { UpcomingBirthdays } from "@/components/dashboard/UpcomingBirthdays";
 import { CarrierDistribution } from "@/components/dashboard/CarrierDistribution";
 import { CategoryBreakdown } from "@/components/dashboard/CategoryBreakdown";
-import { FollowUpsDueAlert } from "@/components/dashboard/FollowUpsDueAlert";
+import { FollowUpBell } from "@/components/dashboard/FollowUpBell";
 import { calculateClientTags } from "@/lib/client-tags";
 import { formatCurrency, formatCurrencyShort } from "@/lib/format";
 import { calculatePortfolioMetrics } from "@/lib/portfolio-metrics";
@@ -33,9 +33,8 @@ export default function DashboardPage() {
       <PageHeader
         title="Dashboard"
         description="Overview of your book of business"
+        action={<FollowUpBell clients={clients} followUps={followUps} />}
       />
-
-      <FollowUpsDueAlert clients={clients} followUps={followUps} />
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 mb-6 md:mb-8">
