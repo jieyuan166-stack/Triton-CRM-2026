@@ -123,7 +123,7 @@ export function FollowUpBell({ clients, followUps }: FollowUpBellProps) {
 
       {open ? (
         <div
-          className="absolute right-0 top-12 z-40 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-xl ring-1 ring-black/5"
+          className="fixed left-4 right-4 top-20 z-50 max-h-[calc(100dvh-6rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-xl ring-1 ring-black/5 sm:absolute sm:left-auto sm:right-0 sm:top-12 sm:w-[min(24rem,calc(100vw-2rem))]"
           onMouseEnter={openPanel}
           onMouseLeave={closePanelSoon}
         >
@@ -139,7 +139,7 @@ export function FollowUpBell({ clients, followUps }: FollowUpBellProps) {
           </div>
 
           {due.length > 0 ? (
-            <div className="max-h-[26rem] overflow-y-auto p-2">
+            <div className="max-h-[calc(100dvh-14rem)] overflow-y-auto p-2 sm:max-h-[26rem]">
               {visible.map((followUp) => {
                 const client = clientsById.get(followUp.clientId);
                 const href = client ? `${clientPath(client)}#activity` : "/clients?followUpDue=true&followUpSort=deadline";
