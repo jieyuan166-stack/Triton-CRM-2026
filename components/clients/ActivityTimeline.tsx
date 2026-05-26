@@ -582,7 +582,7 @@ export function ActivityTimeline({
                               onClick={() => handleMarkFollowUpDone(item.rawFollowUp!)}
                             >
                               <CheckCircle2 className="mr-1 h-3 w-3" />
-                              Done
+                              Mark Done
                             </Button>
                           ) : null}
                           <Button

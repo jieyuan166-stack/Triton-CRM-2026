@@ -47,6 +47,10 @@ export function FollowUpsDueAlert({ clients, followUps }: FollowUpsDueAlertProps
   const today = due.filter((followUp) => !!followUp.deadline && daysUntil(followUp.deadline) === 0);
   const high = due.filter((followUp) => followUp.importance === "High");
   const hasOverdue = overdue.length > 0;
+  const nextClient = clientsById.get(due[0]?.clientId ?? "");
+  const nextFollowUpHref = nextClient
+    ? clientPath(nextClient) + "#activity"
+    : "/clients?followUpDue=true&followUpSort=deadline";
 
   return (
     <div
@@ -90,7 +94,7 @@ export function FollowUpsDueAlert({ clients, followUps }: FollowUpsDueAlertProps
                 return (
                   <Link
                     key={followUp.id}
-                    href={client ? clientPath(client) : "/clients"}
+                    href={client ? clientPath(client) + "#activity" : "/clients?followUpDue=true&followUpSort=deadline"}
                     className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-white/70 px-2.5 py-1 text-xs font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-white"
                   >
                     <span className="truncate">{clientName(client)}</span>
@@ -106,10 +110,10 @@ export function FollowUpsDueAlert({ clients, followUps }: FollowUpsDueAlertProps
           </div>
         </div>
         <Link
-          href="/clients?followUpDue=true&followUpSort=deadline"
+          href={nextFollowUpHref}
           className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg bg-navy px-3 text-sm font-semibold text-white hover:bg-navy/90"
         >
-          Review follow-ups
+          Open next follow-up
           <ArrowRight className="ml-1.5 h-4 w-4" />
         </Link>
       </div>
