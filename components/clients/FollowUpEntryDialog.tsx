@@ -20,22 +20,26 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { displayPolicyNumberWithHash } from "@/lib/policy-number";
 import {
   FOLLOW_UP_IMPORTANCE,
   FOLLOW_UP_TYPES,
   type FollowUp,
   type FollowUpImportance,
   type FollowUpType,
+  type Policy,
 } from "@/lib/types";
 
 interface FollowUpEntryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   clientId: string;
+  policies: Policy[];
   onSave: (input: Omit<FollowUp, "id" | "createdAt">) => FollowUp | null | undefined;
 }
 
 const NO_IMPORTANCE = "__none__";
+const NO_POLICY = "__none__";
 
 function todayDate() {
   return new Date().toISOString().slice(0, 10);
@@ -45,6 +49,7 @@ export function FollowUpEntryDialog({
   open,
   onOpenChange,
   clientId,
+  policies,
   onSave,
 }: FollowUpEntryDialogProps) {
   const { session } = useAuth();
@@ -53,6 +58,7 @@ export function FollowUpEntryDialog({
   const [details, setDetails] = useState("");
   const [deadline, setDeadline] = useState("");
   const [importance, setImportance] = useState<FollowUpImportance | "">("");
+  const [selectedPolicyId, setSelectedPolicyId] = useState(NO_POLICY);
 
   useEffect(() => {
     if (!open) return;
@@ -61,7 +67,10 @@ export function FollowUpEntryDialog({
     setDetails("");
     setDeadline("");
     setImportance("");
+    setSelectedPolicyId(NO_POLICY);
   }, [open]);
+
+  const selectedPolicy = policies.find((policy) => policy.id === selectedPolicyId);
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -76,6 +85,11 @@ export function FollowUpEntryDialog({
       details: details.trim() || undefined,
       deadline: deadline || undefined,
       importance: importance || undefined,
+      policyId: selectedPolicy?.id,
+      policyNumber: selectedPolicy?.policyNumber,
+      policyLabel: selectedPolicy
+        ? `${selectedPolicy.carrier} ${selectedPolicy.productName || selectedPolicy.productType}`.trim()
+        : undefined,
       createdById: session?.user?.id ?? "user",
       createdByName:
         session?.user?.name ?? session?.user?.email ?? "Advisor",
@@ -155,6 +169,53 @@ export function FollowUpEntryDialog({
               value={deadline}
               onChange={(event) => setDeadline(event.target.value)}
             />
+            <p className="text-[11px] text-slate-400">
+              Optional. Leave blank for a high-priority or general follow-up.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="followup-policy" className="label-caps">Target Policy</Label>
+            <Select
+              value={selectedPolicyId}
+              onValueChange={(value) => setSelectedPolicyId(value || NO_POLICY)}
+            >
+              <SelectTrigger id="followup-policy" className="w-full bg-white">
+                <span className="min-w-0 flex-1 text-left">
+                  {selectedPolicy ? (
+                    <span className="block min-w-0">
+                      <span className="block truncate text-sm font-medium text-slate-700">
+                        {selectedPolicy.productName || selectedPolicy.productType}
+                      </span>
+                      <span className="block truncate text-[11px] text-slate-400">
+                        {selectedPolicy.carrier} · {displayPolicyNumberWithHash(selectedPolicy.policyNumber)}
+                      </span>
+                    </span>
+                  ) : (
+                    "No policy target"
+                  )}
+                </span>
+              </SelectTrigger>
+              <SelectContent
+                align="start"
+                sideOffset={8}
+                className="w-[var(--anchor-width)] max-w-[min(34rem,calc(100vw-2rem))]"
+              >
+                <SelectItem value={NO_POLICY}>No policy target</SelectItem>
+                {policies.map((policy) => (
+                  <SelectItem key={policy.id} value={policy.id} className="items-start whitespace-normal">
+                    <span className="block min-w-0 whitespace-normal leading-snug">
+                      <span className="block break-words font-medium text-slate-700">
+                        {policy.productName || policy.productType}
+                      </span>
+                      <span className="block break-words text-xs text-slate-400">
+                        {policy.carrier} · {displayPolicyNumberWithHash(policy.policyNumber)}
+                      </span>
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-1.5">

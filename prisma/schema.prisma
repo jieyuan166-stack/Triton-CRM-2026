@@ -152,10 +152,14 @@ model FollowUp {
   details       String?
   deadline      DateTime?
   importance    String?
+  policyId      String?
+  policyNumber  String?
+  policyLabel   String?
   completedAt   DateTime?
   createdAt     DateTime @default(now())
 
   @@index([clientId, date])
+  @@index([policyId])
   @@index([deadline])
   @@index([importance])
   @@index([completedAt])

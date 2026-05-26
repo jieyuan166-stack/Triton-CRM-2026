@@ -254,6 +254,9 @@ export function ActivityTimeline({
         title: followUp.summary,
         subtitle: [
           followUp.type,
+          followUp.policyNumber
+            ? `Policy #${followUp.policyNumber}${followUp.policyLabel ? ` · ${followUp.policyLabel}` : ""}`
+            : undefined,
           followUp.createdByName,
           followUp.deadline ? `Deadline ${formatDate(followUp.deadline)}` : undefined,
         ].filter(Boolean).join(" · "),
@@ -266,6 +269,8 @@ export function ActivityTimeline({
           date: followUpTimestamp(followUp),
           subject: followUp.summary,
           body: followUp.details ?? "",
+          policyLabel: followUp.policyLabel,
+          policyNumber: followUp.policyNumber,
           templateLabel:
             followUp.type === "Phone"
               ? "Phone Call"
@@ -578,7 +583,7 @@ export function ActivityTimeline({
                             <Button
                               variant="outline"
                               size="sm"
-                              className="h-7 border-emerald-200 bg-emerald-50 px-2 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100"
+                              className="h-7 border-slate-200 bg-white px-2 text-[11px] font-semibold text-slate-600 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
                               onClick={() => handleMarkFollowUpDone(item.rawFollowUp!)}
                             >
                               <CheckCircle2 className="mr-1 h-3 w-3" />
@@ -679,6 +684,7 @@ export function ActivityTimeline({
         open={followUpDialogOpen}
         onOpenChange={setFollowUpDialogOpen}
         clientId={clientId}
+        policies={policies}
         onSave={(input) => {
           const saved = createFollowUp(input);
           toast.success("Follow-up added", { description: input.summary });

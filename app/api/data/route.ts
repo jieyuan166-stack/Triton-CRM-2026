@@ -267,6 +267,9 @@ function serializeFollowUp(
     details: f.details ?? undefined,
     deadline: dateOnly(f.deadline) ?? undefined,
     importance: f.importance as FollowUp["importance"],
+    policyId: f.policyId ?? undefined,
+    policyNumber: f.policyNumber ?? undefined,
+    policyLabel: f.policyLabel ?? undefined,
     completedAt: f.completedAt?.toISOString(),
     createdById: f.createdById,
     createdByName: f.createdBy?.name,
@@ -648,6 +651,9 @@ async function replaceAll(snapshot: {
       details: f.details ?? null,
       deadline: toNullDate(f.deadline),
       importance: f.importance ?? null,
+      policyId: f.policyId ?? null,
+      policyNumber: f.policyNumber ?? null,
+      policyLabel: f.policyLabel ?? null,
       completedAt: toDate(f.completedAt) ?? null,
       createdAt: toDate(f.createdAt) ?? new Date(),
     }));
@@ -849,6 +855,7 @@ export async function POST(request: Request) {
       case "followup.create": {
         const f = payload.followUp as FollowUp;
         await requireOwnedClient(f.clientId, session.user.id);
+        if (f.policyId) await requireOwnedPolicy(f.policyId, session.user.id);
         await db.followUp.create({
           data: {
             id: f.id,
@@ -860,6 +867,9 @@ export async function POST(request: Request) {
             details: f.details ?? null,
             deadline: toNullDate(f.deadline),
             importance: f.importance ?? null,
+            policyId: f.policyId ?? null,
+            policyNumber: f.policyNumber ?? null,
+            policyLabel: f.policyLabel ?? null,
             completedAt: toDate(f.completedAt) ?? null,
             createdAt: toDate(f.createdAt) ?? new Date(),
           },
