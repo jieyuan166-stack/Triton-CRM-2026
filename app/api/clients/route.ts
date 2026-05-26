@@ -161,6 +161,7 @@ function mapFollowUpRow(
     details: f.details ?? undefined,
     deadline: f.deadline?.toISOString().slice(0, 10),
     importance: f.importance as FollowUp["importance"],
+    completedAt: f.completedAt?.toISOString(),
     createdById: f.createdById,
     createdByName: f.createdBy?.name ?? undefined,
     createdAt: f.createdAt.toISOString(),

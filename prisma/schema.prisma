@@ -152,11 +152,13 @@ model FollowUp {
   details       String?
   deadline      DateTime?
   importance    String?
+  completedAt   DateTime?
   createdAt     DateTime @default(now())
 
   @@index([clientId, date])
   @@index([deadline])
   @@index([importance])
+  @@index([completedAt])
 }
 
 model EmailHistory {

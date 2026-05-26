@@ -120,6 +120,7 @@ function followUpTargetDate(followUp: FollowUp): string | undefined {
 }
 
 function isFollowUpDue(followUp: FollowUp): boolean {
+  if (followUp.completedAt) return false;
   if (followUp.deadline) return daysUntil(followUp.deadline) <= 30;
   return followUp.importance === "High";
 }

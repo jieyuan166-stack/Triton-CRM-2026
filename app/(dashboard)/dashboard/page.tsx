@@ -9,13 +9,14 @@ import { UpcomingPremiums } from "@/components/dashboard/UpcomingPremiums";
 import { UpcomingBirthdays } from "@/components/dashboard/UpcomingBirthdays";
 import { CarrierDistribution } from "@/components/dashboard/CarrierDistribution";
 import { CategoryBreakdown } from "@/components/dashboard/CategoryBreakdown";
+import { FollowUpsDueAlert } from "@/components/dashboard/FollowUpsDueAlert";
 import { calculateClientTags } from "@/lib/client-tags";
 import { formatCurrency, formatCurrencyShort } from "@/lib/format";
 import { calculatePortfolioMetrics } from "@/lib/portfolio-metrics";
 import { buildPremiumReminderState } from "@/lib/premium-reminders";
 
 export default function DashboardPage() {
-  const { clients, policies, emailReminderSends } = useData();
+  const { clients, policies, followUps, emailReminderSends } = useData();
   const totalClients = clients.length;
   const vipClients = clients.filter((c) =>
     calculateClientTags(c, policies).includes("VIP")
@@ -33,6 +34,8 @@ export default function DashboardPage() {
         title="Dashboard"
         description="Overview of your book of business"
       />
+
+      <FollowUpsDueAlert clients={clients} followUps={followUps} />
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 mb-6 md:mb-8">

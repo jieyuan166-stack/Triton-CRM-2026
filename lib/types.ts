@@ -371,6 +371,7 @@ export interface FollowUp {
   details?: string;
   deadline?: string;            // Optional due date for structured follow-up work
   importance?: FollowUpImportance;
+  completedAt?: string;
   createdById: string;
   createdByName?: string;
   createdAt: string;

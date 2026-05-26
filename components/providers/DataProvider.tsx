@@ -85,6 +85,7 @@ interface DataContextValue {
 
   // mutations — follow-ups
   createFollowUp(input: Omit<FollowUp, "id" | "createdAt">): FollowUp;
+  completeFollowUp(id: string, completedAt?: string): boolean;
   deleteFollowUp(id: string): boolean;
 
   recordEmailReminderSend(input: Omit<EmailReminderSend, "id" | "createdAt"> & Partial<Pick<EmailReminderSend, "id" | "createdAt">>): EmailReminderSend | null;
@@ -682,6 +683,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return next;
   }, []);
 
+  const completeFollowUp: DataContextValue["completeFollowUp"] = useCallback((id, completedAt) => {
+    const doneAt = completedAt ?? new Date().toISOString();
+    let updated = false;
+    setFollowUps((prev) =>
+      prev.map((followUp) => {
+        if (followUp.id !== id) return followUp;
+        updated = true;
+        return { ...followUp, completedAt: doneAt };
+      })
+    );
+    if (updated) {
+      persistInBackground("followup.complete", { id, completedAt: doneAt });
+    }
+    return updated;
+  }, []);
+
   const deleteFollowUp: DataContextValue["deleteFollowUp"] = useCallback((id) => {
     const deleted = followUps.some((f) => f.id === id);
     setFollowUps((prev) => prev.filter((f) => f.id !== id));
@@ -1007,6 +1024,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updatePolicy,
       deletePolicy,
       createFollowUp,
+      completeFollowUp,
       deleteFollowUp,
       appendEmailHistory,
       updateEmailHistory,
@@ -1044,6 +1062,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updatePolicy,
       deletePolicy,
       createFollowUp,
+      completeFollowUp,
       deleteFollowUp,
       appendEmailHistory,
       updateEmailHistory,

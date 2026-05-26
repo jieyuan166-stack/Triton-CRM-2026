@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from "react";
 import {
+  AlertTriangle,
   CalendarDays,
+  CheckCircle2,
   FileText,
   ListChecks,
   Mail,
@@ -38,7 +40,7 @@ import {
   parseCommunicationTypes,
   type ManualCommunicationType,
 } from "@/lib/communication-log";
-import { formatDate } from "@/lib/date-utils";
+import { daysUntil, formatDate } from "@/lib/date-utils";
 import { canSendToEmail } from "@/lib/email-address";
 import { cn } from "@/lib/utils";
 import type { EmailHistoryEntry, FollowUp } from "@/lib/types";
@@ -155,6 +157,7 @@ export function ActivityTimeline({
     updateEmailHistory,
     deleteEmailHistory,
     deleteFollowUp,
+    completeFollowUp,
     createFollowUp,
     getClient,
     getPoliciesByClient,
@@ -171,6 +174,17 @@ export function ActivityTimeline({
   const [deleteTarget, setDeleteTarget] = useState<ActivityItem | null>(null);
   const policies = getPoliciesByClient(clientId);
   const client = getClient(clientId);
+  const activeFollowUpSummary = useMemo(() => {
+    const active = followUps.filter((followUp) => !followUp.completedAt);
+    const due = active.filter((followUp) => {
+      if (followUp.deadline) return daysUntil(followUp.deadline) <= 30;
+      return followUp.importance === "High";
+    });
+    const overdue = due.filter((followUp) => !!followUp.deadline && daysUntil(followUp.deadline) < 0);
+    const today = due.filter((followUp) => !!followUp.deadline && daysUntil(followUp.deadline) === 0);
+    const high = due.filter((followUp) => followUp.importance === "High");
+    return { due, overdue, today, high };
+  }, [followUps]);
 
   function openEmailToClient() {
     if (!client) {
@@ -246,7 +260,7 @@ export function ActivityTimeline({
         body: followUp.details,
         icon: Icon,
         accentClassName: FOLLOWUP_ACCENT[followUp.type],
-        muted: false,
+        muted: !!followUp.completedAt,
         rawFollowUp: followUp,
         preview: {
           date: followUpTimestamp(followUp),
@@ -371,6 +385,15 @@ export function ActivityTimeline({
     toast.success("Activity deleted.");
   }
 
+  function handleMarkFollowUpDone(followUp: FollowUp) {
+    const ok = completeFollowUp(followUp.id);
+    if (!ok) {
+      toast.error("Could not complete follow-up.");
+      return;
+    }
+    toast.success("Follow-up marked done", { description: followUp.summary });
+  }
+
   return (
     <>
       <div id="activity" className="scroll-mt-28 rounded-xl border border-slate-200 bg-card shadow-sm">
@@ -432,6 +455,50 @@ export function ActivityTimeline({
               </button>
             ))}
           </div>
+
+          {activeFollowUpSummary.due.length > 0 ? (
+            <div
+              className={cn(
+                "mt-4 rounded-xl border px-3 py-3",
+                activeFollowUpSummary.overdue.length > 0
+                  ? "border-rose-200 bg-rose-50/70"
+                  : "border-[#C99A3A]/30 bg-[#C99A3A]/10"
+              )}
+            >
+              <div className="flex items-start gap-2">
+                <AlertTriangle
+                  className={cn(
+                    "mt-0.5 h-4 w-4 shrink-0",
+                    activeFollowUpSummary.overdue.length > 0
+                      ? "text-rose-600"
+                      : "text-[#8A641F]"
+                  )}
+                />
+                <div className="min-w-0">
+                  <p
+                    className={cn(
+                      "text-xs font-bold uppercase tracking-wider",
+                      activeFollowUpSummary.overdue.length > 0
+                        ? "text-rose-700"
+                        : "text-[#6F4F16]"
+                    )}
+                  >
+                    {activeFollowUpSummary.due.length} follow-up{activeFollowUpSummary.due.length === 1 ? "" : "s"} need attention
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                    {activeFollowUpSummary.overdue.length > 0
+                      ? `${activeFollowUpSummary.overdue.length} overdue`
+                      : activeFollowUpSummary.today.length > 0
+                        ? `${activeFollowUpSummary.today.length} due today`
+                        : "Upcoming or high-priority follow-ups"}
+                    {activeFollowUpSummary.high.length > 0
+                      ? ` · ${activeFollowUpSummary.high.length} high priority`
+                      : ""}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         {filteredItems.length === 0 ? (
@@ -506,15 +573,28 @@ export function ActivityTimeline({
                             ) : null}
                           </span>
                         </button>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          className="h-7 w-7 shrink-0 text-slate-300 opacity-0 transition-opacity hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100"
-                          aria-label={`Delete ${item.title}`}
-                          onClick={() => setDeleteTarget(item)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        <div className="flex shrink-0 items-center gap-1">
+                          {item.rawFollowUp && !item.rawFollowUp.completedAt ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 border-emerald-200 bg-emerald-50 px-2 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100"
+                              onClick={() => handleMarkFollowUpDone(item.rawFollowUp!)}
+                            >
+                              <CheckCircle2 className="mr-1 h-3 w-3" />
+                              Done
+                            </Button>
+                          ) : null}
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            className="h-7 w-7 text-slate-300 opacity-0 transition-opacity hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100"
+                            aria-label={`Delete ${item.title}`}
+                            onClick={() => setDeleteTarget(item)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                         {item.rawEntry ? (
                           <Button
                             variant="ghost"
@@ -550,6 +630,12 @@ export function ActivityTimeline({
                             )}
                           >
                             {item.rawFollowUp.importance}
+                          </span>
+                        ) : null}
+                        {item.rawFollowUp?.completedAt ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Done {formatDate(item.rawFollowUp.completedAt)}
                           </span>
                         ) : null}
                         {item.rawEntry

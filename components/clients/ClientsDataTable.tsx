@@ -118,6 +118,14 @@ function lastContactTone(lastContactAt?: string) {
   };
 }
 
+function isPastFollowUpDeadline(deadline?: string) {
+  if (!deadline) return false;
+  const target = parseCalendarDate(deadline);
+  const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  return target < todayStart;
+}
+
 export function ClientsDataTable() {
   const { clients, policies, followUps, deleteClient, dataStatus, dataError } = useData();
   const { settings } = useSettings();
@@ -126,8 +134,15 @@ export function ClientsDataTable() {
   const [provinces, setProvinces] = useState<string[]>([]);
   const [tagsFilter, setTagsFilter] = useState<string[]>([]);
   const [tagMatchMode, setTagMatchMode] = useState<"any" | "all">("any");
-  const [followUpDueOnly, setFollowUpDueOnly] = useState(false);
-  const [followUpSort, setFollowUpSort] = useState<"deadline" | "importance">("deadline");
+  const [followUpDueOnly, setFollowUpDueOnly] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return new URLSearchParams(window.location.search).get("followUpDue") === "true";
+  });
+  const [followUpSort, setFollowUpSort] = useState<"deadline" | "importance">(() => {
+    if (typeof window === "undefined") return "deadline";
+    const value = new URLSearchParams(window.location.search).get("followUpSort");
+    return value === "importance" ? "importance" : "deadline";
+  });
   const [sort, setSort] = useState<SortState>({ key: "name", dir: "asc" });
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState<RowsPerPage>(25);
@@ -622,6 +637,31 @@ export function ClientsDataTable() {
                                   <Building2 className="h-3 w-3" />
                                   Corp
                                 </span>
+                              ) : null}
+                              {r.followUpDueCount > 0 ? (
+                                <div className="mt-1 flex flex-wrap gap-1">
+                                  <span
+                                    className={cn(
+                                      "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ring-1",
+                                      isPastFollowUpDeadline(r.nextFollowUpDeadline)
+                                        ? "bg-rose-50 text-rose-700 ring-rose-100"
+                                        : "bg-[#C99A3A]/10 text-[#7A5618] ring-[#C99A3A]/20"
+                                    )}
+                                  >
+                                    <Clock3 className="h-3 w-3" />
+                                    {r.followUpDueCount} follow-up{r.followUpDueCount === 1 ? "" : "s"} due
+                                  </span>
+                                  {isPastFollowUpDeadline(r.nextFollowUpDeadline) ? (
+                                    <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-700 ring-1 ring-rose-100">
+                                      Overdue
+                                    </span>
+                                  ) : null}
+                                  {r.highestFollowUpImportance === "High" ? (
+                                    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700 ring-1 ring-amber-100">
+                                      High
+                                    </span>
+                                  ) : null}
+                                </div>
                               ) : null}
                               {r.companyName ? (
                                 <p className="mt-0.5 max-w-[18rem] truncate text-[11px] font-medium text-slate-500">

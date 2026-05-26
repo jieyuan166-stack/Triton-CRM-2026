@@ -45,6 +45,7 @@ const dataActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("policy.update"), payload: z.object({ id: idSchema, patch: objectPayloadSchema }) }),
   z.object({ action: z.literal("policy.delete"), payload: z.object({ id: idSchema }) }),
   z.object({ action: z.literal("followup.create"), payload: z.object({ followUp: objectPayloadSchema.extend({ id: idSchema }) }) }),
+  z.object({ action: z.literal("followup.complete"), payload: z.object({ id: idSchema, completedAt: z.string().optional() }) }),
   z.object({ action: z.literal("followup.delete"), payload: z.object({ id: idSchema }) }),
   z.object({ action: z.literal("emailHistory.append"), payload: z.object({ clientId: idSchema, entry: objectPayloadSchema.extend({ id: idSchema }) }) }),
   z.object({ action: z.literal("emailHistory.update"), payload: z.object({ clientId: idSchema, entryId: idSchema, patch: objectPayloadSchema }) }),
@@ -266,6 +267,7 @@ function serializeFollowUp(
     details: f.details ?? undefined,
     deadline: dateOnly(f.deadline) ?? undefined,
     importance: f.importance as FollowUp["importance"],
+    completedAt: f.completedAt?.toISOString(),
     createdById: f.createdById,
     createdByName: f.createdBy?.name,
     createdAt: f.createdAt.toISOString(),
@@ -646,6 +648,7 @@ async function replaceAll(snapshot: {
       details: f.details ?? null,
       deadline: toNullDate(f.deadline),
       importance: f.importance ?? null,
+      completedAt: toDate(f.completedAt) ?? null,
       createdAt: toDate(f.createdAt) ?? new Date(),
     }));
 
@@ -857,10 +860,25 @@ export async function POST(request: Request) {
             details: f.details ?? null,
             deadline: toNullDate(f.deadline),
             importance: f.importance ?? null,
+            completedAt: toDate(f.completedAt) ?? null,
             createdAt: toDate(f.createdAt) ?? new Date(),
           },
         });
         await auditLog({ action: "create_followup", entityType: "followup", entityId: f.id });
+        break;
+      }
+      case "followup.complete": {
+        const followUp = await db.followUp.findFirst({
+          where: { id: String(payload.id), client: { userId: session.user.id } },
+          select: { id: true },
+        });
+        if (!followUp) throw new Error("Follow-up not found");
+        const completedAt = toDate(payload.completedAt) ?? new Date();
+        await db.followUp.update({
+          where: { id: followUp.id },
+          data: { completedAt },
+        });
+        await auditLog({ action: "complete_followup", entityType: "followup", entityId: followUp.id });
         break;
       }
       case "followup.delete": {

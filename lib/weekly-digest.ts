@@ -44,7 +44,7 @@ export async function buildWeeklyDigest(userId: string) {
     db.client.findMany({ where: { userId }, orderBy: [{ lastName: "asc" }, { firstName: "asc" }] }),
     db.policy.findMany({ where: { userId, status: "active" }, orderBy: { premiumDate: "asc" } }),
     db.followUp.findMany({
-      where: { client: { userId } },
+      where: { client: { userId }, completedAt: null },
       orderBy: [{ deadline: "asc" }, { date: "asc" }],
     }),
   ]);
