@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Bell, CalendarDays, ExternalLink } from "lucide-react";
 import type { Client, FollowUp } from "@/lib/types";
@@ -81,13 +81,25 @@ export function FollowUpBell({ clients, followUps }: FollowUpBellProps) {
 
   const visible = due.slice(0, 8);
   const countLabel = due.length > 99 ? "99+" : String(due.length);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const openPanel = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    setOpen(true);
+  };
+  const closePanelSoon = () => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = setTimeout(() => setOpen(false), 180);
+  };
 
   return (
     <div
       className="relative inline-flex"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-      onFocus={() => setOpen(true)}
+      onMouseEnter={openPanel}
+      onMouseLeave={closePanelSoon}
+      onFocus={openPanel}
     >
       <button
         type="button"
@@ -110,7 +122,11 @@ export function FollowUpBell({ clients, followUps }: FollowUpBellProps) {
       </button>
 
       {open ? (
-        <div className="absolute right-0 top-12 z-40 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-xl ring-1 ring-black/5">
+        <div
+          className="absolute right-0 top-12 z-40 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-xl ring-1 ring-black/5"
+          onMouseEnter={openPanel}
+          onMouseLeave={closePanelSoon}
+        >
           <div className="border-b border-slate-100 px-4 py-3">
             <p className="text-xs font-bold uppercase tracking-widest text-navy">
               Follow-up Reminders
