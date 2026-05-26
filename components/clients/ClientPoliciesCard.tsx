@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ChevronDown, ExternalLink, FileText, Plus, Search, StickyNote } from "lucide-react";
+import { ChevronDown, Copy, ExternalLink, FileText, Plus, Search, StickyNote } from "lucide-react";
 import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -383,9 +383,50 @@ function CompactPolicyRow({
         ? formatMonthDay(policy.premiumDate)
         : "—";
 
+  async function copyPolicySummary() {
+    const lines = [
+      `Carrier: ${policy.carrier}`,
+      `Product: ${policy.productName || policy.productType}`,
+      `Policy Number: ${displayPolicyNumberWithHash(policy.policyNumber)}`,
+      `Category: ${policy.category}`,
+      `Product Type: ${policy.productType}`,
+      policy.category === "Investment"
+        ? `Initial Amount: ${formatCurrency(policy.sumAssured)}`
+        : `Death Benefit: ${formatCurrency(policy.sumAssured)}`,
+    ];
+
+    if (policy.category === "Investment") {
+      lines.push(`Effective Date: ${effectiveDateValue}`);
+      if (policy.ongoingInvestmentAmount) {
+        lines.push(`Ongoing Amount: ${formatCurrency(policy.ongoingInvestmentAmount)}`);
+        lines.push(`Frequency: ${ongoingFrequency}`);
+        lines.push(`Start Date: ${ongoingStartValue}`);
+        if (policy.ongoingInvestmentEndDate) {
+          lines.push(`End Date: ${formatDate(policy.ongoingInvestmentEndDate)}`);
+        }
+      }
+    } else {
+      lines.push(
+        `Premium: ${formatCurrency(policy.premium)} /${PAYMENT_FREQUENCY_LABELS[policy.paymentFrequency].toLowerCase()}`
+      );
+      lines.push(`Due Date: ${insuranceDateValue}`);
+    }
+
+    if (policy.status !== "active") lines.push(`Status: ${policy.status}`);
+    if (policy.isInvestmentLoan) lines.push(`Loan: ${policy.lender || "Investment Loan"}`);
+    if (policy.isJoint) lines.push("Joint Account: Yes");
+
+    try {
+      await navigator.clipboard.writeText(lines.join("\n"));
+      toast.success("Policy summary copied");
+    } catch {
+      toast.error("Could not copy policy summary");
+    }
+  }
+
   return (
     <div className={cn("transition-colors", className)}>
-      <div className="grid grid-cols-1 gap-3 px-5 py-3 lg:grid-cols-[minmax(0,1fr)_9.5rem_9.5rem_8rem_4.75rem] lg:items-center lg:gap-4 md:px-6">
+      <div className="grid grid-cols-1 gap-3 px-5 py-3 lg:grid-cols-[minmax(0,1fr)_9.5rem_9.5rem_8rem_7rem] lg:items-center lg:gap-4 md:px-6">
         <button
           type="button"
           onClick={onToggle}
@@ -450,6 +491,18 @@ function CompactPolicyRow({
           <Metric label="Due Date" value={insuranceDateValue} />
         )}
         <div className="flex justify-start gap-1 lg:justify-end">
+          <button
+            type="button"
+            className={cn(
+              buttonVariants({ variant: "ghost", size: "icon-sm" }),
+              "text-slate-400 hover:text-navy"
+            )}
+            aria-label={`Copy policy summary for ${policy.policyNumber}`}
+            title="Copy policy summary"
+            onClick={copyPolicySummary}
+          >
+            <Copy className="h-3.5 w-3.5" />
+          </button>
           <button
             type="button"
             className={cn(
