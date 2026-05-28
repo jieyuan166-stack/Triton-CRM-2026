@@ -859,8 +859,8 @@ export function EmailPreviewDialog({
               ) : null}
               {selectedTemplate === "custom" && activePayload.clientId ? (
                 <div className="space-y-1.5">
-                  <Label>Target Policies</Label>
-                  <div className="max-h-44 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1">
+                  <Label className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Target Policies</Label>
+                  <div className="max-h-32 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1">
                     {clientPolicies.length > 0 ? (
                       clientPolicies.map((policy) => {
                         const checked = selectedPolicyIds.includes(policy.id);
@@ -868,25 +868,25 @@ export function EmailPreviewDialog({
                           <button
                             key={policy.id}
                             type="button"
-                            className="flex w-full items-start gap-2 rounded-md px-2 py-2 text-left transition hover:bg-slate-50"
+                            className="flex w-full items-start gap-1.5 rounded-md px-2 py-1.5 text-left transition hover:bg-slate-50"
                             onClick={() => toggleSelectedPolicy(policy.id)}
                             aria-pressed={checked}
                           >
                             <span
                               className={cn(
-                                "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border",
+                                "mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border",
                                 checked
                                   ? "border-navy bg-navy text-white"
                                   : "border-slate-300 bg-white text-transparent"
                               )}
                             >
-                              <Check className="h-3 w-3" />
+                              <Check className="h-2.5 w-2.5" />
                             </span>
                             <span className="min-w-0">
-                              <span className="block whitespace-normal break-words text-sm font-medium leading-snug text-slate-800">
+                              <span className="block whitespace-normal break-words text-xs font-medium leading-snug text-slate-800">
                                 {policy.productName || policy.productType || "Policy"}
                               </span>
-                              <span className="mt-0.5 block text-xs leading-snug text-slate-500">
+                              <span className="mt-0.5 block text-[11px] leading-snug text-slate-500">
                                 {policy.carrier} · {displayPolicyNumberWithHash(policy.policyNumber)}
                               </span>
                             </span>
@@ -904,7 +904,7 @@ export function EmailPreviewDialog({
                       {selectedPolicies.map((policy) => (
                         <span
                           key={policy.id}
-                          className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-slate-50 px-2.5 py-1 text-xs text-slate-700 ring-1 ring-slate-200"
+                          className="inline-flex max-w-full items-center gap-1 rounded-full bg-slate-50 px-2 py-0.5 text-[11px] text-slate-700 ring-1 ring-slate-200"
                           title={policyOptionLabel(policy.id)}
                         >
                           <span className="min-w-0 max-w-[14rem] truncate">
