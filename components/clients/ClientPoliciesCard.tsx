@@ -129,6 +129,11 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
         .filter(
           (entry) =>
             entry.policyId === activityPolicy.id ||
+            entry.policyContexts?.some(
+              (context) =>
+                context.policyId === activityPolicy.id ||
+                (!!activityPolicy.policyNumber && context.policyNumber === activityPolicy.policyNumber)
+            ) ||
             (!!activityPolicy.policyNumber && entry.policyNumber === activityPolicy.policyNumber)
         )
         .sort((a, b) => (a.date > b.date ? -1 : 1))
@@ -139,6 +144,11 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
       const count = history.filter(
         (entry) =>
           entry.policyId === policy.id ||
+          entry.policyContexts?.some(
+            (context) =>
+              context.policyId === policy.id ||
+              (!!policy.policyNumber && context.policyNumber === policy.policyNumber)
+          ) ||
           (!!policy.policyNumber && entry.policyNumber === policy.policyNumber)
       ).length;
       if (count > 0) counts.set(policy.id, count);

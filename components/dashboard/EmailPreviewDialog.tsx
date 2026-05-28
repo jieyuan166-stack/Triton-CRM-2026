@@ -3,7 +3,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { FileText, ImageIcon, Loader2, Paperclip, Save, Send, Trash2, X } from "lucide-react";
+import { Check, FileText, ImageIcon, Loader2, Paperclip, Save, Send, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -23,7 +23,7 @@ import { useData } from "@/components/providers/DataProvider";
 import { useSettings } from "@/components/providers/SettingsProvider";
 import type { EmailTemplateAttachment } from "@/lib/settings-types";
 import { MANUAL_COMMUNICATION_TYPES } from "@/lib/communication-log";
-import type { EmailHistoryAttachment } from "@/lib/types";
+import type { EmailHistoryAttachment, EmailHistoryPolicyContext, Policy } from "@/lib/types";
 import {
   applyTemplate,
   plainTextToEmailHtml,
@@ -35,6 +35,7 @@ import {
 } from "@/lib/templates";
 import { sanitizeEmailHtml } from "@/lib/security/sanitize-html";
 import { displayPolicyNumberWithHash } from "@/lib/policy-number";
+import { cn } from "@/lib/utils";
 
 const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
 
@@ -88,6 +89,7 @@ export interface EmailPreviewPayload {
   /** Required when template === "renewal" — identifies the policy whose
    *  renewal-suppression timestamp should be stamped. */
   policyId?: string;
+  policyContexts?: EmailHistoryPolicyContext[];
   draftEntryId?: string;
   communicationType?: string;
   reminderStage?: "first" | "second";
@@ -160,6 +162,7 @@ export function EmailPreviewDialog({
   const [attachments, setAttachments] = useState<ComposeAttachment[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<"custom" | "birthday" | "renewal" | "festival">("custom");
   const [selectedPolicyId, setSelectedPolicyId] = useState<string | undefined>(undefined);
+  const [selectedPolicyIds, setSelectedPolicyIds] = useState<string[]>([]);
   const [selectedCommunicationType, setSelectedCommunicationType] = useState("External Email");
   const [sending, setSending] = useState(false);
   const [birthdayConfirmOpen, setBirthdayConfirmOpen] = useState(false);
@@ -175,6 +178,12 @@ export function EmailPreviewDialog({
       setAttachments(payload.attachments ?? []);
       setSelectedTemplate(payload.template ?? "custom");
       setSelectedPolicyId(payload.policyId);
+      setSelectedPolicyIds(
+        (payload.policyContexts
+          ?.map((context) => context.policyId)
+          .filter(Boolean) as string[] | undefined) ??
+          (payload.policyId ? [payload.policyId] : [])
+      );
       setSelectedCommunicationType(payload.communicationType || "External Email");
       setSending(false);
       setBirthdayConfirmOpen(false);
@@ -209,6 +218,9 @@ export function EmailPreviewDialog({
       )
     : [];
   const selectedPolicy = selectedPolicyId ? getPolicy(selectedPolicyId) : undefined;
+  const selectedPolicies = selectedPolicyIds
+    .map((policyId) => getPolicy(policyId))
+    .filter(Boolean) as Policy[];
 
   function formatBytes(bytes: number) {
     if (bytes < 1024) return `${bytes} B`;
@@ -229,6 +241,35 @@ export function EmailPreviewDialog({
     const policy = policyId ? getPolicy(policyId) : undefined;
     if (!policy) return "";
     return `${policy.productName || policy.productType || "Policy"} · ${policy.carrier} · ${displayPolicyNumberWithHash(policy.policyNumber)}`;
+  }
+
+  function policyContext(policy: Policy): EmailHistoryPolicyContext {
+    return {
+      policyId: policy.id,
+      policyNumber: policy.policyNumber,
+      policyLabel: `${policy.carrier} ${policy.productName || policy.productType}`.trim(),
+    };
+  }
+
+  function emailPolicyContexts(template = selectedTemplate): EmailHistoryPolicyContext[] | undefined {
+    if (template === "custom") {
+      const contexts = selectedPolicies.map(policyContext);
+      return contexts.length > 0 ? contexts : undefined;
+    }
+    if (template === "renewal" && selectedPolicy) return [policyContext(selectedPolicy)];
+    return undefined;
+  }
+
+  function primaryPolicyContext(contexts?: EmailHistoryPolicyContext[]) {
+    return contexts?.[0];
+  }
+
+  function toggleSelectedPolicy(policyId: string) {
+    setSelectedPolicyIds((current) =>
+      current.includes(policyId)
+        ? current.filter((id) => id !== policyId)
+        : [...current, policyId]
+    );
   }
 
   function templateVars(policyId?: string) {
@@ -375,10 +416,8 @@ export function EmailPreviewDialog({
       return;
     }
 
-    const targetPolicy =
-      (selectedTemplate === "custom" || selectedTemplate === "renewal") && selectedPolicyId
-        ? getPolicy(selectedPolicyId)
-        : undefined;
+    const contexts = emailPolicyContexts();
+    const primaryContext = primaryPolicyContext(contexts);
 
     const draftPatch = {
       subject: trimmedSubject || "(No subject)",
@@ -388,11 +427,10 @@ export function EmailPreviewDialog({
         selectedTemplate === "custom"
           ? selectedCommunicationType
           : `${selectedTemplate[0].toUpperCase()}${selectedTemplate.slice(1)} Draft`,
-      policyId: targetPolicy?.id,
-      policyNumber: targetPolicy?.policyNumber,
-      policyLabel: targetPolicy
-        ? `${targetPolicy.carrier} ${targetPolicy.productName || targetPolicy.productType}`.trim()
-        : undefined,
+      policyId: primaryContext?.policyId,
+      policyNumber: primaryContext?.policyNumber,
+      policyLabel: primaryContext?.policyLabel,
+      policyContexts: contexts,
       attachments: attachmentMetadata(),
     };
 
@@ -454,6 +492,7 @@ export function EmailPreviewDialog({
       clientId?: string;
       template?: "renewal" | "birthday" | "festival" | "custom";
       policyId?: string;
+      policyContexts?: EmailHistoryPolicyContext[];
       communicationType?: string;
       reminderStage?: "first" | "second";
       reminderCycleKey?: string;
@@ -502,6 +541,10 @@ export function EmailPreviewDialog({
       const clientId = message.clientId;
       const template = message.template ?? "custom";
       const targetPolicy = message.policyId ? getPolicy(message.policyId) : undefined;
+      const contexts =
+        message.policyContexts ??
+        (targetPolicy ? [policyContext(targetPolicy)] : undefined);
+      const primaryContext = primaryPolicyContext(contexts);
       const renewalPolicy =
         template === "renewal" && message.policyId
           ? getPolicy(message.policyId)
@@ -523,11 +566,10 @@ export function EmailPreviewDialog({
           subject: prepared.subject,
           body: prepared.body,
           templateLabel,
-          policyId: targetPolicy?.id,
-          policyNumber: targetPolicy?.policyNumber,
-          policyLabel: targetPolicy
-            ? `${targetPolicy.carrier} ${targetPolicy.productName || targetPolicy.productType}`.trim()
-            : undefined,
+          policyId: primaryContext?.policyId,
+          policyNumber: primaryContext?.policyNumber,
+          policyLabel: primaryContext?.policyLabel,
+          policyContexts: contexts,
           communicationType:
             template === "renewal"
               ? "Renewal Reminder"
@@ -607,9 +649,17 @@ export function EmailPreviewDialog({
         clientId: activePayload.clientId,
         template: selectedTemplate,
         policyId:
-          selectedTemplate === "custom" || selectedTemplate === "renewal"
+          selectedTemplate === "renewal"
             ? selectedPolicyId ?? activePayload.policyId
-            : undefined,
+            : selectedTemplate === "custom"
+              ? primaryPolicyContext(emailPolicyContexts("custom"))?.policyId
+              : undefined,
+        policyContexts:
+          selectedTemplate === "custom"
+            ? emailPolicyContexts("custom")
+            : selectedTemplate === "renewal"
+              ? emailPolicyContexts("renewal")
+              : undefined,
         communicationType: selectedTemplate === "custom" ? selectedCommunicationType : undefined,
         reminderStage: activePayload.reminderStage,
         reminderCycleKey: activePayload.reminderCycleKey,
@@ -807,7 +857,78 @@ export function EmailPreviewDialog({
                   </p>
                 </div>
               ) : null}
-              {(selectedTemplate === "custom" || selectedTemplate === "renewal") && activePayload.clientId ? (
+              {selectedTemplate === "custom" && activePayload.clientId ? (
+                <div className="space-y-1.5">
+                  <Label>Target Policies</Label>
+                  <div className="max-h-44 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1">
+                    {clientPolicies.length > 0 ? (
+                      clientPolicies.map((policy) => {
+                        const checked = selectedPolicyIds.includes(policy.id);
+                        return (
+                          <button
+                            key={policy.id}
+                            type="button"
+                            className="flex w-full items-start gap-2 rounded-md px-2 py-2 text-left transition hover:bg-slate-50"
+                            onClick={() => toggleSelectedPolicy(policy.id)}
+                            aria-pressed={checked}
+                          >
+                            <span
+                              className={cn(
+                                "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border",
+                                checked
+                                  ? "border-navy bg-navy text-white"
+                                  : "border-slate-300 bg-white text-transparent"
+                              )}
+                            >
+                              <Check className="h-3 w-3" />
+                            </span>
+                            <span className="min-w-0">
+                              <span className="block whitespace-normal break-words text-sm font-medium leading-snug text-slate-800">
+                                {policy.productName || policy.productType || "Policy"}
+                              </span>
+                              <span className="mt-0.5 block text-xs leading-snug text-slate-500">
+                                {policy.carrier} · {displayPolicyNumberWithHash(policy.policyNumber)}
+                              </span>
+                            </span>
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <div className="px-3 py-3 text-sm text-triton-muted">
+                        No policies available for this client.
+                      </div>
+                    )}
+                  </div>
+                  {selectedPolicies.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedPolicies.map((policy) => (
+                        <span
+                          key={policy.id}
+                          className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-slate-50 px-2.5 py-1 text-xs text-slate-700 ring-1 ring-slate-200"
+                          title={policyOptionLabel(policy.id)}
+                        >
+                          <span className="min-w-0 max-w-[14rem] truncate">
+                            {policy.productName || policy.productType || "Policy"}
+                          </span>
+                          <button
+                            type="button"
+                            className="shrink-0 text-slate-400 hover:text-slate-700"
+                            onClick={() => toggleSelectedPolicy(policy.id)}
+                            aria-label={`Remove ${policy.productName || policy.productType || "policy"}`}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-triton-muted">
+                      Optional. Used only for activity and policy notes.
+                    </p>
+                  )}
+                </div>
+              ) : null}
+              {selectedTemplate === "renewal" && activePayload.clientId ? (
                 <div className="space-y-1.5">
                   <Label htmlFor="email-policy-select">Target Policy</Label>
                   <Select
@@ -815,14 +936,13 @@ export function EmailPreviewDialog({
                     onValueChange={(value) => {
                       const nextPolicyId = value || undefined;
                       setSelectedPolicyId(nextPolicyId);
-                      if (selectedTemplate === "renewal") {
-                        applySelectedTemplate("renewal", nextPolicyId);
-                      }
+                      setSelectedPolicyIds(nextPolicyId ? [nextPolicyId] : []);
+                      applySelectedTemplate("renewal", nextPolicyId);
                     }}
                   >
                     <SelectTrigger id="email-policy-select" className="w-full min-w-0 overflow-hidden">
                       <span className={selectedPolicy ? "block min-w-0 flex-1 truncate text-left text-slate-800" : "text-muted-foreground"}>
-                        {selectedPolicy ? `${selectedPolicy.productName || selectedPolicy.productType || "Policy"} · #${selectedPolicy.policyNumber}` : "Select policy"}
+                        {selectedPolicy ? `${selectedPolicy.productName || selectedPolicy.productType || "Policy"} · ${displayPolicyNumberWithHash(selectedPolicy.policyNumber)}` : "Select policy"}
                       </span>
                     </SelectTrigger>
                     <SelectContent className="max-w-[min(34rem,calc(100vw-2rem))]">
@@ -833,18 +953,9 @@ export function EmailPreviewDialog({
                       ))}
                     </SelectContent>
                   </Select>
-                  {selectedPolicyId ? (
-                    <div
-                      className="max-w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-600 [overflow-wrap:anywhere]"
-                      title={policyOptionLabel(selectedPolicyId)}
-                    >
-                      {policyOptionLabel(selectedPolicyId)}
-                    </div>
-                  ) : (
-                    <p className="text-[11px] text-triton-muted">
-                      Optional. Used only for activity and policy notes.
-                    </p>
-                  )}
+                  <p className="text-[11px] text-triton-muted">
+                    Renewal templates use one policy for premium, due date, and policy number variables.
+                  </p>
                 </div>
               ) : null}
             </div>

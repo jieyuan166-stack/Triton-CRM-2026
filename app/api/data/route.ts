@@ -18,6 +18,7 @@ import type {
   ClientRelationship,
   EmailHistoryAttachment,
   EmailHistoryEntry,
+  EmailHistoryPolicyContext,
   EmailReminderSend,
   FollowUp,
   Policy,
@@ -122,6 +123,40 @@ function serializeEmailAttachments(value: unknown): string | null {
   return attachments ? JSON.stringify(attachments) : null;
 }
 
+function normalizeEmailPolicyContexts(value: unknown): EmailHistoryPolicyContext[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const contexts = value
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const record = item as Record<string, unknown>;
+      const policyId = typeof record.policyId === "string" ? record.policyId.trim() : "";
+      const policyNumber = typeof record.policyNumber === "string" ? record.policyNumber.trim() : "";
+      const policyLabel = typeof record.policyLabel === "string" ? record.policyLabel.trim() : "";
+      if (!policyId && !policyNumber && !policyLabel) return null;
+      return {
+        policyId: policyId || undefined,
+        policyNumber: policyNumber || undefined,
+        policyLabel: policyLabel || undefined,
+      };
+    })
+    .filter(Boolean) as EmailHistoryPolicyContext[];
+  return contexts.length > 0 ? contexts : undefined;
+}
+
+function parseEmailPolicyContexts(value: string | null | undefined): EmailHistoryPolicyContext[] | undefined {
+  if (!value) return undefined;
+  try {
+    return normalizeEmailPolicyContexts(JSON.parse(value));
+  } catch {
+    return undefined;
+  }
+}
+
+function serializeEmailPolicyContexts(value: unknown): string | null {
+  const contexts = normalizeEmailPolicyContexts(value);
+  return contexts ? JSON.stringify(contexts) : null;
+}
+
 function toDate(value: unknown): Date | undefined {
   if (!value || typeof value !== "string") return undefined;
   const d = new Date(value);
@@ -155,6 +190,7 @@ function serializeClient(
       policyId: string | null;
       policyNumber: string | null;
       policyLabel: string | null;
+      policyContexts: string | null;
       communicationType: string | null;
       attachments: string | null;
     }>;
@@ -188,6 +224,7 @@ function serializeClient(
       policyId: entry.policyId ?? undefined,
       policyNumber: entry.policyNumber ?? undefined,
       policyLabel: entry.policyLabel ?? undefined,
+      policyContexts: parseEmailPolicyContexts(entry.policyContexts),
       communicationType: entry.communicationType ?? undefined,
       attachments: parseEmailAttachments(entry.attachments),
     })),
@@ -540,6 +577,7 @@ async function replaceAll(snapshot: {
       policyId: entry.policyId ?? null,
       policyNumber: entry.policyNumber ?? null,
       policyLabel: entry.policyLabel ?? null,
+      policyContexts: serializeEmailPolicyContexts(entry.policyContexts),
       communicationType: entry.communicationType ?? null,
       attachments: serializeEmailAttachments(entry.attachments),
     }))
@@ -906,6 +944,9 @@ export async function POST(request: Request) {
         const clientId = String(payload.clientId);
         await requireOwnedClient(clientId, session.user.id);
         if (entry.policyId) await requireOwnedPolicy(entry.policyId, session.user.id);
+        for (const context of entry.policyContexts ?? []) {
+          if (context.policyId) await requireOwnedPolicy(context.policyId, session.user.id);
+        }
         await db.emailHistory.create({
           data: {
             id: entry.id,
@@ -918,6 +959,7 @@ export async function POST(request: Request) {
             policyId: entry.policyId ?? null,
             policyNumber: entry.policyNumber ?? null,
             policyLabel: entry.policyLabel ?? null,
+            policyContexts: serializeEmailPolicyContexts(entry.policyContexts),
             communicationType: entry.communicationType ?? null,
             attachments: serializeEmailAttachments(entry.attachments),
           },
@@ -937,6 +979,7 @@ export async function POST(request: Request) {
           policyId?: string | null;
           policyNumber?: string | null;
           policyLabel?: string | null;
+          policyContexts?: EmailHistoryPolicyContext[] | null;
           attachments?: EmailHistoryAttachment[] | null;
         };
         const data: {
@@ -946,6 +989,7 @@ export async function POST(request: Request) {
           policyId?: string | null;
           policyNumber?: string | null;
           policyLabel?: string | null;
+          policyContexts?: string | null;
           communicationType?: string | null;
           attachments?: string | null;
         } = {};
@@ -966,6 +1010,12 @@ export async function POST(request: Request) {
         }
         if (Object.prototype.hasOwnProperty.call(patch, "policyLabel")) {
           data.policyLabel = patch.policyLabel ?? null;
+        }
+        if (Object.prototype.hasOwnProperty.call(patch, "policyContexts")) {
+          for (const context of patch.policyContexts ?? []) {
+            if (context.policyId) await requireOwnedPolicy(context.policyId, session.user.id);
+          }
+          data.policyContexts = serializeEmailPolicyContexts(patch.policyContexts);
         }
         if (Object.prototype.hasOwnProperty.call(patch, "attachments")) {
           data.attachments = serializeEmailAttachments(patch.attachments);

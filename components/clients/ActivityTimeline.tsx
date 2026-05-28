@@ -115,9 +115,17 @@ function formatTimestamp(iso: string): string {
 }
 
 function historyDescription(entry: EmailHistoryEntry): string {
-  const policyPrefix = entry.policyNumber
-    ? `Policy #${entry.policyNumber}${entry.policyLabel ? ` · ${entry.policyLabel}` : ""} — `
-    : "";
+  const contexts = entry.policyContexts?.length
+    ? entry.policyContexts
+    : entry.policyNumber
+      ? [{ policyNumber: entry.policyNumber, policyLabel: entry.policyLabel }]
+      : [];
+  const policyPrefix =
+    contexts.length > 1
+      ? `${contexts.length} policies — `
+      : contexts[0]?.policyNumber
+        ? `Policy #${contexts[0].policyNumber}${contexts[0].policyLabel ? ` · ${contexts[0].policyLabel}` : ""} — `
+        : "";
   if (entry.templateLabel?.startsWith("Email Draft")) {
     return entry.subject?.trim()
       ? `${policyPrefix}Draft email - ${entry.subject.trim()}`
@@ -230,6 +238,7 @@ export function ActivityTimeline({
       clientId: client.id,
       template: draftTemplate(entry),
       policyId: entry.policyId,
+      policyContexts: entry.policyContexts,
       draftEntryId: entry.id,
       communicationType: entry.communicationType || "External Email",
       attachments: [],
@@ -329,6 +338,7 @@ export function ActivityTimeline({
           templateLabel: entry.templateLabel,
           policyLabel: entry.policyLabel,
           policyNumber: entry.policyNumber,
+          policyContexts: entry.policyContexts,
           attachments: entry.attachments,
         },
         attachmentCount,

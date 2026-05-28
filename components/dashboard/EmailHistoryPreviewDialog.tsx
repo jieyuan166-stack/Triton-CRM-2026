@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { isManualCommunicationLabel } from "@/lib/communication-log";
 import { formatDate } from "@/lib/date-utils";
-import type { EmailHistoryAttachment } from "@/lib/types";
+import type { EmailHistoryAttachment, EmailHistoryPolicyContext } from "@/lib/types";
 
 export interface EmailHistoryPreview {
   to?: string;
@@ -16,6 +16,7 @@ export interface EmailHistoryPreview {
   templateLabel?: string;
   policyLabel?: string;
   policyNumber?: string;
+  policyContexts?: EmailHistoryPolicyContext[];
   attachments?: EmailHistoryAttachment[];
 }
 
@@ -75,12 +76,19 @@ export function EmailHistoryPreviewDialog({
                 <p className="mt-1 text-slate-800">{email.templateLabel}</p>
               </div>
             ) : null}
-            {email.policyLabel || email.policyNumber ? (
+            {(email.policyContexts && email.policyContexts.length > 0) || email.policyLabel || email.policyNumber ? (
               <div className="md:col-span-2">
-                <p className="label-caps">Target Policy</p>
-                <p className="mt-1 text-slate-800">
-                  {[email.policyLabel, email.policyNumber ? `#${email.policyNumber}` : ""].filter(Boolean).join(" · ")}
-                </p>
+                <p className="label-caps">Target {email.policyContexts && email.policyContexts.length > 1 ? "Policies" : "Policy"}</p>
+                <div className="mt-1 space-y-1 text-slate-800">
+                  {(email.policyContexts && email.policyContexts.length > 0
+                    ? email.policyContexts
+                    : [{ policyLabel: email.policyLabel, policyNumber: email.policyNumber }]
+                  ).map((policy, index) => (
+                    <p key={`${policy.policyId ?? policy.policyNumber ?? index}`} className="break-words">
+                      {[policy.policyLabel, policy.policyNumber ? `#${policy.policyNumber}` : ""].filter(Boolean).join(" · ")}
+                    </p>
+                  ))}
+                </div>
               </div>
             ) : null}
             {email.attachments && email.attachments.length > 0 ? (

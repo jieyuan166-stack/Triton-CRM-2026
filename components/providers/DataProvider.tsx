@@ -107,6 +107,7 @@ interface DataContextValue {
       policyId?: string | null;
       policyNumber?: string | null;
       policyLabel?: string | null;
+      policyContexts?: EmailHistoryEntry["policyContexts"] | null;
       attachments?: EmailHistoryEntry["attachments"] | null;
     }
   ): EmailHistoryEntry | null;
@@ -727,6 +728,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         policyId: entry.policyId,
         policyNumber: entry.policyNumber,
         policyLabel: entry.policyLabel,
+        policyContexts: entry.policyContexts,
         communicationType: entry.communicationType,
         attachments: entry.attachments,
       };
@@ -802,6 +804,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 Object.prototype.hasOwnProperty.call(patch, "policyLabel")
                   ? patch.policyLabel ?? undefined
                   : entry.policyLabel,
+              policyContexts:
+                Object.prototype.hasOwnProperty.call(patch, "policyContexts")
+                  ? patch.policyContexts ?? undefined
+                  : entry.policyContexts,
               attachments:
                 Object.prototype.hasOwnProperty.call(patch, "attachments")
                   ? patch.attachments ?? undefined

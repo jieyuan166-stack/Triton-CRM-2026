@@ -353,6 +353,7 @@ export function CommunicationLog({ clientId, history }: CommunicationLogProps) {
                         templateLabel: entry.templateLabel,
                         policyLabel: entry.policyLabel,
                         policyNumber: entry.policyNumber,
+                        policyContexts: entry.policyContexts,
                         attachments: entry.attachments,
                       })
                     }

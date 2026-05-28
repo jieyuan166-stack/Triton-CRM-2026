@@ -190,6 +190,12 @@ export interface EmailHistoryAttachment {
   size?: number;
 }
 
+export interface EmailHistoryPolicyContext {
+  policyId?: string;
+  policyNumber?: string;
+  policyLabel?: string;
+}
+
 export interface EmailHistoryEntry {
   id: string;
   /** ISO timestamp of when the send succeeded. */
@@ -205,6 +211,7 @@ export interface EmailHistoryEntry {
   policyId?: string;
   policyNumber?: string;
   policyLabel?: string;
+  policyContexts?: EmailHistoryPolicyContext[];
   communicationType?: string;
   attachments?: EmailHistoryAttachment[];
 }

@@ -178,6 +178,7 @@ model EmailHistory {
   policyId      String?
   policyNumber  String?
   policyLabel   String?
+  policyContexts String?
   communicationType String?
   attachments   String?
 
