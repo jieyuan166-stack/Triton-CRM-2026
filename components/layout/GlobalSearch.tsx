@@ -10,7 +10,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { useRouter } from "next/navigation";
-import { CornerDownLeft, FileText, Search, Users, X } from "lucide-react";
+import { CornerDownLeft, FileText, Mail, Search, Users, X } from "lucide-react";
 import { useData } from "@/components/providers/DataProvider";
 import { ClientAvatar } from "@/components/ui-shared/ClientAvatar";
 import { ClientNameDisplay } from "@/components/ui-shared/ClientNameDisplay";
@@ -180,6 +180,9 @@ export function GlobalSearch() {
               "Address",
               "Carrier",
               "Insured",
+              "Email subject",
+              "Email body",
+              "Attachments",
             ].map((item) => (
               <span
                 key={item}
@@ -270,6 +273,36 @@ export function GlobalSearch() {
                               backgroundColor: CARRIER_COLORS[hit.policy.carrier],
                             }}
                           />
+                        }
+                        primary={hit.primary}
+                        secondary={hit.secondary}
+                      />
+                    );
+                  })}
+                </SearchGroup>
+              ) : null}
+
+              {results.emails.length > 0 ? (
+                <SearchGroup
+                  label="Emails / Activity"
+                  icon={Mail}
+                  count={results.emails.length}
+                  bordered={results.clients.length > 0 || results.policies.length > 0}
+                >
+                  {results.emails.map((hit, idx) => {
+                    const realIndex =
+                      results.clients.length + results.policies.length + idx;
+                    return (
+                      <SearchItem
+                        key={hit.id}
+                        index={realIndex}
+                        activeIndex={activeIndex}
+                        onActivate={() => navigateTo(hit)}
+                        onHover={() => setActiveIndex(realIndex)}
+                        leading={
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                            <Mail className="h-3.5 w-3.5" />
+                          </span>
                         }
                         primary={hit.primary}
                         secondary={hit.secondary}

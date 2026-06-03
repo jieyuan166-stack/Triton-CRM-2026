@@ -3,7 +3,7 @@
 // Clients and Policies. Kept as a function so it can be unit-tested
 // without the React tree, and so the UI layer stays presentational.
 
-import type { Client, Policy } from "./types";
+import type { Client, EmailHistoryEntry, Policy } from "./types";
 import { clientPath } from "./client-slug";
 import { tokenMatch } from "./text-utils";
 
@@ -26,12 +26,23 @@ export interface PolicyHit {
   policy: Policy;
 }
 
-export type SearchHit = ClientHit | PolicyHit;
+export interface EmailHit {
+  kind: "email";
+  id: string;
+  href: string;
+  primary: string;
+  secondary: string;
+  client: Client;
+  email: EmailHistoryEntry;
+}
+
+export type SearchHit = ClientHit | PolicyHit | EmailHit;
 
 export interface SearchResults {
   query: string;
   clients: ClientHit[];
   policies: PolicyHit[];
+  emails: EmailHit[];
   total: number;
 }
 
@@ -42,6 +53,32 @@ function matches(query: string, fields: Array<string | undefined | null>): boole
   return tokenMatch(query, fields);
 }
 
+function stripHtml(value: string | undefined | null): string {
+  if (!value) return "";
+  return value
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function emailPolicyFields(entry: EmailHistoryEntry): string[] {
+  const contexts = entry.policyContexts?.length
+    ? entry.policyContexts
+    : entry.policyNumber || entry.policyLabel
+      ? [{ policyNumber: entry.policyNumber, policyLabel: entry.policyLabel }]
+      : [];
+  return contexts.flatMap((context) => [
+    context.policyNumber,
+    context.policyLabel,
+  ]).filter(Boolean) as string[];
+}
+
 export function searchAll(
   rawQuery: string,
   clients: Client[],
@@ -49,7 +86,7 @@ export function searchAll(
 ): SearchResults {
   const q = rawQuery.trim().toLowerCase();
   if (!q) {
-    return { query: rawQuery, clients: [], policies: [], total: 0 };
+    return { query: rawQuery, clients: [], policies: [], emails: [], total: 0 };
   }
 
   // Clients: firstName / lastName / email / phone
@@ -112,15 +149,54 @@ export function searchAll(
       policy: p,
     }));
 
+  const emailHits: EmailHit[] = clients
+    .flatMap((client) =>
+      (client.emailHistory ?? []).map((entry) => ({ client, entry }))
+    )
+    .filter(({ client, entry }) =>
+      matches(q, [
+        client.firstName,
+        client.lastName,
+        `${client.firstName} ${client.lastName}`,
+        `${client.lastName} ${client.firstName}`,
+        client.companyName,
+        client.email,
+        entry.subject,
+        stripHtml(entry.body),
+        entry.templateLabel,
+        entry.communicationType,
+        entry.policyNumber,
+        entry.policyLabel,
+        ...emailPolicyFields(entry),
+        ...(entry.attachments ?? []).map((attachment) => attachment.filename),
+      ])
+    )
+    .sort((a, b) => (a.entry.date > b.entry.date ? -1 : 1))
+    .slice(0, PER_GROUP_LIMIT)
+    .map(({ client, entry }) => ({
+      kind: "email",
+      id: entry.id,
+      href: `${clientPath(client)}#activity`,
+      primary: entry.subject || entry.templateLabel || "Email activity",
+      secondary: [
+        `${client.firstName} ${client.lastName}`.trim() || client.companyName,
+        entry.templateLabel || entry.communicationType,
+        entry.policyNumber ? `#${entry.policyNumber}` : undefined,
+      ].filter(Boolean).join(" · "),
+      client,
+      email: entry,
+    }));
+
   return {
     query: rawQuery,
     clients: clientHits,
     policies: policyHits,
-    total: clientHits.length + policyHits.length,
+    emails: emailHits,
+    total: clientHits.length + policyHits.length + emailHits.length,
   };
 }
 
 /** Flatten grouped results into a single ordered list — used for keyboard nav. */
 export function flattenHits(results: SearchResults): SearchHit[] {
-  return [...results.clients, ...results.policies];
+  return [...results.clients, ...results.policies, ...results.emails];
 }
