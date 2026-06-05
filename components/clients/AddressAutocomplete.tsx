@@ -51,30 +51,46 @@ type AddressPrediction = {
   description: string;
   mainText: string;
   secondaryText?: string;
+  googlePlacePrediction?: google.maps.places.PlacePrediction;
 };
 
 type BrowserPlaceDetails = {
   formatted_address?: string;
+  formattedAddress?: string | null;
   name?: string;
-  address_components?: Array<{
+  displayName?: string | null;
+  address_components?: BrowserAddressComponent[];
+  addressComponents?: BrowserAddressComponent[];
+};
+
+type BrowserAddressComponent = {
     long_name?: string;
     short_name?: string;
+    longText?: string | null;
+    shortText?: string | null;
     types?: string[];
-  }>;
 };
 
 function parseBrowserAddress(place: BrowserPlaceDetails): ParsedAddress {
-  const components = place.address_components ?? [];
+  const components = place.addressComponents ?? place.address_components ?? [];
   const get = (type: string, short = false) => {
     const component = components.find((item) => item.types?.includes(type));
-    return short ? component?.short_name : component?.long_name;
+    return short
+      ? component?.shortText ?? component?.short_name
+      : component?.longText ?? component?.long_name;
   };
   const streetNumber = get("street_number") ?? "";
   const route = get("route") ?? "";
   const streetAddress = [streetNumber, route].filter(Boolean).join(" ");
 
   return {
-    streetAddress: streetAddress || place.name || place.formatted_address || "",
+    streetAddress:
+      streetAddress ||
+      place.displayName ||
+      place.name ||
+      place.formattedAddress ||
+      place.formatted_address ||
+      "",
     city:
       get("locality") ??
       get("postal_town") ??
@@ -124,8 +140,36 @@ export function AddressAutocomplete({
 
   async function queryBrowserPredictions(input: string): Promise<AddressPrediction[] | null> {
     const places = await loadPlacesLibrary();
-    if (!places?.AutocompleteService) return null;
+    if (!places) return null;
     const token = await getBrowserSessionToken(places);
+
+    if (places?.AutocompleteSuggestion?.fetchAutocompleteSuggestions) {
+      try {
+        const { suggestions } =
+          await places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
+            input,
+            includedRegionCodes: ["ca"],
+            region: "CA",
+            language: "en-CA",
+            sessionToken: token,
+          });
+        const next = suggestions
+          .map((suggestion) => suggestion.placePrediction)
+          .filter((prediction): prediction is google.maps.places.PlacePrediction => !!prediction)
+          .map((prediction) => ({
+            placeId: prediction.placeId,
+            description: prediction.text.text,
+            mainText: prediction.mainText?.text ?? prediction.text.text,
+            secondaryText: prediction.secondaryText?.text ?? undefined,
+            googlePlacePrediction: prediction,
+          }));
+        return next.length > 0 ? next : null;
+      } catch (error) {
+        console.warn("[address-autocomplete] Google Places New failed", error);
+      }
+    }
+
+    if (!places?.AutocompleteService) return null;
     const service = new places.AutocompleteService();
 
     return new Promise((resolve) => {
@@ -269,6 +313,26 @@ export function AddressAutocomplete({
 
   async function selectPrediction(p: AddressPrediction) {
     try {
+      if (p.googlePlacePrediction) {
+        try {
+          const place = p.googlePlacePrediction.toPlace();
+          const { place: hydrated } = await place.fetchFields({
+            fields: ["addressComponents", "formattedAddress", "displayName"],
+          });
+          const parsed = parseBrowserAddress(hydrated as unknown as BrowserPlaceDetails);
+          if (parsed.streetAddress) {
+            onChange(parsed.streetAddress || p.description);
+            onAddressSelect?.(parsed);
+            setOpen(false);
+            setPredictions([]);
+            resetSessionToken();
+            return;
+          }
+        } catch (error) {
+          console.warn("[address-autocomplete] Google Places New details failed", error);
+        }
+      }
+
       const browserParsed = await fetchBrowserDetails(p.placeId);
       if (browserParsed) {
         onChange(browserParsed.streetAddress || p.description);
