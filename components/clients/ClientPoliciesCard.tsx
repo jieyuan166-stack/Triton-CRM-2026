@@ -9,13 +9,11 @@ import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  ActivityEntryDialog,
-  type ActivityEntryPatch,
-} from "@/components/clients/ActivityEntryDialog";
+import { Textarea } from "@/components/ui/textarea";
 import { useData } from "@/components/providers/DataProvider";
 import { WidgetCard } from "@/components/ui-shared/WidgetCard";
 import { EmptyState } from "@/components/ui-shared/EmptyState";
@@ -62,14 +60,11 @@ function clusterByCarrier(items: Policy[]) {
 }
 
 export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardProps) {
-  const { appendEmailHistory, updateEmailHistory, getClient } = useData();
+  const { appendEmailHistory, getClient } = useData();
   const [expandedList, setExpandedList] = useState(false);
   const [query, setQuery] = useState("");
   const [expandedPolicyIds, setExpandedPolicyIds] = useState<Set<string>>(new Set());
-  const [activityPolicyId, setActivityPolicyId] = useState<string | null>(null);
-  const [entryDialog, setEntryDialog] = useState<
-    { mode: "create"; policyId: string } | { mode: "edit"; entry: EmailHistoryEntry } | null
-  >(null);
+  const [notesPolicyId, setNotesPolicyId] = useState<string | null>(null);
   const client = getClient(clientId);
   const history = useMemo(() => client?.emailHistory ?? [], [client?.emailHistory]);
 
@@ -121,20 +116,20 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
     });
   }
 
-  const activityPolicy = activityPolicyId
-    ? policies.find((policy) => policy.id === activityPolicyId)
+  const notesPolicy = notesPolicyId
+    ? policies.find((policy) => policy.id === notesPolicyId)
     : undefined;
-  const activityEntries = activityPolicy
+  const notesEntries = notesPolicy
     ? history
         .filter(
           (entry) =>
-            entry.policyId === activityPolicy.id ||
+            entry.policyId === notesPolicy.id ||
             entry.policyContexts?.some(
               (context) =>
-                context.policyId === activityPolicy.id ||
-                (!!activityPolicy.policyNumber && context.policyNumber === activityPolicy.policyNumber)
+                context.policyId === notesPolicy.id ||
+                (!!notesPolicy.policyNumber && context.policyNumber === notesPolicy.policyNumber)
             ) ||
-            (!!activityPolicy.policyNumber && entry.policyNumber === activityPolicy.policyNumber)
+            (!!notesPolicy.policyNumber && entry.policyNumber === notesPolicy.policyNumber)
         )
         .sort((a, b) => (a.date > b.date ? -1 : 1))
     : [];
@@ -156,36 +151,28 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
     return counts;
   }, [history, policies]);
 
-  function resetPolicyActivity() {
-    setActivityPolicyId(null);
-    setEntryDialog(null);
+  function resetPolicyNotes() {
+    setNotesPolicyId(null);
   }
 
-  function handlePolicyActivitySave(patch: ActivityEntryPatch) {
-    if (entryDialog?.mode === "edit") {
-      const updated = updateEmailHistory(clientId, entryDialog.entry.id, patch);
-      if (!updated) {
-        toast.error("Could not update policy activity.");
-        return false;
-      }
-      toast.success("Policy activity updated");
-      return true;
-    }
+  function handlePolicyNoteSave(policy: Policy, note: string) {
+    const cleanNote = note.trim();
+    if (!cleanNote) return false;
     const saved = appendEmailHistory(clientId, {
-      subject: patch.subject ?? "",
-      body: patch.body ?? "",
-      templateLabel: patch.templateLabel,
-      policyId: patch.policyId ?? undefined,
-      policyNumber: patch.policyNumber ?? undefined,
-      policyLabel: patch.policyLabel ?? undefined,
-      communicationType: patch.communicationType,
+      subject: "Policy note",
+      body: cleanNote,
+      templateLabel: "Note",
+      policyId: policy.id,
+      policyNumber: policy.policyNumber,
+      policyLabel: `${policy.carrier} ${policy.productName || policy.productType}`.trim(),
+      communicationType: "Note",
     });
     if (!saved) {
       toast.error("Could not save policy note.");
       return false;
     }
-    toast.success("Policy activity added", {
-      description: patch.policyNumber ? `#${patch.policyNumber}` : undefined,
+    toast.success("Policy note saved", {
+      description: policy.policyNumber ? displayPolicyNumberWithHash(policy.policyNumber) : undefined,
     });
     return true;
   }
@@ -243,7 +230,7 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
                         activityCount={activityCountByPolicyId.get(p.id) ?? 0}
                         className={style.row}
                         onToggle={() => togglePolicyDetails(p.id)}
-                        onOpenActivity={() => setActivityPolicyId(p.id)}
+                        onOpenNotes={() => setNotesPolicyId(p.id)}
                       />
                     </li>
                 ))}
@@ -272,85 +259,12 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
           ) : null}
         </div>
       )}
-      <Dialog open={!!activityPolicyId} onOpenChange={(open) => !open && resetPolicyActivity()}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Policy Activity</DialogTitle>
-            <p className="text-xs text-slate-500">
-              {activityPolicy
-                ? `${activityPolicy.carrier} · ${activityPolicy.productName || activityPolicy.productType} · #${activityPolicy.policyNumber}`
-                : ""}
-            </p>
-          </DialogHeader>
-
-          {activityEntries.length > 0 ? (
-            <div className="max-h-40 space-y-2 overflow-y-auto rounded-lg border border-slate-100 bg-slate-50/70 p-3">
-              {activityEntries.slice(0, 5).map((entry) => (
-                <div key={entry.id} className="rounded-md bg-white px-3 py-2 ring-1 ring-slate-100">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {parseCommunicationTypes(entry.templateLabel || entry.communicationType).map((type) => (
-                      <span
-                        key={type}
-                        className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500"
-                      >
-                        {type}
-                      </span>
-                    ))}
-                  </div>
-                  <p className="mt-1 text-xs font-medium text-slate-800">
-                    {entry.subject || "Activity"}
-                  </p>
-                  <div className="mt-1 flex items-center justify-between gap-2">
-                    <p className="text-[11px] text-slate-400">
-                      {formatDate(entry.date)}
-                    </p>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2 text-[11px] text-slate-400 hover:text-navy"
-                      onClick={() => setEntryDialog({ mode: "edit", entry })}
-                    >
-                      Edit
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-lg border border-dashed border-slate-200 px-4 py-5 text-center text-sm text-slate-400">
-              No policy activity yet.
-            </div>
-          )}
-          {activityPolicy ? (
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                className="bg-navy text-white hover:bg-navy/90"
-                onClick={() => setEntryDialog({ mode: "create", policyId: activityPolicy.id })}
-              >
-                Add Activity
-              </Button>
-            </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
-      <ActivityEntryDialog
-        open={!!entryDialog}
-        onOpenChange={(open) => {
-          if (!open) setEntryDialog(null);
-        }}
-        mode={entryDialog?.mode ?? "create"}
-        policies={policies}
-        entry={entryDialog?.mode === "edit" ? entryDialog.entry : undefined}
-        defaultPolicyId={
-          entryDialog?.mode === "create"
-            ? entryDialog.policyId
-            : activityPolicy?.id
-        }
-        defaultType="Note"
-        onSave={handlePolicyActivitySave}
-        title={entryDialog?.mode === "edit" ? "Edit Policy Activity" : "Add Policy Activity"}
+      <PolicyNotesDialog
+        open={!!notesPolicyId}
+        policy={notesPolicy}
+        entries={notesEntries}
+        onOpenChange={(open) => !open && resetPolicyNotes()}
+        onSave={handlePolicyNoteSave}
       />
     </WidgetCard>
   );
@@ -363,7 +277,7 @@ function CompactPolicyRow({
   activityCount,
   className,
   onToggle,
-  onOpenActivity,
+  onOpenNotes,
 }: {
   policy: Policy;
   expanded: boolean;
@@ -371,7 +285,7 @@ function CompactPolicyRow({
   activityCount: number;
   className?: string;
   onToggle: () => void;
-  onOpenActivity: () => void;
+  onOpenNotes: () => void;
 }) {
   const primaryAmountLabel =
     policy.category === "Investment" ? "Initial Amount" : "Death Benefit";
@@ -483,8 +397,9 @@ function CompactPolicyRow({
                 ? "relative text-purple-600 hover:text-purple-700"
                 : "text-slate-400 hover:text-purple-600"
             )}
-            aria-label={`Open activity for policy ${policy.policyNumber}`}
-            onClick={onOpenActivity}
+            aria-label={`Open notes for policy ${policy.policyNumber}`}
+            title="Policy notes"
+            onClick={onOpenNotes}
           >
             <StickyNote className="h-3.5 w-3.5" />
             {activityCount > 0 ? (
@@ -519,8 +434,9 @@ function CompactPolicyRow({
                   buttonVariants({ variant: "ghost", size: "icon-sm" }),
                   activityCount > 0 ? "text-purple-600" : "text-slate-400"
                 )}
-                aria-label={`Open activity for policy ${policy.policyNumber}`}
-                onClick={onOpenActivity}
+                aria-label={`Open notes for policy ${policy.policyNumber}`}
+                title="Policy notes"
+                onClick={onOpenNotes}
               >
                 <StickyNote className="h-3.5 w-3.5" />
               </button>
@@ -546,5 +462,102 @@ function Metric({ label, value, helper }: { label: string; value: string; helper
         </p>
       ) : null}
     </div>
+  );
+}
+
+function PolicyNotesDialog({
+  open,
+  policy,
+  entries,
+  onOpenChange,
+  onSave,
+}: {
+  open: boolean;
+  policy: Policy | undefined;
+  entries: EmailHistoryEntry[];
+  onOpenChange: (open: boolean) => void;
+  onSave: (policy: Policy, note: string) => boolean;
+}) {
+  const [note, setNote] = useState("");
+
+  function handleOpenChange(nextOpen: boolean) {
+    if (!nextOpen) setNote("");
+    onOpenChange(nextOpen);
+  }
+
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!policy) return;
+    const ok = onSave(policy, note);
+    if (!ok) return;
+    setNote("");
+    onOpenChange(false);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Policy Notes</DialogTitle>
+          <p className="text-xs text-slate-500">
+            {policy
+              ? `${policy.carrier} · ${policy.productName || policy.productType} · ${displayPolicyNumberWithHash(policy.policyNumber)}`
+              : ""}
+          </p>
+        </DialogHeader>
+
+        {entries.length > 0 ? (
+          <div className="max-h-40 space-y-2 overflow-y-auto rounded-lg border border-slate-100 bg-slate-50/70 p-3">
+            {entries.slice(0, 5).map((entry) => (
+              <div key={entry.id} className="rounded-md bg-white px-3 py-2 ring-1 ring-slate-100">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {parseCommunicationTypes(entry.templateLabel || entry.communicationType || "Note").map((type) => (
+                    <span
+                      key={type}
+                      className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500"
+                    >
+                      {type}
+                    </span>
+                  ))}
+                </div>
+                <p className="mt-1 text-xs font-medium text-slate-800">
+                  {entry.subject || "Policy note"}
+                </p>
+                {entry.body ? (
+                  <p className="mt-1 line-clamp-2 whitespace-pre-wrap text-xs leading-relaxed text-slate-500">
+                    {entry.body}
+                  </p>
+                ) : null}
+                <p className="mt-1 text-[11px] text-slate-400">
+                  {formatDate(entry.date)}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-dashed border-slate-200 px-4 py-5 text-center text-sm text-slate-400">
+            No notes for this policy yet.
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <Textarea
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            placeholder="Write a note about this policy..."
+            rows={4}
+            className="resize-none text-sm"
+          />
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => handleOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" className="bg-navy text-white hover:bg-navy/90" disabled={!note.trim() || !policy}>
+              Save Note
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
