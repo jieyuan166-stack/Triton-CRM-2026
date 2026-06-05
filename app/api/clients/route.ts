@@ -252,7 +252,7 @@ export async function POST(request: Request) {
   const firstName = firstNameInput === companyName ? companyName : toTitleCaseName(firstNameInput);
   const lastName = lastNameInput ? toTitleCaseName(lastNameInput) : "";
   const emailLower = data.email.toLowerCase();
-  if (await db.client.findUnique({ where: { email: emailLower } })) {
+  if (await db.client.findFirst({ where: { userId: session.user.id, email: emailLower } })) {
     return NextResponse.json(
       {
         error: "Email already in use",

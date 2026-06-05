@@ -31,7 +31,7 @@ model Client {
   firstName            String
   lastName             String
   companyName          String?
-  email                String         @unique
+  email                String
   phone                String?
   streetAddress        String?
   unit                 String?
@@ -60,6 +60,7 @@ model Client {
   backups              BackupRecord[]
 
   @@index([userId])
+  @@unique([userId, email])
   @@index([lastName, firstName])
   @@index([province])
 }
