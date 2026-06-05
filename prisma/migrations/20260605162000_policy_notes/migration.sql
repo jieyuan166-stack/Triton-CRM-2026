@@ -1,0 +1,1 @@
+ALTER TABLE "Policy" ADD COLUMN "notes" TEXT;

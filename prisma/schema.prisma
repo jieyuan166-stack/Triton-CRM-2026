@@ -117,6 +117,7 @@ model Policy {
   policyOwner2Name     String?
   policyOwner2ClientId String?
   insuredPersons       String?
+  notes                String?
   lastRenewalEmailAt   DateTime?
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt

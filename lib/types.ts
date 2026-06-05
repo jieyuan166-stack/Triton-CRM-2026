@@ -360,6 +360,7 @@ export interface Policy {
   policyOwner2Name?: string;
   policyOwner2ClientId?: string;
   insuredPersons?: PolicyInsuredPerson[];
+  notes?: string;
 
   /** ISO timestamp of the last renewal-reminder email sent for this
    *  policy. Drives the suppression filter on the Upcoming Premiums

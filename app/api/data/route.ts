@@ -279,6 +279,7 @@ function serializePolicy(
     policyOwner2Name: p.policyOwner2Name ?? undefined,
     policyOwner2ClientId: p.policyOwner2ClientId ?? undefined,
     insuredPersons: parseInsuredPersonsJson(p.insuredPersons),
+    notes: p.notes ?? undefined,
     lastRenewalEmailAt: iso(p.lastRenewalEmailAt),
     beneficiaries: (p.beneficiaries ?? []).map((b) => ({
       id: b.id,
@@ -538,6 +539,7 @@ function policyData(input: Partial<Policy>, partial = false, userId?: string) {
     policyOwner2Name: nullableString(input.policyOwner2Name, partial),
     policyOwner2ClientId: nullableString(input.policyOwner2ClientId, partial),
     insuredPersons: serializeInsuredPersonsJson(input.insuredPersons, partial),
+    notes: nullableString(input.notes, partial),
     lastRenewalEmailAt: input.lastRenewalEmailAt ? toNullDate(input.lastRenewalEmailAt) : undefined,
   });
 }

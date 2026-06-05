@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ExternalLink, FileText, Plus, Search, StickyNote } from "lucide-react";
 import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -24,8 +24,7 @@ import { formatDate, formatMonthDay } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/format";
 import { insuranceProductTone, investmentProductTone } from "@/lib/investment-product-style";
 import { displayPolicyNumberWithHash } from "@/lib/policy-number";
-import { parseCommunicationTypes } from "@/lib/communication-log";
-import type { EmailHistoryEntry, Policy } from "@/lib/types";
+import type { Policy } from "@/lib/types";
 import { CARRIERS, PAYMENT_FREQUENCY_LABELS } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -60,13 +59,11 @@ function clusterByCarrier(items: Policy[]) {
 }
 
 export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardProps) {
-  const { appendEmailHistory, getClient } = useData();
+  const { updatePolicy } = useData();
   const [expandedList, setExpandedList] = useState(false);
   const [query, setQuery] = useState("");
   const [expandedPolicyIds, setExpandedPolicyIds] = useState<Set<string>>(new Set());
   const [notesPolicyId, setNotesPolicyId] = useState<string | null>(null);
-  const client = getClient(clientId);
-  const history = useMemo(() => client?.emailHistory ?? [], [client?.emailHistory]);
 
   const filteredPolicies = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -119,59 +116,18 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
   const notesPolicy = notesPolicyId
     ? policies.find((policy) => policy.id === notesPolicyId)
     : undefined;
-  const notesEntries = notesPolicy
-    ? history
-        .filter(
-          (entry) =>
-            entry.policyId === notesPolicy.id ||
-            entry.policyContexts?.some(
-              (context) =>
-                context.policyId === notesPolicy.id ||
-                (!!notesPolicy.policyNumber && context.policyNumber === notesPolicy.policyNumber)
-            ) ||
-            (!!notesPolicy.policyNumber && entry.policyNumber === notesPolicy.policyNumber)
-        )
-        .sort((a, b) => (a.date > b.date ? -1 : 1))
-    : [];
-  const activityCountByPolicyId = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const policy of policies) {
-      const count = history.filter(
-        (entry) =>
-          entry.policyId === policy.id ||
-          entry.policyContexts?.some(
-            (context) =>
-              context.policyId === policy.id ||
-              (!!policy.policyNumber && context.policyNumber === policy.policyNumber)
-          ) ||
-          (!!policy.policyNumber && entry.policyNumber === policy.policyNumber)
-      ).length;
-      if (count > 0) counts.set(policy.id, count);
-    }
-    return counts;
-  }, [history, policies]);
 
   function resetPolicyNotes() {
     setNotesPolicyId(null);
   }
 
   function handlePolicyNoteSave(policy: Policy, note: string) {
-    const cleanNote = note.trim();
-    if (!cleanNote) return false;
-    const saved = appendEmailHistory(clientId, {
-      subject: "Policy note",
-      body: cleanNote,
-      templateLabel: "Note",
-      policyId: policy.id,
-      policyNumber: policy.policyNumber,
-      policyLabel: `${policy.carrier} ${policy.productName || policy.productType}`.trim(),
-      communicationType: "Note",
-    });
+    const saved = updatePolicy(policy.id, { notes: note.trim() });
     if (!saved) {
       toast.error("Could not save policy note.");
       return false;
     }
-    toast.success("Policy note saved", {
+    toast.success(note.trim() ? "Policy note saved" : "Policy note cleared", {
       description: policy.policyNumber ? displayPolicyNumberWithHash(policy.policyNumber) : undefined,
     });
     return true;
@@ -227,7 +183,7 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
                         policy={p}
                         expanded={expandedPolicyIds.has(p.id)}
                         currentViewClientId={clientId}
-                        activityCount={activityCountByPolicyId.get(p.id) ?? 0}
+                        hasNotes={!!p.notes?.trim()}
                         className={style.row}
                         onToggle={() => togglePolicyDetails(p.id)}
                         onOpenNotes={() => setNotesPolicyId(p.id)}
@@ -262,7 +218,6 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
       <PolicyNotesDialog
         open={!!notesPolicyId}
         policy={notesPolicy}
-        entries={notesEntries}
         onOpenChange={(open) => !open && resetPolicyNotes()}
         onSave={handlePolicyNoteSave}
       />
@@ -274,7 +229,7 @@ function CompactPolicyRow({
   policy,
   expanded,
   currentViewClientId,
-  activityCount,
+  hasNotes,
   className,
   onToggle,
   onOpenNotes,
@@ -282,7 +237,7 @@ function CompactPolicyRow({
   policy: Policy;
   expanded: boolean;
   currentViewClientId: string;
-  activityCount: number;
+  hasNotes: boolean;
   className?: string;
   onToggle: () => void;
   onOpenNotes: () => void;
@@ -393,7 +348,7 @@ function CompactPolicyRow({
             type="button"
             className={cn(
               buttonVariants({ variant: "ghost", size: "icon-sm" }),
-              activityCount > 0
+              hasNotes
                 ? "relative text-purple-600 hover:text-purple-700"
                 : "text-slate-400 hover:text-purple-600"
             )}
@@ -402,9 +357,9 @@ function CompactPolicyRow({
             onClick={onOpenNotes}
           >
             <StickyNote className="h-3.5 w-3.5" />
-            {activityCount > 0 ? (
-              <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-purple-100 px-1 text-[9px] font-semibold text-purple-700 ring-1 ring-white">
-                {activityCount}
+            {hasNotes ? (
+              <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-purple-500 ring-2 ring-white">
+                <span className="sr-only">This policy has notes</span>
               </span>
             ) : null}
           </button>
@@ -432,7 +387,7 @@ function CompactPolicyRow({
                 type="button"
                 className={cn(
                   buttonVariants({ variant: "ghost", size: "icon-sm" }),
-                  activityCount > 0 ? "text-purple-600" : "text-slate-400"
+                  hasNotes ? "text-purple-600" : "text-slate-400"
                 )}
                 aria-label={`Open notes for policy ${policy.policyNumber}`}
                 title="Policy notes"
@@ -468,20 +423,22 @@ function Metric({ label, value, helper }: { label: string; value: string; helper
 function PolicyNotesDialog({
   open,
   policy,
-  entries,
   onOpenChange,
   onSave,
 }: {
   open: boolean;
   policy: Policy | undefined;
-  entries: EmailHistoryEntry[];
   onOpenChange: (open: boolean) => void;
   onSave: (policy: Policy, note: string) => boolean;
 }) {
   const [note, setNote] = useState("");
+  const currentNote = policy?.notes ?? "";
+
+  useEffect(() => {
+    if (open) setNote(currentNote);
+  }, [currentNote, open]);
 
   function handleOpenChange(nextOpen: boolean) {
-    if (!nextOpen) setNote("");
     onOpenChange(nextOpen);
   }
 
@@ -506,54 +463,28 @@ function PolicyNotesDialog({
           </p>
         </DialogHeader>
 
-        {entries.length > 0 ? (
-          <div className="max-h-40 space-y-2 overflow-y-auto rounded-lg border border-slate-100 bg-slate-50/70 p-3">
-            {entries.slice(0, 5).map((entry) => (
-              <div key={entry.id} className="rounded-md bg-white px-3 py-2 ring-1 ring-slate-100">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {parseCommunicationTypes(entry.templateLabel || entry.communicationType || "Note").map((type) => (
-                    <span
-                      key={type}
-                      className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500"
-                    >
-                      {type}
-                    </span>
-                  ))}
-                </div>
-                <p className="mt-1 text-xs font-medium text-slate-800">
-                  {entry.subject || "Policy note"}
-                </p>
-                {entry.body ? (
-                  <p className="mt-1 line-clamp-2 whitespace-pre-wrap text-xs leading-relaxed text-slate-500">
-                    {entry.body}
-                  </p>
-                ) : null}
-                <p className="mt-1 text-[11px] text-slate-400">
-                  {formatDate(entry.date)}
-                </p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-lg border border-dashed border-slate-200 px-4 py-5 text-center text-sm text-slate-400">
-            No notes for this policy yet.
-          </div>
-        )}
-
         <form onSubmit={handleSubmit} className="space-y-3">
+          <p className="rounded-lg bg-purple-50/70 px-3 py-2 text-xs leading-relaxed text-purple-700">
+            Use this for policy-specific notes such as riders, underwriting details,
+            or special product instructions. It will not be added to Activity Timeline.
+          </p>
           <Textarea
             value={note}
             onChange={(event) => setNote(event.target.value)}
-            placeholder="Write a note about this policy..."
-            rows={4}
+            placeholder="Example: Term rider, CI rider, special instructions..."
+            rows={6}
             className="resize-none text-sm"
           />
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => handleOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" className="bg-navy text-white hover:bg-navy/90" disabled={!note.trim() || !policy}>
-              Save Note
+            <Button
+              type="submit"
+              className="bg-navy text-white hover:bg-navy/90"
+              disabled={!policy || note.trim() === currentNote.trim()}
+            >
+              Save Notes
             </Button>
           </DialogFooter>
         </form>
