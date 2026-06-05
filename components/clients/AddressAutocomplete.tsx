@@ -4,22 +4,19 @@
 //
 // Behaviour:
 //   - Plain controlled text input — `value` / `onChange` always work.
-//   - On focus, lazy-load the Google Maps "places" library (one tag per page
-//     via lib/google-maps.ts singleton).
-//   - As the user types, debounced (~180 ms) calls to AutocompleteService
-//     return predictions, rendered as an absolute-positioned dropdown.
-//   - On selection, fetch place details, parse address components, fire
+//   - As the user types, debounced (~180 ms) calls to the CRM Places API
+//     proxy return predictions, rendered as an absolute-positioned dropdown.
+//   - On selection, fetch place details through the proxy, fire
 //     `onAddressSelect` so the host form can populate city / province /
 //     postalCode in one shot.
-//   - Without NEXT_PUBLIC_GOOGLE_MAPS_KEY (or on load failure), the input
-//     degrades silently to plain text — no errors, no flicker.
+//   - If Google Places is unavailable, the input degrades silently to plain
+//     text — no errors, no flicker.
 //
 // Country restricted to Canada to match the Triton book.
 
 "use client";
 
 import {
-  useCallback,
   useEffect,
   useId,
   useRef,
@@ -29,7 +26,6 @@ import {
 } from "react";
 import { MapPin } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { loadPlacesLibrary } from "@/lib/google-maps";
 import { cn } from "@/lib/utils";
 
 export interface ParsedAddress {
@@ -49,6 +45,13 @@ export interface AddressAutocompleteProps {
   disabled?: boolean;
 }
 
+type AddressPrediction = {
+  placeId: string;
+  description: string;
+  mainText: string;
+  secondaryText?: string;
+};
+
 // === Component ===
 
 export function AddressAutocomplete({
@@ -63,38 +66,14 @@ export function AddressAutocomplete({
   const reactId = useId();
   const inputId = id ?? reactId;
 
-  // The Google services. Null until first focus + successful load.
-  const autocompleteRef = useRef<google.maps.places.AutocompleteService | null>(
-    null
-  );
-  const placesRef = useRef<google.maps.places.PlacesService | null>(null);
-  const sessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | null>(
-    null
-  );
-
-  const [predictions, setPredictions] = useState<
-    google.maps.places.AutocompletePrediction[]
-  >([]);
+  const sessionTokenRef = useRef(`addr_${Date.now()}_${Math.random().toString(36).slice(2)}`);
+  const [predictions, setPredictions] = useState<AddressPrediction[]>([]);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [hasFocus, setHasFocus] = useState(false);
 
   const wrapperRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Lazy-load the API on first focus.
-  const ensureLoaded = useCallback(async () => {
-    if (autocompleteRef.current) return true;
-    const places = await loadPlacesLibrary();
-    if (!places) return false;
-    autocompleteRef.current = new places.AutocompleteService();
-    // PlacesService needs a host element; an offscreen div is conventional.
-    placesRef.current = new places.PlacesService(
-      document.createElement("div")
-    );
-    sessionTokenRef.current = new places.AutocompleteSessionToken();
-    return true;
-  }, []);
 
   // Click-outside / Escape to close
   useEffect(() => {
@@ -132,20 +111,30 @@ export function AddressAutocomplete({
       return;
     }
     debounceRef.current = setTimeout(async () => {
-      const ok = await ensureLoaded();
-      if (!ok || !autocompleteRef.current) return;
-      autocompleteRef.current.getPlacePredictions(
-        {
-          input,
-          sessionToken: sessionTokenRef.current ?? undefined,
-          componentRestrictions: { country: ["ca"] },
-          types: ["address"],
-        },
-        (preds) => {
-          setPredictions(preds ?? []);
-          setOpen((preds ?? []).length > 0);
+      try {
+        const response = await fetch("/api/places/autocomplete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            input,
+            sessionToken: sessionTokenRef.current,
+          }),
+        });
+        if (!response.ok) {
+          setPredictions([]);
+          setOpen(false);
+          return;
         }
-      );
+        const data = (await response.json()) as {
+          predictions?: AddressPrediction[];
+        };
+        const next = data.predictions ?? [];
+        setPredictions(next);
+        setOpen(next.length > 0);
+      } catch {
+        setPredictions([]);
+        setOpen(false);
+      }
     }, 180);
   }
 
@@ -157,7 +146,6 @@ export function AddressAutocomplete({
 
   function handleFocus() {
     setHasFocus(true);
-    void ensureLoaded();
     if (predictions.length > 0) setOpen(true);
   }
 
@@ -165,33 +153,30 @@ export function AddressAutocomplete({
     setHasFocus(false);
   }
 
-  function selectPrediction(p: google.maps.places.AutocompletePrediction) {
-    if (!placesRef.current) return;
-    placesRef.current.getDetails(
-      {
-        placeId: p.place_id,
-        fields: ["address_components", "formatted_address", "name"],
-        sessionToken: sessionTokenRef.current ?? undefined,
-      },
-      (place, status) => {
-        if (status !== google.maps.places.PlacesServiceStatus.OK || !place) {
-          return;
-        }
-        const parsed = parseAddressComponents(place);
-        // Populate the visible input with the street line we extracted; if
-        // empty, fall back to the formatted string (rare).
-        onChange(parsed.streetAddress || place.formatted_address || p.description);
-        onAddressSelect?.(parsed);
-        setOpen(false);
-        setPredictions([]);
-        // Each session ends with getDetails; mint a fresh token for the next.
-        loadPlacesLibrary().then((places) => {
-          if (places) {
-            sessionTokenRef.current = new places.AutocompleteSessionToken();
-          }
-        });
-      }
-    );
+  async function selectPrediction(p: AddressPrediction) {
+    try {
+      const response = await fetch("/api/places/details", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          placeId: p.placeId,
+          sessionToken: sessionTokenRef.current,
+        }),
+      });
+      if (!response.ok) return;
+      const data = (await response.json()) as {
+        address?: ParsedAddress;
+      };
+      const parsed = data.address;
+      if (!parsed) return;
+      onChange(parsed.streetAddress || p.description);
+      onAddressSelect?.(parsed);
+      setOpen(false);
+      setPredictions([]);
+      sessionTokenRef.current = `addr_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    } catch {
+      // Gracefully keep the typed address if Google details fail.
+    }
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
@@ -247,7 +232,7 @@ export function AddressAutocomplete({
             const isActive = i === activeIndex;
             return (
               <li
-                key={p.place_id}
+                key={p.placeId}
                 id={`${inputId}-opt-${i}`}
                 role="option"
                 aria-selected={isActive}
@@ -256,7 +241,7 @@ export function AddressAutocomplete({
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
                   onMouseEnter={() => setActiveIndex(i)}
-                  onClick={() => selectPrediction(p)}
+                  onClick={() => void selectPrediction(p)}
                   className={cn(
                     "w-full flex items-start gap-2.5 px-3 py-2 text-left transition-colors",
                     isActive ? "bg-slate-100" : "hover:bg-slate-50"
@@ -265,11 +250,11 @@ export function AddressAutocomplete({
                   <MapPin className="h-3.5 w-3.5 text-slate-400 mt-0.5 shrink-0" />
                   <span className="flex-1 min-w-0">
                     <span className="block text-sm text-slate-900 truncate">
-                      {p.structured_formatting?.main_text ?? p.description}
+                      {p.mainText || p.description}
                     </span>
-                    {p.structured_formatting?.secondary_text ? (
+                    {p.secondaryText ? (
                       <span className="block text-xs text-slate-500 truncate">
-                        {p.structured_formatting.secondary_text}
+                        {p.secondaryText}
                       </span>
                     ) : null}
                   </span>
@@ -281,36 +266,4 @@ export function AddressAutocomplete({
       ) : null}
     </div>
   );
-}
-
-// === Address component parser ===
-
-/** Map a Google PlaceResult to our app schema. Province returned as the
- *  2-letter `short_name` (e.g. "ON") to align with PROVINCE_CODES. */
-function parseAddressComponents(
-  place: google.maps.places.PlaceResult
-): ParsedAddress {
-  const components = place.address_components ?? [];
-
-  const get = (type: string, short = false): string | undefined => {
-    const c = components.find((x) => x.types.includes(type));
-    if (!c) return undefined;
-    return short ? c.short_name : c.long_name;
-  };
-
-  const streetNumber = get("street_number") ?? "";
-  const route = get("route") ?? "";
-  const streetAddress = [streetNumber, route].filter(Boolean).join(" ");
-
-  return {
-    streetAddress: streetAddress || place.name || "",
-    city:
-      get("locality") ??
-      get("postal_town") ??
-      get("administrative_area_level_2") ??
-      get("sublocality") ??
-      undefined,
-    province: get("administrative_area_level_1", true), // "ON" / "BC" / "AB" / etc.
-    postalCode: get("postal_code"),
-  };
 }

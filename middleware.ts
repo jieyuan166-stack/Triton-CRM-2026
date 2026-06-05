@@ -51,6 +51,7 @@ export function middleware(request: NextRequest) {
     pathname.startsWith("/api/clients") ||
     pathname.startsWith("/api/send-email") ||
     pathname.startsWith("/api/email") ||
+    pathname.startsWith("/api/places") ||
     pathname.startsWith("/api/settings") ||
     pathname.startsWith("/api/account");
 
