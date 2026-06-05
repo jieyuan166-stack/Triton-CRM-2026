@@ -21,6 +21,23 @@ type GooglePlaceDetailsResponse = {
   }>;
 };
 
+type NominatimLookupResult = {
+  display_name?: string;
+  name?: string;
+  address?: {
+    house_number?: string;
+    road?: string;
+    city?: string;
+    town?: string;
+    village?: string;
+    municipality?: string;
+    suburb?: string;
+    county?: string;
+    state?: string;
+    postcode?: string;
+  };
+};
+
 function googleMapsKey() {
   return process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
 }
@@ -49,6 +66,55 @@ function parseAddress(place: GooglePlaceDetailsResponse) {
   };
 }
 
+function provinceCode(value?: string) {
+  const normalized = value?.toLowerCase();
+  if (!normalized) return undefined;
+  const map: Record<string, string> = {
+    alberta: "AB",
+    "british columbia": "BC",
+    ontario: "ON",
+  };
+  return map[normalized] ?? value;
+}
+
+function parseNominatimAddress(place: NominatimLookupResult) {
+  const address = place.address ?? {};
+  const streetAddress = [address.house_number, address.road].filter(Boolean).join(" ");
+  return {
+    streetAddress: streetAddress || place.name || place.display_name || "",
+    city:
+      address.city ??
+      address.town ??
+      address.village ??
+      address.municipality ??
+      address.suburb ??
+      address.county ??
+      undefined,
+    province: provinceCode(address.state),
+    postalCode: address.postcode,
+  };
+}
+
+async function nominatimDetails(placeId: string) {
+  const osmId = placeId.replace(/^osm:/, "");
+  if (!/^[NWR]\d+$/.test(osmId)) return null;
+
+  const url = new URL("https://nominatim.openstreetmap.org/lookup");
+  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("addressdetails", "1");
+  url.searchParams.set("osm_ids", osmId);
+
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": "TritonCRM/1.0 (https://crm.tritonwealth.ca)",
+      "Accept-Language": "en-CA,en",
+    },
+  });
+  if (!response.ok) return null;
+  const rows = (await response.json()) as NominatimLookupResult[];
+  return rows[0] ? parseNominatimAddress(rows[0]) : null;
+}
+
 export async function POST(request: Request) {
   const session = await requireSession();
   if (!session) return unauthorized();
@@ -59,6 +125,12 @@ export async function POST(request: Request) {
   }
 
   const key = googleMapsKey();
+  if (parsed.data.placeId.startsWith("osm:")) {
+    const address = await nominatimDetails(parsed.data.placeId);
+    if (address) return NextResponse.json({ ok: true, address, provider: "nominatim" });
+    return NextResponse.json({ ok: false, error: "Address details are unavailable" }, { status: 502 });
+  }
+
   if (!key) {
     return NextResponse.json({ ok: false, error: "Google Maps API key is not configured" }, { status: 500 });
   }

@@ -24,8 +24,87 @@ type GoogleAutocompleteResponse = {
   }>;
 };
 
+type NominatimSearchResult = {
+  osm_type?: string;
+  osm_id?: number;
+  display_name?: string;
+  name?: string;
+  address?: {
+    house_number?: string;
+    road?: string;
+    neighbourhood?: string;
+    suburb?: string;
+    city?: string;
+    town?: string;
+    village?: string;
+    municipality?: string;
+    state?: string;
+    postcode?: string;
+    country_code?: string;
+  };
+};
+
 function googleMapsKey() {
   return process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
+}
+
+function provinceCode(value?: string) {
+  const normalized = value?.toLowerCase();
+  if (!normalized) return undefined;
+  const map: Record<string, string> = {
+    alberta: "AB",
+    "british columbia": "BC",
+    ontario: "ON",
+  };
+  return map[normalized] ?? value;
+}
+
+function nominatimOsmId(result: NominatimSearchResult) {
+  const type = result.osm_type?.toLowerCase();
+  const prefix = type === "node" ? "N" : type === "way" ? "W" : type === "relation" ? "R" : "";
+  return prefix && result.osm_id ? `${prefix}${result.osm_id}` : undefined;
+}
+
+async function nominatimPredictions(input: string) {
+  const url = new URL("https://nominatim.openstreetmap.org/search");
+  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("addressdetails", "1");
+  url.searchParams.set("countrycodes", "ca");
+  url.searchParams.set("limit", "6");
+  url.searchParams.set("q", input);
+
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": "TritonCRM/1.0 (https://crm.tritonwealth.ca)",
+      "Accept-Language": "en-CA,en",
+    },
+  });
+  if (!response.ok) return [];
+
+  const rows = (await response.json()) as NominatimSearchResult[];
+  return rows
+    .filter((row) => row.address?.country_code?.toLowerCase() === "ca")
+    .map((row) => {
+      const osmId = nominatimOsmId(row);
+      if (!osmId) return null;
+      const street = [row.address?.house_number, row.address?.road].filter(Boolean).join(" ");
+      const mainText = street || row.name || row.display_name || "";
+      const city =
+        row.address?.city ??
+        row.address?.town ??
+        row.address?.village ??
+        row.address?.municipality ??
+        row.address?.suburb;
+      const province = provinceCode(row.address?.state);
+      const secondaryText = [city, province, row.address?.postcode].filter(Boolean).join(", ");
+      return {
+        placeId: `osm:${osmId}`,
+        description: row.display_name ?? [mainText, secondaryText].filter(Boolean).join(", "),
+        mainText,
+        secondaryText,
+      };
+    })
+    .filter((row): row is NonNullable<typeof row> => !!row?.mainText);
 }
 
 export async function POST(request: Request) {
@@ -39,7 +118,8 @@ export async function POST(request: Request) {
 
   const key = googleMapsKey();
   if (!key) {
-    return NextResponse.json({ ok: false, error: "Google Maps API key is not configured" }, { status: 500 });
+    const predictions = await nominatimPredictions(parsed.data.input);
+    return NextResponse.json({ ok: true, predictions, provider: "nominatim" });
   }
 
   const response = await fetch("https://places.googleapis.com/v1/places:autocomplete", {
@@ -63,6 +143,10 @@ export async function POST(request: Request) {
       status: response.status,
       body: body.slice(0, 500),
     });
+    const predictions = await nominatimPredictions(parsed.data.input).catch(() => []);
+    if (predictions.length) {
+      return NextResponse.json({ ok: true, predictions, provider: "nominatim" });
+    }
     return NextResponse.json({ ok: false, error: "Address autocomplete is unavailable" }, { status: 502 });
   }
 
@@ -78,5 +162,10 @@ export async function POST(request: Request) {
         secondaryText: prediction.structuredFormat?.secondaryText?.text ?? "",
       })) ?? [];
 
-  return NextResponse.json({ ok: true, predictions });
+  if (predictions.length === 0) {
+    const fallback = await nominatimPredictions(parsed.data.input).catch(() => []);
+    if (fallback.length) return NextResponse.json({ ok: true, predictions: fallback, provider: "nominatim" });
+  }
+
+  return NextResponse.json({ ok: true, predictions, provider: "google" });
 }
