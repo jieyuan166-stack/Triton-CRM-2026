@@ -91,14 +91,14 @@ echo "  BUILD"
 echo "==================================================="
 
 cd "$COMPOSE_DIR"
-docker compose build triton-crm
+docker compose --env-file "$ENV_FILE" build triton-crm
 
 echo
 echo "==================================================="
 echo "  DEPLOY (triton-crm only — tunnel untouched)"
 echo "==================================================="
 
-docker compose up -d triton-crm
+docker compose --env-file "$ENV_FILE" up -d triton-crm
 
 echo "Waiting up to 90s for /api/ready..."
 i=0
