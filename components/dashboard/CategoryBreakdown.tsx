@@ -594,7 +594,7 @@ export function CategoryBreakdown({ policies: overridePolicies }: { policies?: R
           />
           <MiniRing
             title="Protection"
-            subtitle="Insurance death benefit by product"
+            subtitle="Insurance total coverage by product"
             data={protection}
             total={protectionTotal}
             emptyTitle="No protection yet"

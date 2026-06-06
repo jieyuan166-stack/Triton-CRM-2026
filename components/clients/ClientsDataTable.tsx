@@ -325,6 +325,7 @@ export function ClientsDataTable() {
           }),
           Carrier: "",
           "Policy Name": "",
+          "Total Coverage": "",
           "Death Benefit": "",
           "Face Amount": "",
           "Premium Amount": "",

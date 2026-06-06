@@ -10,7 +10,12 @@ import { buildDefaultSettingsForUser, mergeAppSettings } from "@/lib/default-set
 import { canSendToEmail } from "@/lib/email-address";
 import { formatCurrency } from "@/lib/format";
 import { resolveSmtpAccount } from "@/lib/smtp-account";
-import { applyTemplate, renderEmailBody, renderEmailHtml } from "@/lib/templates";
+import {
+  applyTemplate,
+  renderEmailBody,
+  renderEmailHtml,
+  shouldIncludeBirthdayCardForAdvisor,
+} from "@/lib/templates";
 import {
   getPremiumReminderStage,
   premiumReminderCycleKey,
@@ -150,15 +155,16 @@ export async function POST(request: Request) {
           continue;
         }
         const premiumAmount = formatCurrency(policy.premium ?? 0);
-        const deathBenefit = formatCurrency(policy.sumAssured ?? 0);
+        const totalCoverage = formatCurrency(policy.sumAssured ?? 0);
         const formattedDueDate = formatDate(dueDate);
         const vars = {
           "Client Name": fullName(client),
           Carrier: policy.carrier,
           "Policy Name": policy.productName || policy.productType,
           "Policy Number": policy.policyNumber,
-          "Death Benefit": deathBenefit,
-          "Face Amount": deathBenefit,
+          "Total Coverage": totalCoverage,
+          "Death Benefit": totalCoverage,
+          "Face Amount": totalCoverage,
           "Premium Amount": premiumAmount,
           Date: formattedDueDate,
           "Reminder Stage": stageLabel,
@@ -176,7 +182,7 @@ export async function POST(request: Request) {
             text: renderEmailBody(rendered.body, {}, settings.signature),
             html: renderEmailHtml(rendered.body, {}, settings.signature, {
               template: "renewal",
-              emphasizedTerms: [policy.policyNumber, premiumAmount, deathBenefit, formattedDueDate],
+              emphasizedTerms: [policy.policyNumber, premiumAmount, totalCoverage, formattedDueDate],
             }),
           });
           await db.$transaction([
@@ -253,7 +259,10 @@ export async function POST(request: Request) {
             to: client.email,
             subject,
             text: renderEmailBody(body, {}, settings.signature),
-            html: renderEmailHtml(body, {}, settings.signature, { template: "birthday" }),
+            html: renderEmailHtml(body, {}, settings.signature, {
+              template: "birthday",
+              birthdayCardEnabled: shouldIncludeBirthdayCardForAdvisor(settings.profile.email),
+            }),
           });
           await db.$transaction([
             db.emailHistory.create({

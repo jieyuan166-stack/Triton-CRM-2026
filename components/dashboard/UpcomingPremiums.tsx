@@ -138,12 +138,15 @@ export function UpcomingPremiums() {
     if (!client || !canSendToEmail(client.email)) return;
     const clientName = `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim() || "client";
     const premiumAmount = formatCurrency(p.premium ?? 0);
-    const faceAmount = formatCurrency(p.sumAssured ?? 0);
+    const totalCoverage = formatCurrency(p.sumAssured ?? 0);
     const dueDate = formatDate(row.dueDate);
     const vars = {
       "Client Name": clientName, Carrier: p.carrier ?? "", "Policy Name": p.productName ?? "",
       "Policy Number": p.policyNumber ?? "",
-      "Death Benefit": faceAmount, "Face Amount": faceAmount, "Premium Amount": premiumAmount,
+      "Total Coverage": totalCoverage,
+      "Death Benefit": totalCoverage,
+      "Face Amount": totalCoverage,
+      "Premium Amount": premiumAmount,
       Date: dueDate,
       "Reminder Stage": row.stageLabel,
     };
@@ -152,7 +155,7 @@ export function UpcomingPremiums() {
       subject: applyTemplate(renewalTpl.subject, vars),
       body: applyTemplate(renewalTpl.body, vars),
       attachments: renewalTpl.attachments ?? [],
-      emphasizedTerms: [p.policyNumber ?? "", premiumAmount, faceAmount, dueDate],
+      emphasizedTerms: [p.policyNumber ?? "", premiumAmount, totalCoverage, dueDate],
       clientId: client.id, template: "renewal", policyId: p.id, reminderStage: row.stage, reminderCycleKey: row.cycleKey, reminderDedupeKey: row.dedupeKey,
     });
     setDialogOpen(true);
@@ -170,15 +173,16 @@ export function UpcomingPremiums() {
           `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim() ||
           "client";
         const premiumAmount = formatCurrency(p.premium ?? 0);
-        const faceAmount = formatCurrency(p.sumAssured ?? 0);
+        const totalCoverage = formatCurrency(p.sumAssured ?? 0);
         const dueDate = formatDate(row.dueDate);
         const vars = {
           "Client Name": clientName,
           Carrier: p.carrier ?? "",
           "Policy Name": p.productName ?? "",
           "Policy Number": p.policyNumber ?? "",
-          "Death Benefit": faceAmount,
-          "Face Amount": faceAmount,
+          "Total Coverage": totalCoverage,
+          "Death Benefit": totalCoverage,
+          "Face Amount": totalCoverage,
           "Premium Amount": premiumAmount,
           Date: dueDate,
           "Reminder Stage": row.stageLabel,
@@ -194,7 +198,7 @@ export function UpcomingPremiums() {
           reminderStage: row.stage,
           reminderCycleKey: row.cycleKey,
           reminderDedupeKey: row.dedupeKey,
-          emphasizedTerms: [p.policyNumber ?? "", premiumAmount, faceAmount, dueDate],
+          emphasizedTerms: [p.policyNumber ?? "", premiumAmount, totalCoverage, dueDate],
         };
       })
       .filter((item): item is NonNullable<typeof item> => !!item);

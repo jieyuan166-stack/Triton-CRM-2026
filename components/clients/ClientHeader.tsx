@@ -211,7 +211,7 @@ export function ClientHeader({
           <div className="flex w-full flex-col gap-5 sm:flex-row sm:items-start sm:gap-0 xl:w-auto xl:shrink-0 xl:text-right">
             <div className="sm:border-r sm:border-[#E8DCC4] sm:pr-8 xl:pr-10">
               <p className="label-caps">
-                Insurance Death Benefit
+                Insurance Total Coverage
               </p>
               <p className="mt-1 font-finance text-xl font-semibold leading-none tracking-tight text-navy md:text-2xl">
                 {formatCurrency(clientMetrics.insuranceFaceAmount)}

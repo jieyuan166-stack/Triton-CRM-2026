@@ -64,7 +64,7 @@ function ongoingDateRange(policy: Policy): string {
 }
 
 function buildPolicyMetrics(policy: Policy): UniversalDataMetric[] {
-  const amountLabel = policy.category === "Investment" ? "Initial Amount" : "Death Benefit";
+  const amountLabel = policy.category === "Investment" ? "Initial Amount" : "Total Coverage";
   const dateLabel = policy.category === "Investment" ? "Effective Date" : "Due Date";
 
   const metrics: UniversalDataMetric[] = [

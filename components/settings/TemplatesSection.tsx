@@ -16,7 +16,12 @@ import {
   getSignatureTemplates,
   htmlToPlainText,
 } from "@/lib/signature-templates";
-import { birthdayCardImageHtml, plainTextToEmailHtml, removeBirthdayCardToken } from "@/lib/templates";
+import {
+  birthdayCardImageHtml,
+  plainTextToEmailHtml,
+  removeBirthdayCardToken,
+  shouldIncludeBirthdayCardForAdvisor,
+} from "@/lib/templates";
 import { sanitizeEmailHtml } from "@/lib/security/sanitize-html";
 import type { EmailTemplate, EmailTemplateAttachment, EmailTemplateId } from "@/lib/settings-types";
 
@@ -24,6 +29,7 @@ export function TemplatesSection() {
   const { settings, updateTemplate, resetTemplate, updateSignature } =
     useSettings();
   const { templates, signature } = settings;
+  const birthdayCardEnabled = shouldIncludeBirthdayCardForAdvisor(settings.profile.email);
   const signatureTemplates = getSignatureTemplates({
     name: settings.profile.name || settings.email.fromName,
     email: settings.email.fromEmail || settings.profile.email || settings.email.user,
@@ -136,6 +142,7 @@ export function TemplatesSection() {
             <TabsContent key={t.id} value={t.id} className="px-5 md:px-6 py-5">
               <TemplateEditor
                 template={t}
+                birthdayCardEnabled={birthdayCardEnabled}
                 onSave={(patch) => {
                   updateTemplate(t.id, patch);
                   toast.success(`${t.label} template saved`);
@@ -155,10 +162,12 @@ export function TemplatesSection() {
 
 function TemplateEditor({
   template,
+  birthdayCardEnabled,
   onSave,
   onReset,
 }: {
   template: EmailTemplate;
+  birthdayCardEnabled: boolean;
   onSave: (patch: { subject: string; body: string; attachments?: EmailTemplateAttachment[] }) => void;
   onReset: () => void;
 }) {
@@ -369,7 +378,7 @@ function TemplateEditor({
                   template.id === "birthday"
                     ? removeBirthdayCardToken(previewBody(body))
                     : previewBody(body)
-                ) + (template.id === "birthday" ? birthdayCardImageHtml() : "")
+                ) + (template.id === "birthday" && birthdayCardEnabled ? birthdayCardImageHtml() : "")
               ),
             }}
           />
@@ -384,6 +393,7 @@ const SAMPLE_VARS: Record<string, string> = {
   Carrier: "Canada Life",
   "Policy Name": "My Par Gold",
   "Policy Number": "3721879",
+  "Total Coverage": "$2,500,000",
   "Death Benefit": "$2,500,000",
   "Face Amount": "$2,500,000",
   "Premium Amount": "$12,000",

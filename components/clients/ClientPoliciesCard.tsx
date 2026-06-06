@@ -243,7 +243,7 @@ function CompactPolicyRow({
   onOpenNotes: () => void;
 }) {
   const primaryAmountLabel =
-    policy.category === "Investment" ? "Initial Amount" : "Death Benefit";
+    policy.category === "Investment" ? "Initial Amount" : "Total Coverage";
   const effectiveDateValue = policy.effectiveDate ? formatDate(policy.effectiveDate) : "—";
   const ongoingStartValue = policy.ongoingInvestmentStartDate
     ? formatDate(policy.ongoingInvestmentStartDate)

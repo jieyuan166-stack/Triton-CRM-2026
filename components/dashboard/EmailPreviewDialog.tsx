@@ -32,6 +32,7 @@ import {
   BIRTHDAY_CARD_IMAGE_URL,
   BIRTHDAY_CARD_TOKEN,
   removeBirthdayCardToken,
+  shouldIncludeBirthdayCardForAdvisor,
 } from "@/lib/templates";
 import { sanitizeEmailHtml } from "@/lib/security/sanitize-html";
 import { displayPolicyNumberWithHash } from "@/lib/policy-number";
@@ -167,6 +168,7 @@ export function EmailPreviewDialog({
   const [sending, setSending] = useState(false);
   const [birthdayConfirmOpen, setBirthdayConfirmOpen] = useState(false);
   const [birthdayWarning, setBirthdayWarning] = useState("");
+  const birthdayCardEnabled = shouldIncludeBirthdayCardForAdvisor(settings.profile.email);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -278,15 +280,16 @@ export function EmailPreviewDialog({
     const clientName = client ? `${client.firstName} ${client.lastName}`.trim() : activePayload.contextLabel;
     const money = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" });
     const premiumAmount = policy ? money.format(policy.premium ?? 0) : "";
-    const deathBenefit = policy ? money.format(policy.sumAssured ?? 0) : "";
+    const totalCoverage = policy ? money.format(policy.sumAssured ?? 0) : "";
     const stageLabel = activePayload.reminderStage === "second" ? "Second Reminder" : activePayload.reminderStage === "first" ? "First Reminder" : "Manual Reminder";
     return {
       "Client Name": clientName,
       Carrier: policy?.carrier ?? "",
       "Policy Name": policy?.productName || policy?.productType || "",
       "Policy Number": policy?.policyNumber ?? "",
-      "Death Benefit": deathBenefit,
-      "Face Amount": deathBenefit,
+      "Total Coverage": totalCoverage,
+      "Death Benefit": totalCoverage,
+      "Face Amount": totalCoverage,
       "Premium Amount": premiumAmount,
       Date: policy?.premiumDate ?? "",
       "Reminder Stage": stageLabel,
@@ -510,7 +513,11 @@ export function EmailPreviewDialog({
         prepared.body,
         {},
         settings.signature,
-        { emphasizedTerms: message.emphasizedTerms, template: message.template }
+        {
+          emphasizedTerms: message.emphasizedTerms,
+          template: message.template,
+          birthdayCardEnabled,
+        }
       );
       const res = await fetch("/api/send-email", {
         method: "POST",
@@ -991,7 +998,7 @@ export function EmailPreviewDialog({
               onChange={(e) => setBody(e.target.value)}
               readOnly={isBatch}
             />
-            {selectedTemplate === "birthday" || body.includes(BIRTHDAY_CARD_TOKEN) ? (
+            {(selectedTemplate === "birthday" || body.includes(BIRTHDAY_CARD_TOKEN)) && birthdayCardEnabled ? (
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
                 <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                   Birthday card preview · sent above signature

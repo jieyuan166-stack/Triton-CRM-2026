@@ -276,7 +276,7 @@ export function FamilyOverviewCard({
             </p>
             <div className="mt-3 grid gap-3">
               <MetricRow
-                label="Family Insurance Death Benefit"
+                label="Family Insurance Total Coverage"
                 value={summary.insuranceFaceAmount}
               />
               <MetricRow

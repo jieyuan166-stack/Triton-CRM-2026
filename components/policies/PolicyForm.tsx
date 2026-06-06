@@ -515,7 +515,7 @@ export function PolicyForm({
     carrier: "Carrier",
     productType: "Product Type",
     policyNumber: "Policy Number",
-    sumAssured: isInvestment ? "Initial Investment" : "Death Benefit",
+    sumAssured: isInvestment ? "Initial Investment" : "Total Coverage",
     premium: "Premium",
     paymentFrequency: "Payment Frequency",
     effectiveDate: "Effective Date",
@@ -1056,11 +1056,11 @@ export function PolicyForm({
           Investment policies surface Initial Investment in Basic. Premium
           and Payment Frequency remain Insurance-only. */}
       {!isInvestment ? (
-      <Section title="Financial" description="Death benefit, premium, and frequency">
+      <Section title="Financial" description="Total coverage, premium, and frequency">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <Label htmlFor="sumAssured">
-              Death Benefit <span className="text-accent-red">*</span>
+              Total Coverage <span className="text-accent-red">*</span>
             </Label>
             <CurrencyInput
               id="sumAssured"

@@ -63,7 +63,7 @@ export const policyFormSchema = z
       .optional()
       .or(z.literal("").transform(() => undefined)),
     policyNumber: z.string().trim().optional().or(z.literal("")),
-    // sumAssured is Death Benefit for Insurance and Initial Investment for
+    // sumAssured is Total Coverage for Insurance and Initial Investment for
     // Investment. Premium/paymentFrequency only surface for Insurance.
     // Currency string-to-number coercion happens at the form layer (see
     // PolicyForm.coerceCurrencyValues) before zod ever sees these.

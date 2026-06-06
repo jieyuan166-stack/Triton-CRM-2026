@@ -46,7 +46,7 @@ export default function DashboardPage() {
           accent="blue"
         />
         <KPICard
-          label="Insurance Death Benefit"
+          label="Insurance Total Coverage"
           value={formatCurrencyShort(metrics.insuranceFaceAmount)}
           subValue={`${metrics.activeInsuranceCount} active insurance ${
             metrics.activeInsuranceCount === 1 ? "policy" : "policies"
