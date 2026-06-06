@@ -305,6 +305,28 @@ export function NewClientDialog({
     }));
   }
 
+  function relationshipsChanged(clientId: string, next: Array<{ toClientId: string; relationship: ClientRelationship["relationship"] }>) {
+    const serialize = (rows: Array<{ toClientId: string; relationship?: ClientRelationship["relationship"] }>) =>
+      rows
+        .filter((row) => row.toClientId && row.relationship)
+        .map((row) => row.toClientId + ":" + row.relationship)
+        .sort()
+        .join("|");
+
+    const current = getClientRelationships(clientId).map((relationship) => {
+      const outgoing = relationship.fromClientId === clientId;
+      const visibleRelationship = outgoing
+        ? relationship.relationship
+        : inverseRelationship(relationship.relationship);
+      return {
+        toClientId: outgoing ? relationship.toClientId : relationship.fromClientId,
+        relationship: isRelationshipType(visibleRelationship) ? visibleRelationship : undefined,
+      };
+    });
+
+    return serialize(current) !== serialize(next);
+  }
+
   async function onSubmit(values: ClientFormValues) {
     const nextRelationships = validateRelationshipDrafts();
     if (!nextRelationships) return;
@@ -335,7 +357,9 @@ export function NewClientDialog({
         toast.error("Could not update client");
         return;
       }
-      replaceClientRelationships(updated.id, nextRelationships);
+      if (relationshipsChanged(updated.id, nextRelationships)) {
+        replaceClientRelationships(updated.id, nextRelationships);
+      }
       toast.success("Client updated", {
         description: `${updated.firstName} ${updated.lastName} saved`,
       });
