@@ -25,6 +25,9 @@ import {
 } from "@/lib/search";
 import { cn } from "@/lib/utils";
 
+const RECENT_SEARCHES_KEY = "triton:global-search-recent";
+const MAX_RECENT_SEARCHES = 6;
+
 export function GlobalSearch() {
   const router = useRouter();
   const { clients, policies } = useData();
@@ -32,6 +35,7 @@ export function GlobalSearch() {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -44,6 +48,22 @@ export function GlobalSearch() {
 
   const flat = useMemo(() => flattenHits(results), [results]);
   const hasQuery = query.trim().length > 0;
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(RECENT_SEARCHES_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(parsed)) {
+        setRecentSearches(
+          parsed
+            .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+            .slice(0, MAX_RECENT_SEARCHES)
+        );
+      }
+    } catch {
+      setRecentSearches([]);
+    }
+  }, []);
 
   // Reset focus index when results change
   useEffect(() => {
@@ -90,7 +110,31 @@ export function GlobalSearch() {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
+  function saveRecentSearch(value: string) {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    setRecentSearches((current) => {
+      const next = [
+        trimmed,
+        ...current.filter((item) => item.toLowerCase() !== trimmed.toLowerCase()),
+      ].slice(0, MAX_RECENT_SEARCHES);
+      try {
+        window.localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(next));
+      } catch {
+        // Recent searches are convenience UI only.
+      }
+      return next;
+    });
+  }
+
+  function selectRecentSearch(value: string) {
+    setQuery(value);
+    setOpen(true);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }
+
   function navigateTo(hit: SearchHit) {
+    saveRecentSearch(query);
     router.push(hit.href);
     setOpen(false);
     setQuery("");
@@ -169,29 +213,27 @@ export function GlobalSearch() {
       {open && !hasQuery ? (
         <div className="absolute right-0 z-50 mt-2 w-96 rounded-xl border border-slate-200 bg-white p-4 text-slate-900 shadow-2xl ring-1 ring-black/5">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-            Search includes
+            Recent Searches
           </p>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {[
-              "Client names",
-              "Policy numbers",
-              "Phone",
-              "Email",
-              "Address",
-              "Carrier",
-              "Insured",
-              "Email subject",
-              "Email body",
-              "Attachments",
-            ].map((item) => (
-              <span
-                key={item}
-                className="rounded-full bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-100"
-              >
-                {item}
-              </span>
-            ))}
-          </div>
+          {recentSearches.length > 0 ? (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {recentSearches.map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => selectRecentSearch(item)}
+                  className="max-w-full rounded-full bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 ring-1 ring-slate-100 transition-colors hover:bg-[#002147] hover:text-white"
+                >
+                  <span className="block max-w-[18rem] truncate">{item}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-2 text-xs text-slate-500">
+              Your recent searches will appear here.
+            </p>
+          )}
         </div>
       ) : null}
 
