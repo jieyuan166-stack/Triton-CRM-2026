@@ -521,6 +521,11 @@ export function EmailPreviewDialog({
           subject: prepared.subject,
           body: bodyWithSignature,
           html: htmlWithSignature,
+          fromName: settings.email.fromName || settings.profile.name,
+          fromEmail:
+            settings.email.fromEmail ||
+            settings.profile.email ||
+            settings.email.user,
           clientId: message.clientId,
           attachments: attachments.map(({ filename, contentType, content }) => ({
             filename,

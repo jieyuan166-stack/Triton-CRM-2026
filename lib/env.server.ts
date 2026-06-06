@@ -27,6 +27,9 @@ export const serverEnv = {
   getSmtpPassword(): string {
     return required("SMTP_PASSWORD");
   },
+  getClaireSmtpPassword(): string {
+    return required("CLAIRE_SMTP_PASSWORD").replace(/\s+/g, "");
+  },
   getNextAuthSecret(): string {
     return required("NEXTAUTH_SECRET");
   },

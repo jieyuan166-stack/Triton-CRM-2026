@@ -2,10 +2,11 @@ import "server-only";
 
 import nodemailer from "nodemailer";
 import { db } from "@/lib/db";
-import { emailDefaults, serverEnv } from "@/lib/env.server";
+import { emailDefaults } from "@/lib/env.server";
 import { formatCurrencyShort } from "@/lib/format";
 import { daysUntil, formatDate, resolveRecurringDate } from "@/lib/date-utils";
 import { buildDefaultSettingsForUser, mergeAppSettings } from "@/lib/default-settings";
+import { resolveSmtpAccount } from "@/lib/smtp-account";
 import type { AppSettings } from "@/lib/settings-types";
 
 type SettingsUser = { id: string; email: string | null; name: string | null };
@@ -197,17 +198,20 @@ export async function sendWeeklyDigestForUser(
     }
   }
 
-  const password = serverEnv.getSmtpPassword();
   const digest = await buildWeeklyDigest(user.id);
+  const fromName = settings.email.fromName || emailDefaults.fromName;
+  const fromEmail = settings.email.fromEmail || emailDefaults.fromEmail || emailDefaults.user;
+  const smtpAccount = resolveSmtpAccount({
+    user: settings.email.user || emailDefaults.user,
+    fromEmail,
+  });
   const transporter = nodemailer.createTransport({
     host: settings.email.host || emailDefaults.host,
     port: settings.email.port || emailDefaults.port,
     secure: settings.email.secure ?? emailDefaults.secure,
-    auth: { user: settings.email.user || emailDefaults.user, pass: password },
+    auth: { user: smtpAccount.user, pass: smtpAccount.password },
   });
 
-  const fromName = settings.email.fromName || emailDefaults.fromName;
-  const fromEmail = settings.email.fromEmail || emailDefaults.fromEmail || emailDefaults.user;
   const recipient = user.email;
   if (!recipient) return { sent: false, skipped: "User sign-in email is not configured" };
 

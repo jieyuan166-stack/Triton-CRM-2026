@@ -5,10 +5,11 @@ import nodemailer from "nodemailer";
 import { auditLog } from "@/lib/api-security";
 import { isAuthorizedCronRequest } from "@/lib/cron-auth";
 import { db } from "@/lib/db";
-import { emailDefaults, serverEnv } from "@/lib/env.server";
+import { emailDefaults } from "@/lib/env.server";
 import { buildDefaultSettingsForUser, mergeAppSettings } from "@/lib/default-settings";
 import { canSendToEmail } from "@/lib/email-address";
 import { formatCurrency } from "@/lib/format";
+import { resolveSmtpAccount } from "@/lib/smtp-account";
 import { applyTemplate, renderEmailBody, renderEmailHtml } from "@/lib/templates";
 import {
   getPremiumReminderStage,
@@ -81,12 +82,16 @@ function insertStageIfMissing(input: { subject: string; body: string; stageLabel
 }
 
 async function createTransporter(settings: Awaited<ReturnType<typeof readSettings>>) {
-  const password = serverEnv.getSmtpPassword();
+  const fromEmail = settings.email.fromEmail || emailDefaults.fromEmail || emailDefaults.user;
+  const smtpAccount = resolveSmtpAccount({
+    user: settings.email.user || emailDefaults.user,
+    fromEmail,
+  });
   return nodemailer.createTransport({
     host: settings.email.host || emailDefaults.host,
     port: settings.email.port || emailDefaults.port,
     secure: settings.email.secure ?? emailDefaults.secure,
-    auth: { user: settings.email.user || emailDefaults.user, pass: password },
+    auth: { user: smtpAccount.user, pass: smtpAccount.password },
   });
 }
 

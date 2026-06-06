@@ -34,11 +34,13 @@ export function CarrierLogoBadge({
 }: CarrierLogoBadgeProps) {
   const logoSrc = CARRIER_LOGOS[carrier];
   const dimension = IMAGE_SIZES[size];
+  const isFullBleedLogo = carrier === "Desjardins Financial";
 
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center justify-center overflow-hidden bg-white ring-1 ring-[#E8DCC4] shadow-[0_2px_6px_rgba(7,27,51,0.08)]",
+        "inline-flex shrink-0 items-center justify-center overflow-hidden ring-1 ring-[#E8DCC4] shadow-[0_2px_6px_rgba(7,27,51,0.08)]",
+        isFullBleedLogo ? "bg-[#00874d]" : "bg-white",
         SIZE_CLASSES[size],
         className
       )}
@@ -50,7 +52,10 @@ export function CarrierLogoBadge({
           alt={`${carrier} logo`}
           width={dimension}
           height={dimension}
-          className="h-full w-full object-contain p-0.5"
+          className={cn(
+            "h-full w-full",
+            isFullBleedLogo ? "object-cover p-0" : "object-contain p-0.5"
+          )}
         />
       ) : (
         <span

@@ -19,11 +19,12 @@ import "server-only";
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { z } from "zod";
-import { emailDefaults, serverEnv } from "@/lib/env.server";
+import { emailDefaults } from "@/lib/env.server";
 import { auditLog, requireSession, unauthorized } from "@/lib/api-security";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 import { sanitizeEmailHtml } from "@/lib/security/sanitize-html";
 import { attachInlineImages } from "@/lib/email-inline-images";
+import { resolveSmtpAccount } from "@/lib/smtp-account";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -110,17 +111,25 @@ export async function POST(request: Request) {
   }
   const data = parsed.data;
 
+  const fromName = data.fromName ?? emailDefaults.fromName;
+  const fromEmail =
+    data.fromEmail ?? emailDefaults.fromEmail ?? emailDefaults.user;
+  const from = fromName ? `${fromName} <${fromEmail}>` : fromEmail;
+
   // Fetch the App Password lazily so a missing config surfaces as a clean
   // 503 rather than a stack trace at module load.
-  let password: string;
+  let smtpAccount: ReturnType<typeof resolveSmtpAccount>;
   try {
-    password = serverEnv.getSmtpPassword();
+    smtpAccount = resolveSmtpAccount({
+      user: emailDefaults.user,
+      fromEmail,
+    });
   } catch {
     return NextResponse.json(
       {
         ok: false,
         error:
-          "SMTP_PASSWORD is not configured on the server. Add it to .env.local.",
+          "SMTP password is not configured on the server. Add SMTP_PASSWORD or CLAIRE_SMTP_PASSWORD to .env.local.",
       },
       { status: 503 }
     );
@@ -131,15 +140,10 @@ export async function POST(request: Request) {
     port: emailDefaults.port,
     secure: emailDefaults.secure, // 465 → implicit TLS
     auth: {
-      user: emailDefaults.user,
-      pass: password,
+      user: smtpAccount.user,
+      pass: smtpAccount.password,
     },
   });
-
-  const fromName = data.fromName ?? emailDefaults.fromName;
-  const fromEmail =
-    data.fromEmail ?? emailDefaults.fromEmail ?? emailDefaults.user;
-  const from = fromName ? `${fromName} <${fromEmail}>` : fromEmail;
 
   try {
     const bodyHtml = data.html?.trim() ? sanitizeEmailHtml(data.html) : plainTextToHtml(data.body);
