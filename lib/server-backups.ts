@@ -554,6 +554,13 @@ function assertSqliteDatabase(data: Buffer) {
   }
 }
 
+async function assertSqliteIntegrity(dbPath: string) {
+  const { stdout } = await execFileAsync("sqlite3", [dbPath, "PRAGMA integrity_check;"]);
+  if (stdout.trim().toLowerCase() !== "ok") {
+    throw new Error("Backup database failed integrity check");
+  }
+}
+
 async function removeSqliteSidecars(dbPath: string) {
   await Promise.all([
     fs.unlink(`${dbPath}-wal`).catch(() => undefined),
@@ -579,11 +586,17 @@ export async function restoreDatabaseBackup(filename: string, user?: BackupAcces
   const dbPath = sqliteDatabasePath();
   const tempPath = path.join(path.dirname(dbPath), `.triton-restore-${Date.now()}.db`);
 
-  await fs.writeFile(tempPath, restored, { mode: 0o660 });
-  await db.$disconnect().catch(() => undefined);
-  await removeSqliteSidecars(dbPath);
-  await fs.rename(tempPath, dbPath);
-  await fs.chmod(dbPath, 0o660).catch(() => undefined);
+  try {
+    await fs.writeFile(tempPath, restored, { mode: 0o660 });
+    await assertSqliteIntegrity(tempPath);
+    await db.$disconnect().catch(() => undefined);
+    await removeSqliteSidecars(dbPath);
+    await fs.rename(tempPath, dbPath);
+    await fs.chmod(dbPath, 0o660).catch(() => undefined);
+  } catch (error) {
+    await fs.unlink(tempPath).catch(() => undefined);
+    throw error;
+  }
 
   return { restartRequired: true as const };
 }
