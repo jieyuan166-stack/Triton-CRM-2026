@@ -26,7 +26,6 @@ import {
 } from "react";
 import { MapPin } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { loadPlacesLibrary } from "@/lib/google-maps";
 import { cn } from "@/lib/utils";
 
 export interface ParsedAddress {
@@ -51,56 +50,7 @@ type AddressPrediction = {
   description: string;
   mainText: string;
   secondaryText?: string;
-  googlePlacePrediction?: google.maps.places.PlacePrediction;
 };
-
-type BrowserPlaceDetails = {
-  formatted_address?: string;
-  formattedAddress?: string | null;
-  name?: string;
-  displayName?: string | null;
-  address_components?: BrowserAddressComponent[];
-  addressComponents?: BrowserAddressComponent[];
-};
-
-type BrowserAddressComponent = {
-    long_name?: string;
-    short_name?: string;
-    longText?: string | null;
-    shortText?: string | null;
-    types?: string[];
-};
-
-function parseBrowserAddress(place: BrowserPlaceDetails): ParsedAddress {
-  const components = place.addressComponents ?? place.address_components ?? [];
-  const get = (type: string, short = false) => {
-    const component = components.find((item) => item.types?.includes(type));
-    return short
-      ? component?.shortText ?? component?.short_name
-      : component?.longText ?? component?.long_name;
-  };
-  const streetNumber = get("street_number") ?? "";
-  const route = get("route") ?? "";
-  const streetAddress = [streetNumber, route].filter(Boolean).join(" ");
-
-  return {
-    streetAddress:
-      streetAddress ||
-      place.displayName ||
-      place.name ||
-      place.formattedAddress ||
-      place.formatted_address ||
-      "",
-    city:
-      get("locality") ??
-      get("postal_town") ??
-      get("administrative_area_level_2") ??
-      get("sublocality") ??
-      undefined,
-    province: get("administrative_area_level_1", true),
-    postalCode: get("postal_code"),
-  };
-}
 
 // === Component ===
 
@@ -117,7 +67,6 @@ export function AddressAutocomplete({
   const inputId = id ?? reactId;
 
   const sessionTokenRef = useRef(`addr_${Date.now()}_${Math.random().toString(36).slice(2)}`);
-  const browserSessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | null>(null);
   const [predictions, setPredictions] = useState<AddressPrediction[]>([]);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -128,102 +77,6 @@ export function AddressAutocomplete({
 
   function resetSessionToken() {
     sessionTokenRef.current = `addr_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-    browserSessionTokenRef.current = null;
-  }
-
-  async function getBrowserSessionToken(places: google.maps.PlacesLibrary) {
-    if (!browserSessionTokenRef.current) {
-      browserSessionTokenRef.current = new places.AutocompleteSessionToken();
-    }
-    return browserSessionTokenRef.current;
-  }
-
-  async function queryBrowserPredictions(input: string): Promise<AddressPrediction[] | null> {
-    const places = await loadPlacesLibrary();
-    if (!places) return null;
-    const token = await getBrowserSessionToken(places);
-
-    if (places?.AutocompleteSuggestion?.fetchAutocompleteSuggestions) {
-      try {
-        const { suggestions } =
-          await places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
-            input,
-            includedRegionCodes: ["ca"],
-            region: "CA",
-            language: "en-CA",
-            sessionToken: token,
-          });
-        const next = suggestions
-          .map((suggestion) => suggestion.placePrediction)
-          .filter((prediction): prediction is google.maps.places.PlacePrediction => !!prediction)
-          .map((prediction) => ({
-            placeId: prediction.placeId,
-            description: prediction.text.text,
-            mainText: prediction.mainText?.text ?? prediction.text.text,
-            secondaryText: prediction.secondaryText?.text ?? undefined,
-            googlePlacePrediction: prediction,
-          }));
-        return next.length > 0 ? next : null;
-      } catch (error) {
-        console.warn("[address-autocomplete] Google Places New failed", error);
-      }
-    }
-
-    if (!places?.AutocompleteService) return null;
-    const service = new places.AutocompleteService();
-
-    return new Promise((resolve) => {
-      service.getPlacePredictions(
-        {
-          input,
-          componentRestrictions: { country: "ca" },
-          sessionToken: token,
-        },
-        (results, status) => {
-          const ok = status === google.maps.places.PlacesServiceStatus.OK;
-          if (!ok || !results) {
-            resolve(null);
-            return;
-          }
-          resolve(
-            results.map((prediction) => ({
-              placeId: prediction.place_id,
-              description: prediction.description,
-              mainText:
-                prediction.structured_formatting?.main_text ??
-                prediction.description,
-              secondaryText: prediction.structured_formatting?.secondary_text,
-            }))
-          );
-        }
-      );
-    });
-  }
-
-  async function fetchBrowserDetails(placeId: string): Promise<ParsedAddress | null> {
-    const places = await loadPlacesLibrary();
-    if (!places?.PlacesService) return null;
-    const token = await getBrowserSessionToken(places);
-    const container = document.createElement("div");
-    const service = new places.PlacesService(container);
-
-    return new Promise((resolve) => {
-      service.getDetails(
-        {
-          placeId,
-          fields: ["address_components", "formatted_address", "name"],
-          sessionToken: token,
-        },
-        (place, status) => {
-          const ok = status === google.maps.places.PlacesServiceStatus.OK;
-          if (!ok || !place) {
-            resolve(null);
-            return;
-          }
-          resolve(parseBrowserAddress(place as BrowserPlaceDetails));
-        }
-      );
-    });
   }
 
   // Click-outside / Escape to close
@@ -263,13 +116,6 @@ export function AddressAutocomplete({
     }
     debounceRef.current = setTimeout(async () => {
       try {
-        const browserPredictions = await queryBrowserPredictions(input);
-        if (browserPredictions) {
-          setPredictions(browserPredictions);
-          setOpen(browserPredictions.length > 0);
-          return;
-        }
-
         const response = await fetch("/api/places/autocomplete", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -313,36 +159,6 @@ export function AddressAutocomplete({
 
   async function selectPrediction(p: AddressPrediction) {
     try {
-      if (p.googlePlacePrediction) {
-        try {
-          const place = p.googlePlacePrediction.toPlace();
-          const { place: hydrated } = await place.fetchFields({
-            fields: ["addressComponents", "formattedAddress", "displayName"],
-          });
-          const parsed = parseBrowserAddress(hydrated as unknown as BrowserPlaceDetails);
-          if (parsed.streetAddress) {
-            onChange(parsed.streetAddress || p.description);
-            onAddressSelect?.(parsed);
-            setOpen(false);
-            setPredictions([]);
-            resetSessionToken();
-            return;
-          }
-        } catch (error) {
-          console.warn("[address-autocomplete] Google Places New details failed", error);
-        }
-      }
-
-      const browserParsed = await fetchBrowserDetails(p.placeId);
-      if (browserParsed) {
-        onChange(browserParsed.streetAddress || p.description);
-        onAddressSelect?.(browserParsed);
-        setOpen(false);
-        setPredictions([]);
-        resetSessionToken();
-        return;
-      }
-
       const response = await fetch("/api/places/details", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

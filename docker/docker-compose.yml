@@ -3,8 +3,6 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-      args:
-        NEXT_PUBLIC_GOOGLE_MAPS_KEY: ${NEXT_PUBLIC_GOOGLE_MAPS_KEY}
     container_name: triton-crm
     restart: unless-stopped
     env_file:
@@ -24,7 +22,7 @@ services:
       DATABASE_URL: file:/app/prisma/data/triton.db
       BACKUP_DIR: /app/backups
       # The remaining values (NEXTAUTH_SECRET, AUTH_SECRET, AUTH_URL,
-      # NEXTAUTH_URL, SMTP_*, NEXT_PUBLIC_GOOGLE_MAPS_KEY, SEED_*,
+      # NEXTAUTH_URL, SMTP_*, GOOGLE_MAPS_API_KEY, SEED_*,
       # CRON_SECRET) come from env_file: ../.env.production. We do NOT
       # list them here as ${VAR} interpolation, because docker-compose
       # variable substitution reads from the calling shell's environment

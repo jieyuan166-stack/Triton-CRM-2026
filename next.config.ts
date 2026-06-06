@@ -4,8 +4,6 @@ const scriptSrc = [
   "'self'",
   "'unsafe-inline'",
   ...(process.env.NODE_ENV === "development" ? ["'unsafe-eval'"] : []),
-  "https://maps.googleapis.com",
-  "https://maps.gstatic.com",
   "https://static.cloudflareinsights.com",
 ].join(" ");
 
@@ -31,9 +29,9 @@ const nextConfig: NextConfig = {
           "default-src 'self'",
           `script-src ${scriptSrc}`,
           "style-src 'self' 'unsafe-inline'",
-          "img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com",
+          "img-src 'self' data: blob:",
           "font-src 'self' data:",
-          "connect-src 'self' https://maps.googleapis.com https://maps.gstatic.com https://static.cloudflareinsights.com",
+          "connect-src 'self' https://static.cloudflareinsights.com",
           "frame-ancestors 'none'",
           "base-uri 'self'",
           "form-action 'self'",
