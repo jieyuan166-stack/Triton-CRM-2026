@@ -347,20 +347,20 @@ export function ClientsDataTable() {
           to: client.email,
           subject: applyTemplate(selectedTemplate.subject, vars),
           body: applyTemplate(selectedTemplate.body, vars),
+          variables: vars,
           clientId: client.id,
           template: templateKind,
         };
       });
 
       if (batch.length === 0) return;
-      const first = batch[0];
-
       setEmailPayload({
         contextLabel: `${batch.length} clients`,
         to: "",
-        subject: first.subject,
-        body: first.body,
+        subject: selectedTemplate.subject,
+        body: selectedTemplate.body,
         attachments: selectedTemplate.attachments ?? [],
+        template: templateKind,
         batch,
       });
       setEmailDialogOpen(true);

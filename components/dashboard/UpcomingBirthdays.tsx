@@ -137,19 +137,20 @@ export function UpcomingBirthdays() {
           to: row.client.email,
           subject: applyTemplate(birthdayTpl.subject, vars),
           body: applyTemplate(birthdayTpl.body, vars),
+          variables: vars,
           clientId: row.client.id,
           template: "birthday" as const,
         };
       })
       .filter((item): item is NonNullable<typeof item> => !!item);
     if (batch.length === 0) return;
-    const first = batch[0];
     setPayload({
       contextLabel: `${batch.length} clients`,
       to: "",
-      subject: first.subject,
-      body: first.body,
+      subject: birthdayTpl.subject,
+      body: birthdayTpl.body,
       attachments: birthdayTpl.attachments ?? [],
+      template: "birthday",
       batch,
     });
     setDialogOpen(true);

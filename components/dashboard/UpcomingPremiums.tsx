@@ -192,6 +192,7 @@ export function UpcomingPremiums() {
           to: client.email,
           subject: applyTemplate(renewalTpl.subject, vars),
           body: applyTemplate(renewalTpl.body, vars),
+          variables: vars,
           clientId: client.id,
           template: "renewal" as const,
           policyId: p.id,
@@ -203,13 +204,13 @@ export function UpcomingPremiums() {
       })
       .filter((item): item is NonNullable<typeof item> => !!item);
     if (batch.length === 0) return;
-    const first = batch[0];
     setPayload({
       contextLabel: `${batch.length} clients`,
       to: "",
-      subject: first.subject,
-      body: first.body,
+      subject: renewalTpl.subject,
+      body: renewalTpl.body,
       attachments: renewalTpl.attachments ?? [],
+      template: "renewal",
       batch,
     });
     setDialogOpen(true);

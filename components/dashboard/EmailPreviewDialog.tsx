@@ -105,6 +105,9 @@ export interface EmailPreviewBatchItem {
   to: string;
   subject: string;
   body: string;
+  /** Per-recipient substitutions applied to the editable batch template
+   * immediately before each individualized message is sent. */
+  variables?: Record<string, string | undefined>;
   html?: string;
   clientId?: string;
   template?: "renewal" | "birthday" | "festival" | "custom";
@@ -626,8 +629,8 @@ export function EmailPreviewDialog({
         for (const item of batch) {
           await sendOne({
             to: item.to,
-            subject: item.subject,
-            body: item.body,
+            subject: applyTemplate(subject, item.variables ?? {}),
+            body: applyTemplate(body, item.variables ?? {}),
             clientId: item.clientId,
             template: item.template,
             policyId: item.policyId,
@@ -979,11 +982,10 @@ export function EmailPreviewDialog({
               id="email-subject"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
-              readOnly={isBatch}
             />
             {isBatch ? (
               <p className="text-[11px] text-triton-muted">
-                Previewing the first personalized email. Each recipient gets their own subject and message.
+                Edit this shared template before sending. Variables such as [Client Name] are personalized for each recipient.
               </p>
             ) : null}
           </div>
@@ -996,7 +998,6 @@ export function EmailPreviewDialog({
               className="resize-none"
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              readOnly={isBatch}
             />
             {(selectedTemplate === "birthday" || body.includes(BIRTHDAY_CARD_TOKEN)) && birthdayCardEnabled ? (
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
