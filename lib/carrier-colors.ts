@@ -7,4 +7,5 @@ export const CARRIER_COLORS: Record<Carrier, string> = {
   "Sun Life": "#FDB813",
   "iA Financial": "#003DA5",
   "Equitable Life": "#6A1B9A",
+  "Desjardins Financial": "#008A4B",
 };

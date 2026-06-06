@@ -35,7 +35,7 @@ export const CSV_EXPORT_HEADERS = [
 ] as const;
 
 const SUPPORTED_PROVINCES = ["BC", "AB", "ON"] as const;
-const SUPPORTED_CARRIERS = ["Canada Life", "Manulife", "Sun Life", "iA Financial", "Equitable Life"] as const satisfies readonly Carrier[];
+const SUPPORTED_CARRIERS = ["Canada Life", "Manulife", "Sun Life", "iA Financial", "Equitable Life", "Desjardins Financial"] as const satisfies readonly Carrier[];
 const SUPPORTED_PRODUCT_TYPES = [
   "Critical Illness",
   "Medical",

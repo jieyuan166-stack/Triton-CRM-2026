@@ -6,4 +6,5 @@ export const CARRIER_LOGOS: Record<Carrier, string> = {
   "Sun Life": "/brand/carriers/sun-life.png",
   "iA Financial": "/brand/carriers/ia.png",
   "Equitable Life": "/brand/carriers/equitable-life.png",
+  "Desjardins Financial": "/brand/carriers/desjardins-financial.jpeg",
 };

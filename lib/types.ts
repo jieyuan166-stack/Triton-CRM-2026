@@ -6,7 +6,8 @@ export type Carrier =
   | "Manulife"
   | "Sun Life"
   | "iA Financial"
-  | "Equitable Life";
+  | "Equitable Life"
+  | "Desjardins Financial";
 
 export const CARRIERS: Carrier[] = [
   "Canada Life",
@@ -14,6 +15,7 @@ export const CARRIERS: Carrier[] = [
   "Sun Life",
   "iA Financial",
   "Equitable Life",
+  "Desjardins Financial",
 ];
 
 export type PolicyCategory = "Insurance" | "Investment";
