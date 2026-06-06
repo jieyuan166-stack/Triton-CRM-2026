@@ -133,6 +133,16 @@ export function GlobalSearch() {
     requestAnimationFrame(() => inputRef.current?.focus());
   }
 
+  function clearRecentSearches() {
+    setRecentSearches([]);
+    try {
+      window.localStorage.removeItem(RECENT_SEARCHES_KEY);
+    } catch {
+      // Recent searches are convenience UI only.
+    }
+    inputRef.current?.focus();
+  }
+
   function navigateTo(hit: SearchHit) {
     saveRecentSearch(query);
     router.push(hit.href);
@@ -212,9 +222,21 @@ export function GlobalSearch() {
       {/* Results dropdown */}
       {open && !hasQuery ? (
         <div className="absolute right-0 z-50 mt-2 w-96 rounded-xl border border-slate-200 bg-white p-4 text-slate-900 shadow-2xl ring-1 ring-black/5">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-            Recent Searches
-          </p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              Recent Searches
+            </p>
+            {recentSearches.length > 0 ? (
+              <button
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={clearRecentSearches}
+                className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 transition-colors hover:text-slate-700"
+              >
+                Clear
+              </button>
+            ) : null}
+          </div>
           {recentSearches.length > 0 ? (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {recentSearches.map((item) => (
