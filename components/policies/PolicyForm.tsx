@@ -461,6 +461,9 @@ export function PolicyForm({
   // otherwise leave "$1,500,000" in the payload. Strip "$"/","/spaces here so
   // the parent's onSubmit always receives clean numbers.
   const onValid: SubmitHandler<PolicyFormValues> = (values) => {
+    const ownedClientIds = new Set(clients.map((client) => client.id));
+    const ownedClientId = (clientId?: string) =>
+      clientId && ownedClientIds.has(clientId) ? clientId : undefined;
     const cleaned = {
       ...values,
       sumAssured: toCurrencyNumber(values.sumAssured) as never,
@@ -468,9 +471,9 @@ export function PolicyForm({
       loanAmount: toCurrencyNumber(values.loanAmount) as never,
       ongoingInvestmentAmount: toCurrencyNumber(values.ongoingInvestmentAmount) as never,
       policyOwnerName: values.policyOwnerName?.trim() || undefined,
-      policyOwnerClientId: values.policyOwnerClientId || undefined,
+      policyOwnerClientId: ownedClientId(values.policyOwnerClientId),
       policyOwner2Name: values.policyOwner2Name?.trim() || undefined,
-      policyOwner2ClientId: values.policyOwner2ClientId || undefined,
+      policyOwner2ClientId: ownedClientId(values.policyOwner2ClientId),
       productName: values.productName?.trim() || values.productType,
       policyNumber:
         values.status === "pending" && !values.policyNumber?.trim()
@@ -495,7 +498,10 @@ export function PolicyForm({
       insuredPersons:
         values.category === "Investment"
           ? []
-          : sanitizeInsuredPersons(values.insuredPersons),
+          : (sanitizeInsuredPersons(values.insuredPersons ?? []) ?? []).map((person) => ({
+              ...person,
+              clientId: ownedClientId(person.clientId),
+            })),
     } as PolicyFormValues;
     onSubmit(cleaned);
   };

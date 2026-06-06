@@ -71,6 +71,43 @@ async function requireOwnedPolicy(policyId: string, userId: string) {
   return policy;
 }
 
+async function sanitizePolicyPartyReferences<T extends Partial<Policy>>(
+  input: T,
+  userId: string,
+): Promise<T> {
+  const candidateIds = [
+    input.policyOwnerClientId,
+    input.policyOwner2ClientId,
+    ...(input.insuredPersons ?? []).map((person) => person.clientId),
+  ].filter((id): id is string => typeof id === "string" && id.trim().length > 0);
+
+  if (candidateIds.length === 0) return input;
+
+  const ownedRows = await db.client.findMany({
+    where: { userId, id: { in: Array.from(new Set(candidateIds)) } },
+    select: { id: true },
+  });
+  const ownedIds = new Set(ownedRows.map((row) => row.id));
+
+  return {
+    ...input,
+    policyOwnerClientId:
+      input.policyOwnerClientId && ownedIds.has(input.policyOwnerClientId)
+        ? input.policyOwnerClientId
+        : undefined,
+    policyOwner2ClientId:
+      input.policyOwner2ClientId && ownedIds.has(input.policyOwner2ClientId)
+        ? input.policyOwner2ClientId
+        : undefined,
+    insuredPersons: Array.isArray(input.insuredPersons)
+      ? input.insuredPersons.map((person) => ({
+          ...person,
+          clientId: person.clientId && ownedIds.has(person.clientId) ? person.clientId : undefined,
+        }))
+      : input.insuredPersons,
+  };
+}
+
 function dateOnly(value: Date | string | null | undefined): string | undefined {
   if (!value) return undefined;
   const d = value instanceof Date ? value : new Date(value);
@@ -843,9 +880,8 @@ export async function POST(request: Request) {
         const policy = payload.policy as Policy;
         await requireOwnedClient(policy.clientId, session.user.id);
         if (policy.jointWithClientId) await requireOwnedClient(policy.jointWithClientId, session.user.id);
-        if (policy.policyOwnerClientId) await requireOwnedClient(policy.policyOwnerClientId, session.user.id);
-        if (policy.policyOwner2ClientId) await requireOwnedClient(policy.policyOwner2ClientId, session.user.id);
-        const data = policyData(policy, false, session.user.id);
+        const sanitizedPolicy = await sanitizePolicyPartyReferences(policy, session.user.id);
+        const data = policyData(sanitizedPolicy, false, session.user.id);
         await db.policy.create({
           data: {
             ...data,
@@ -865,7 +901,8 @@ export async function POST(request: Request) {
       case "policy.update": {
         const id = String(payload.id);
         await requireOwnedPolicy(id, session.user.id);
-        const patch = payload.patch as Partial<Policy> & { beneficiaries?: Beneficiary[] };
+        const rawPatch = payload.patch as Partial<Policy> & { beneficiaries?: Beneficiary[] };
+        const patch = await sanitizePolicyPartyReferences(rawPatch, session.user.id);
         if (patch.clientId) await requireOwnedClient(patch.clientId, session.user.id);
         if (patch.jointWithClientId) await requireOwnedClient(patch.jointWithClientId, session.user.id);
         if (patch.policyOwnerClientId) await requireOwnedClient(patch.policyOwnerClientId, session.user.id);
