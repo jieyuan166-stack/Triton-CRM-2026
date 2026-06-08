@@ -23,6 +23,7 @@ export async function POST(request: Request) {
     error?: string;
     messageId?: string;
     recipient?: string;
+    deliveryRecipient?: string;
   }> = [];
   let sent = 0;
   let skipped = 0;
@@ -43,6 +44,7 @@ export async function POST(request: Request) {
         skipped: result.skipped,
         messageId: result.messageId,
         recipient: result.recipient,
+        deliveryRecipient: result.deliveryRecipient,
       });
     } catch (error) {
       failed += 1;

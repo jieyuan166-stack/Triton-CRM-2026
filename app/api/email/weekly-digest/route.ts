@@ -35,7 +35,12 @@ export async function POST() {
     if (!result.sent) {
       return NextResponse.json({ ok: false, error: result.skipped ?? "Weekly digest was not sent" }, { status: 400 });
     }
-    return NextResponse.json({ ok: true, messageId: result.messageId, recipient: result.recipient });
+    return NextResponse.json({
+      ok: true,
+      messageId: result.messageId,
+      recipient: result.recipient,
+      deliveryRecipient: result.deliveryRecipient,
+    });
   } catch (error) {
     const message = error instanceof Error && error.message.includes("SMTP_PASSWORD")
       ? "SMTP_PASSWORD is not configured"

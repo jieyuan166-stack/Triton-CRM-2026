@@ -18,6 +18,7 @@ export type WeeklyDigestSendResult = {
   skipped?: string;
   messageId?: string;
   recipient?: string;
+  deliveryRecipient?: string;
 };
 
 export async function readWeeklyDigestSettings(userId: string): Promise<AppSettings> {
@@ -139,6 +140,27 @@ function minutesFromTime(value: string) {
   return hour * 60 + minute;
 }
 
+function cleanEmail(value: string | null | undefined) {
+  return (value ?? "").trim().replace(/^["']|["']$/g, "");
+}
+
+function digestDeliveryRecipient(recipient: string, smtpUser: string) {
+  const cleanRecipient = cleanEmail(recipient);
+  const cleanSmtpUser = cleanEmail(smtpUser);
+  if (cleanRecipient.toLowerCase() !== cleanSmtpUser.toLowerCase()) {
+    return cleanRecipient;
+  }
+
+  const [localPart, domain] = cleanRecipient.split("@");
+  const normalizedDomain = (domain ?? "").toLowerCase();
+  if (!localPart || !normalizedDomain) return cleanRecipient;
+  if (!["gmail.com", "googlemail.com"].includes(normalizedDomain)) {
+    return cleanRecipient;
+  }
+  if (localPart.includes("+")) return cleanRecipient;
+  return `${localPart}+tritoncrm@${domain}`;
+}
+
 export function weeklyDigestCycleKey(settings: AppSettings, now = new Date()) {
   const local = localParts(now);
   return `${local.year}-${local.month}-${local.day}:${settings.weeklyDigest.weekday}:${settings.weeklyDigest.time}`;
@@ -200,9 +222,9 @@ export async function sendWeeklyDigestForUser(
 
   const digest = await buildWeeklyDigest(user.id);
   const fromName = settings.email.fromName || emailDefaults.fromName;
-  const fromEmail = settings.email.fromEmail || emailDefaults.fromEmail || emailDefaults.user;
+  const fromEmail = cleanEmail(settings.email.fromEmail || emailDefaults.fromEmail || emailDefaults.user);
   const smtpAccount = resolveSmtpAccount({
-    user: settings.email.user || emailDefaults.user,
+    user: cleanEmail(settings.email.user || emailDefaults.user),
     fromEmail,
   });
   const transporter = nodemailer.createTransport({
@@ -212,12 +234,13 @@ export async function sendWeeklyDigestForUser(
     auth: { user: smtpAccount.user, pass: smtpAccount.password },
   });
 
-  const recipient = user.email;
+  const recipient = cleanEmail(user.email);
   if (!recipient) return { sent: false, skipped: "User sign-in email is not configured" };
+  const deliveryRecipient = digestDeliveryRecipient(recipient, smtpAccount.user);
 
   const info = await transporter.sendMail({
     from: fromName ? `${fromName} <${fromEmail}>` : fromEmail,
-    to: recipient,
+    to: deliveryRecipient,
     subject: "Triton CRM Weekly Advisor Digest",
     html: renderWeeklyDigestHtml(digest),
   });
@@ -228,9 +251,9 @@ export async function sendWeeklyDigestForUser(
       action: options.mode === "auto" ? "send_weekly_digest_auto" : "send_weekly_digest",
       entityType: "settings",
       entityId: user.id,
-      metadata: JSON.stringify({ recipient, messageId: info.messageId, cycleKey }),
+      metadata: JSON.stringify({ recipient, deliveryRecipient, messageId: info.messageId, cycleKey }),
     },
   });
 
-  return { sent: true, messageId: info.messageId, recipient };
+  return { sent: true, messageId: info.messageId, recipient, deliveryRecipient };
 }

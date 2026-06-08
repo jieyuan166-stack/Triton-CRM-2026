@@ -271,6 +271,7 @@ export function EmailConfigSection() {
                       ok?: boolean;
                       error?: string;
                       recipient?: string;
+                      deliveryRecipient?: string;
                       messageId?: string;
                     } | null;
                     if (!response.ok || !data?.ok) {
@@ -278,7 +279,7 @@ export function EmailConfigSection() {
                       return;
                     }
                     toast.success(
-                      `Test digest sent to ${data.recipient || "your sign-in email"}${data.messageId ? ` · ${data.messageId}` : ""}`
+                      `Test digest sent to ${data.deliveryRecipient || data.recipient || "your sign-in email"}${data.messageId ? ` · ${data.messageId}` : ""}`
                     );
                   } finally {
                     setSendingDigestTest(false);
