@@ -62,11 +62,16 @@ interface DataContextValue {
   // mutations — clients
   createClient(input: Omit<Client, "id" | "createdAt">): Client;
   updateClient(id: string, patch: Partial<Omit<Client, "id">>): Client | null;
+  updateClientAsync(id: string, patch: Partial<Omit<Client, "id">>): Promise<Client | null>;
   deleteClient(id: string): boolean;
   replaceClientRelationships(
     clientId: string,
     input: Array<{ toClientId: string; relationship: ClientRelationship["relationship"] }>
   ): ClientRelationship[];
+  replaceClientRelationshipsAsync(
+    clientId: string,
+    input: Array<{ toClientId: string; relationship: ClientRelationship["relationship"] }>
+  ): Promise<ClientRelationship[]>;
 
   // mutations — policies. Caller supplies premiumDate explicitly (Insurance
   // + Annually only); for Monthly / Investment it can be left undefined.
@@ -314,16 +319,73 @@ async function persistAction(action: string, payload: Record<string, unknown>) {
   }
 }
 
-function persistInBackground(action: string, payload: Record<string, unknown>) {
+function persistInBackground(
+  action: string,
+  payload: Record<string, unknown>,
+  options: { silent?: boolean } = {}
+) {
   void persistAction(action, payload).catch((error) => {
     console.error(`[DataProvider] ${action} failed`, error);
+    if (options.silent) return;
     toast.error("Could not save change", {
       description:
         error instanceof Error
-          ? error.message
+          ? `${action}: ${error.message}`
           : "Please refresh and try again.",
     });
   });
+}
+
+function buildClientUpdate(
+  id: string,
+  patch: Partial<Omit<Client, "id">>,
+  sourceClients: Client[]
+): { updated: Client; patch: Partial<Omit<Client, "id">> } | null {
+  const current = sourceClients.find((c) => c.id === id);
+  if (!current) return null;
+
+  const normalizedPatch = { ...patch };
+  if (patch.firstName !== undefined) {
+    normalizedPatch.firstName = toTitleCaseName(patch.firstName);
+  }
+  if (patch.lastName !== undefined) {
+    normalizedPatch.lastName = toTitleCaseName(patch.lastName);
+  }
+  if (patch.notes !== undefined) {
+    normalizedPatch.notes = normalizeClientNotes(patch.notes) ?? "";
+  }
+
+  const updated: Client = {
+    ...current,
+    ...normalizedPatch,
+    id: current.id,
+    slug:
+      normalizedPatch.firstName !== undefined ||
+      normalizedPatch.lastName !== undefined
+        ? buildClientSlug({
+            id: current.id,
+            firstName: normalizedPatch.firstName ?? current.firstName,
+            lastName: normalizedPatch.lastName ?? current.lastName,
+          })
+        : current.slug ?? buildUniqueClientSlug(current, sourceClients),
+  };
+
+  if (
+    normalizedPatch.firstName !== undefined ||
+    normalizedPatch.lastName !== undefined
+  ) {
+    updated.slug = buildUniqueClientSlug(updated, sourceClients);
+  }
+
+  const patchWithSlug =
+    normalizedPatch.firstName !== undefined ||
+    normalizedPatch.lastName !== undefined
+      ? { ...normalizedPatch, slug: updated.slug }
+      : normalizedPatch.slug
+        ? normalizedPatch
+        : { ...normalizedPatch, slug: updated.slug };
+
+  return { updated, patch: patchWithSlug };
 }
 
 export function DataProvider({ children }: { children: ReactNode }) {
@@ -486,56 +548,41 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const updateClient: DataContextValue["updateClient"] = useCallback(
     (id, patch) => {
-      const current = clients.find((c) => c.id === id);
-      const normalizedPatch = { ...patch };
-      if (patch.firstName !== undefined) {
-        normalizedPatch.firstName = toTitleCaseName(patch.firstName);
-      }
-      if (patch.lastName !== undefined) {
-        normalizedPatch.lastName = toTitleCaseName(patch.lastName);
-      }
-      if (patch.notes !== undefined) {
-        normalizedPatch.notes = normalizeClientNotes(patch.notes) ?? "";
-      }
-      const updated: Client | null = current
-        ? {
-            ...current,
-            ...normalizedPatch,
-            id: current.id,
-            slug:
-              normalizedPatch.firstName !== undefined ||
-              normalizedPatch.lastName !== undefined
-                ? buildClientSlug({
-                    id: current.id,
-                    firstName: normalizedPatch.firstName ?? current.firstName,
-                    lastName: normalizedPatch.lastName ?? current.lastName,
-                  })
-                : current.slug ?? buildUniqueClientSlug(current, clients),
-          }
-        : null;
-      if (
-        updated &&
-        (normalizedPatch.firstName !== undefined ||
-          normalizedPatch.lastName !== undefined)
-      ) {
-        updated.slug = buildUniqueClientSlug(updated, clients);
-      }
+      const prepared = buildClientUpdate(id, patch, clients);
+      const updated = prepared?.updated ?? null;
       setClients((prev) =>
         prev.map((c) => (c.id === id && updated ? updated : c))
       );
-      if (updated) {
-        persistInBackground("client.update", {
-          id,
-          patch:
-            normalizedPatch.firstName !== undefined ||
-            normalizedPatch.lastName !== undefined
-              ? { ...normalizedPatch, slug: updated.slug }
-              : normalizedPatch.slug
-                ? normalizedPatch
-                : { ...normalizedPatch, slug: updated.slug },
-        });
+      if (prepared) {
+        persistInBackground(
+          "client.update",
+          {
+            id,
+            patch: prepared.patch,
+          },
+          { silent: Object.keys(patch).length === 1 && patch.slug !== undefined }
+        );
       }
       return updated;
+    },
+    [clients]
+  );
+
+  const updateClientAsync: DataContextValue["updateClientAsync"] = useCallback(
+    async (id, patch) => {
+      const prepared = buildClientUpdate(id, patch, clients);
+      if (!prepared) return null;
+      const previous = clients;
+      setClients((prev) =>
+        prev.map((c) => (c.id === id ? prepared.updated : c))
+      );
+      try {
+        await persistAction("client.update", { id, patch: prepared.patch });
+        return prepared.updated;
+      } catch (error) {
+        setClients(previous);
+        throw error;
+      }
     },
     [clients]
   );
@@ -620,6 +667,52 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return nextRows;
       },
       [clients]
+    );
+
+  const replaceClientRelationshipsAsync: DataContextValue["replaceClientRelationshipsAsync"] =
+    useCallback(
+      async (clientId, input) => {
+        const liveClientIds = new Set(clients.map((client) => client.id));
+        const seen = new Set<string>();
+        const nextRows: ClientRelationship[] = input.flatMap((item) => {
+          if (
+            !item.toClientId ||
+            item.toClientId === clientId ||
+            !liveClientIds.has(item.toClientId) ||
+            seen.has(item.toClientId)
+          ) {
+            return [];
+          }
+          seen.add(item.toClientId);
+          return [{
+            id: uid("rel"),
+            fromClientId: clientId,
+            toClientId: item.toClientId,
+            relationship: item.relationship,
+            createdAt: new Date().toISOString(),
+          }];
+        });
+        const previous = relationships;
+        setRelationships((prev) => [
+          ...prev.filter(
+            (relationship) =>
+              relationship.fromClientId !== clientId &&
+              relationship.toClientId !== clientId
+          ),
+          ...nextRows,
+        ]);
+        try {
+          await persistAction("clientRelationships.replace", {
+            clientId,
+            relationships: nextRows,
+          });
+          return nextRows;
+        } catch (error) {
+          setRelationships(previous);
+          throw error;
+        }
+      },
+      [clients, relationships]
     );
 
   // === Mutations: policies ===
@@ -1024,8 +1117,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       getClientRelationships,
       createClient,
       updateClient,
+      updateClientAsync,
       deleteClient,
       replaceClientRelationships,
+      replaceClientRelationshipsAsync,
       createPolicy,
       updatePolicy,
       deletePolicy,
@@ -1062,8 +1157,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       getClientRelationships,
       createClient,
       updateClient,
+      updateClientAsync,
       deleteClient,
       replaceClientRelationships,
+      replaceClientRelationshipsAsync,
       createPolicy,
       updatePolicy,
       deletePolicy,

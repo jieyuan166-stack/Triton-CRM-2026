@@ -127,9 +127,10 @@ export function NewClientDialog({
   const {
     clients,
     createClient,
-    updateClient,
+    updateClientAsync,
     getClientRelationships,
     replaceClientRelationships,
+    replaceClientRelationshipsAsync,
   } = useData();
   const router = useRouter();
   const isEdit = !!client;
@@ -352,13 +353,30 @@ export function NewClientDialog({
     };
 
     if (isEdit && client) {
-      const updated = updateClient(client.id, patch);
+      let updated: Client | null = null;
+      try {
+        updated = await updateClientAsync(client.id, patch);
+      } catch (error) {
+        toast.error("Could not update client", {
+          description:
+            error instanceof Error ? error.message : "Please refresh and try again.",
+        });
+        return;
+      }
       if (!updated) {
         toast.error("Could not update client");
         return;
       }
       if (relationshipsChanged(updated.id, nextRelationships)) {
-        replaceClientRelationships(updated.id, nextRelationships);
+        try {
+          await replaceClientRelationshipsAsync(updated.id, nextRelationships);
+        } catch (error) {
+          toast.error("Could not update linked clients", {
+            description:
+              error instanceof Error ? error.message : "Please refresh and try again.",
+          });
+          return;
+        }
       }
       toast.success("Client updated", {
         description: `${updated.firstName} ${updated.lastName} saved`,

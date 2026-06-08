@@ -38,6 +38,7 @@ export function EmailConfigSection() {
   const [fromName, setFromName] = useState(email.fromName);
   const [fromEmail, setFromEmail] = useState(email.fromEmail);
   const [savingDigest, setSavingDigest] = useState(false);
+  const [sendingDigestTest, setSendingDigestTest] = useState(false);
   const [savingPremiumAutomation, setSavingPremiumAutomation] = useState(false);
   const [savingBirthdayAutomation, setSavingBirthdayAutomation] = useState(false);
 
@@ -255,29 +256,61 @@ export function EmailConfigSection() {
                 </p>
               </div>
             </div>
-            <Button
-              type="button"
-              size="sm"
-              variant={digest.enabled ? "default" : "outline"}
-              disabled={savingDigest}
-              className={cn(
-                "h-8 shrink-0",
-                digest.enabled && "bg-navy text-white hover:bg-[#0B2747]"
-              )}
-              onClick={async () => {
-                setSavingDigest(true);
-                const nextEnabled = !digest.enabled;
-                const result = await updateWeeklyDigest({ enabled: nextEnabled });
-                setSavingDigest(false);
-                if (!result.ok) {
-                  toast.error(result.error || "Weekly digest could not be saved");
-                  return;
-                }
-                toast.success(nextEnabled ? "Weekly digest enabled" : "Weekly digest disabled");
-              }}
-            >
-              {savingDigest ? "Saving..." : digest.enabled ? "Enabled" : "Disabled"}
-            </Button>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={sendingDigestTest}
+                className="h-8 border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                onClick={async () => {
+                  setSendingDigestTest(true);
+                  try {
+                    const response = await fetch("/api/email/weekly-digest", { method: "POST" });
+                    const data = await response.json().catch(() => null) as {
+                      ok?: boolean;
+                      error?: string;
+                      recipient?: string;
+                      messageId?: string;
+                    } | null;
+                    if (!response.ok || !data?.ok) {
+                      toast.error(data?.error || "Weekly digest test could not be sent");
+                      return;
+                    }
+                    toast.success(
+                      `Test digest sent to ${data.recipient || "your sign-in email"}${data.messageId ? ` · ${data.messageId}` : ""}`
+                    );
+                  } finally {
+                    setSendingDigestTest(false);
+                  }
+                }}
+              >
+                {sendingDigestTest ? "Sending..." : "Send test now"}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={digest.enabled ? "default" : "outline"}
+                disabled={savingDigest}
+                className={cn(
+                  "h-8",
+                  digest.enabled && "bg-navy text-white hover:bg-[#0B2747]"
+                )}
+                onClick={async () => {
+                  setSavingDigest(true);
+                  const nextEnabled = !digest.enabled;
+                  const result = await updateWeeklyDigest({ enabled: nextEnabled });
+                  setSavingDigest(false);
+                  if (!result.ok) {
+                    toast.error(result.error || "Weekly digest could not be saved");
+                    return;
+                  }
+                  toast.success(nextEnabled ? "Weekly digest enabled" : "Weekly digest disabled");
+                }}
+              >
+                {savingDigest ? "Saving..." : digest.enabled ? "Enabled" : "Disabled"}
+              </Button>
+            </div>
           </div>
 
           <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">

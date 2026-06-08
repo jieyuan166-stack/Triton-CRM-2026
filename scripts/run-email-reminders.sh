@@ -8,10 +8,10 @@ if [ -z "${CRON_SECRET:-}" ]; then
   exit 1
 fi
 
-echo "$(date '+%Y-%m-%d %H:%M:%S %Z') weekly digest run started"
+echo "$(date '+%Y-%m-%d %H:%M:%S %Z') email reminders run started"
 curl -fsS \
   -X POST \
   -H "Authorization: Bearer $CRON_SECRET" \
-  "$APP_URL/api/automation/weekly-digest/run"
+  "$APP_URL/api/automation/email-reminders/run"
 echo
-echo "$(date '+%Y-%m-%d %H:%M:%S %Z') weekly digest run finished"
+echo "$(date '+%Y-%m-%d %H:%M:%S %Z') email reminders run finished"

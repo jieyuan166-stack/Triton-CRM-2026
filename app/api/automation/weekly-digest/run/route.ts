@@ -15,7 +15,15 @@ export async function POST(request: Request) {
 
   const users = await db.user.findMany({ select: { id: true, email: true, name: true } });
   const now = new Date();
-  const results: Array<{ userId: string; email: string | null; sent: boolean; skipped?: string; error?: string }> = [];
+  const results: Array<{
+    userId: string;
+    email: string | null;
+    sent: boolean;
+    skipped?: string;
+    error?: string;
+    messageId?: string;
+    recipient?: string;
+  }> = [];
   let sent = 0;
   let skipped = 0;
   let failed = 0;
@@ -28,7 +36,14 @@ export async function POST(request: Request) {
       } else {
         skipped += 1;
       }
-      results.push({ userId: user.id, email: user.email, sent: result.sent, skipped: result.skipped });
+      results.push({
+        userId: user.id,
+        email: user.email,
+        sent: result.sent,
+        skipped: result.skipped,
+        messageId: result.messageId,
+        recipient: result.recipient,
+      });
     } catch (error) {
       failed += 1;
       results.push({
