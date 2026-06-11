@@ -25,7 +25,7 @@ import { calculateClientTags } from "@/lib/client-tags";
 import { applyTemplate } from "@/lib/templates";
 import { cn } from "@/lib/utils";
 
-const WINDOW_DAYS = 7;
+const WINDOW_DAYS = 2;
 const BIRTHDAY_SUPPRESSION_DAYS = 30;
 const LOOKBACK_DAYS = 7;
 const MAX_SENT = 5;
@@ -235,7 +235,7 @@ export function UpcomingBirthdays() {
                     >
                       <Checkbox aria-label={`Select ${clientName}`} checked={isChecked} onCheckedChange={(c) => toggleOne(client.id, c === true)} disabled={!canEmail} />
                       <UniversalDataCard
-                        accentColor={daysAway <= 7 ? "#F59E0B" : "#CBD5E1"}
+                        accentColor={daysAway <= WINDOW_DAYS ? "#F59E0B" : "#CBD5E1"}
                         className="flex-1 rounded-lg border border-slate-100 bg-white/70 p-3 shadow-none"
                         title={
                           <Link href={clientPath(client)} className="inline-flex items-center gap-2">
