@@ -12,6 +12,10 @@ import { formatCurrency } from "@/lib/format";
 import { insuranceProductTone, investmentProductTone } from "@/lib/investment-product-style";
 import { displayPolicyNumberWithHash } from "@/lib/policy-number";
 import { partyDisplayName } from "@/lib/policy-parties";
+import {
+  getAccruedOngoingInvestmentAmount,
+  getOngoingInvestmentContributionCount,
+} from "@/lib/portfolio-metrics";
 import { PAYMENT_FREQUENCY_LABELS, type Client, type Policy } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -63,6 +67,13 @@ function ongoingDateRange(policy: Policy): string {
   return `Start Date: ${start} · End Date: ${formatDate(policy.ongoingInvestmentEndDate)}`;
 }
 
+function ongoingInvestmentHelper(policy: Policy): string | undefined {
+  if (!policy.ongoingInvestmentAmount) return undefined;
+  const count = getOngoingInvestmentContributionCount(policy);
+  const frequency = ongoingFrequencyLabel(policy);
+  return `${formatCurrency(policy.ongoingInvestmentAmount)} / ${frequency.toLowerCase()} · ${count} contribution${count === 1 ? "" : "s"} · ${ongoingDateRange(policy)}`;
+}
+
 function buildPolicyMetrics(policy: Policy): UniversalDataMetric[] {
   const amountLabel = policy.category === "Investment" ? "Initial Amount" : "Total Coverage";
   const dateLabel = policy.category === "Investment" ? "Effective Date" : "Due Date";
@@ -88,9 +99,13 @@ function buildPolicyMetrics(policy: Policy): UniversalDataMetric[] {
     }
 
     metrics.push({
-      label: "Ongoing Amount",
-      value: <span className="font-finance">{formatCurrency(policy.ongoingInvestmentAmount || 0)}</span>,
-      helper: policy.ongoingInvestmentAmount ? ongoingDateRange(policy) : undefined,
+      label: "Ongoing Invested",
+      value: (
+        <span className="font-finance">
+          {formatCurrency(getAccruedOngoingInvestmentAmount(policy))}
+        </span>
+      ),
+      helper: ongoingInvestmentHelper(policy),
     });
     if (policy.ongoingInvestmentAmount) {
       metrics.push({

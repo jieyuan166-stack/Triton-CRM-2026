@@ -22,7 +22,7 @@ import {
   ensureUniqueClientSlugs,
 } from "@/lib/client-slug";
 import { normalizeClientNotes, removeCommunicationNoteBlocks } from "@/lib/communication-notes";
-import { dedupePolicies } from "@/lib/portfolio-metrics";
+import { dedupePolicies, getPolicyPortfolioAmount } from "@/lib/portfolio-metrics";
 import { type BackupSnapshot } from "@/lib/settings-types";
 import { toTitleCaseName } from "@/lib/text-utils";
 import type {
@@ -155,8 +155,8 @@ function uid(prefix: string): string {
 
 function calcAUM(policies: Policy[]): number {
   return dedupePolicies(policies)
-    .filter((p) => p.status === "active")
-    .reduce((sum, p) => sum + p.sumAssured, 0);
+    .filter((p) => p.status === "active" && p.category === "Investment")
+    .reduce((sum, p) => sum + getPolicyPortfolioAmount(p), 0);
 }
 
 function visiblePoliciesForClient(policies: Policy[], clientId: string): Policy[] {

@@ -24,6 +24,10 @@ import { formatDate, formatMonthDay } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/format";
 import { insuranceProductTone, investmentProductTone } from "@/lib/investment-product-style";
 import { displayPolicyNumberWithHash } from "@/lib/policy-number";
+import {
+  getAccruedOngoingInvestmentAmount,
+  getOngoingInvestmentContributionCount,
+} from "@/lib/portfolio-metrics";
 import type { Policy } from "@/lib/types";
 import { CARRIERS, PAYMENT_FREQUENCY_LABELS } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -255,6 +259,11 @@ function CompactPolicyRow({
     policy.ongoingInvestmentFrequency === "Custom"
       ? policy.ongoingInvestmentFrequencyCustom || "Custom"
       : policy.ongoingInvestmentFrequency || "—";
+  const ongoingContributionCount = getOngoingInvestmentContributionCount(policy);
+  const accruedOngoingAmount = getAccruedOngoingInvestmentAmount(policy);
+  const ongoingHelper = policy.ongoingInvestmentAmount
+    ? `${formatCurrency(policy.ongoingInvestmentAmount)} / ${ongoingFrequency.toLowerCase()} · ${ongoingContributionCount} contribution${ongoingContributionCount === 1 ? "" : "s"} · Start Date: ${ongoingDateRange}`
+    : undefined;
   const secondaryInvestmentMetric = policy.isInvestmentLoan
     ? {
         label: "Loan Amount",
@@ -262,16 +271,16 @@ function CompactPolicyRow({
         helper: policy.lender ? `Lender: ${policy.lender}` : undefined,
       }
     : {
-        label: "Ongoing Amount",
-        value: policy.ongoingInvestmentAmount ? formatCurrency(policy.ongoingInvestmentAmount) : "—",
-        helper: policy.ongoingInvestmentAmount ? `Start Date: ${ongoingDateRange}` : undefined,
+        label: "Ongoing Invested",
+        value: policy.ongoingInvestmentAmount ? formatCurrency(accruedOngoingAmount) : "—",
+        helper: ongoingHelper,
       };
   const tertiaryInvestmentMetric =
     policy.isInvestmentLoan && policy.ongoingInvestmentAmount
       ? {
-          label: "Ongoing Amount",
-          value: formatCurrency(policy.ongoingInvestmentAmount),
-          helper: `Start Date: ${ongoingDateRange}`,
+          label: "Ongoing Invested",
+          value: formatCurrency(accruedOngoingAmount),
+          helper: ongoingHelper,
         }
       : {
           label: "Frequency",

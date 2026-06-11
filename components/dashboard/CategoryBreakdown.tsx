@@ -33,6 +33,7 @@ import { formatCurrency, formatCurrencyShort } from "@/lib/format";
 import {
   calculatePortfolioMetrics,
   dedupePolicies,
+  getOngoingInvestmentAmountBetween,
   getPolicyPortfolioAmount,
 } from "@/lib/portfolio-metrics";
 import { cn } from "@/lib/utils";
@@ -94,6 +95,9 @@ function buildNewMoneyRows(
     today.getMonth(),
     today.getDate()
   );
+  const currentYearStart = new Date(currentYear, 0, 1);
+  const previousYearStart = new Date(previousYear, 0, 1);
+  const previousYearEnd = new Date(previousYear, 11, 31);
 
   const rows = new Map<Carrier, NewMoneyRow>(
     CARRIERS.map((carrier) => [
@@ -112,21 +116,37 @@ function buildNewMoneyRows(
       category === "Insurance"
         ? annualizedPremium(policy)
         : policy.sumAssured || policy.loanAmount || 0;
-    if (contribution <= 0) continue;
-
     const row = rows.get(policy.carrier);
     if (!row) continue;
 
     const year = effectiveDate.getFullYear();
-    if (year === currentYear && effectiveDate <= currentCutoff) {
+    if (contribution > 0 && year === currentYear && effectiveDate <= currentCutoff) {
       row.ytdNew += contribution;
     }
 
-    if (year === previousYear) {
+    if (contribution > 0 && year === previousYear) {
       row.lastYearTotal += contribution;
       if (effectiveDate <= previousCutoff) {
         row.lastYearYtd += contribution;
       }
+    }
+
+    if (category === "Investment" && policy.ongoingInvestmentAmount) {
+      row.ytdNew += getOngoingInvestmentAmountBetween(
+        policy,
+        currentYearStart,
+        currentCutoff
+      );
+      row.lastYearYtd += getOngoingInvestmentAmountBetween(
+        policy,
+        previousYearStart,
+        previousCutoff
+      );
+      row.lastYearTotal += getOngoingInvestmentAmountBetween(
+        policy,
+        previousYearStart,
+        previousYearEnd
+      );
     }
   }
 

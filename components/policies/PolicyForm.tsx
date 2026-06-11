@@ -766,7 +766,7 @@ export function PolicyForm({
               <div>
                 <p className="label-caps">Ongoing Investment</p>
                 <p className="mt-1 text-xs text-triton-muted">
-                  Optional scheduled contribution amount. Counts once toward Investment AUM.
+                  Optional scheduled contribution. Each due amount is added to Investment AUM from the start date.
                 </p>
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
