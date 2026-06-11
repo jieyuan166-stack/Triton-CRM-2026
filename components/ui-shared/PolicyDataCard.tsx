@@ -79,6 +79,14 @@ function buildPolicyMetrics(policy: Policy): UniversalDataMetric[] {
   ];
 
   if (policy.category === "Investment") {
+    if (policy.isInvestmentLoan) {
+      metrics.push({
+        label: "Loan Amount",
+        value: <span className="font-finance">{formatCurrency(policy.loanAmount || 0)}</span>,
+        helper: policy.lender ? `Lender: ${policy.lender}` : undefined,
+      });
+    }
+
     metrics.push({
       label: "Ongoing Amount",
       value: <span className="font-finance">{formatCurrency(policy.ongoingInvestmentAmount || 0)}</span>,
@@ -228,7 +236,13 @@ export function PolicyDataCard({
       ))}
       actions={actions}
       metrics={buildPolicyMetrics(policy)}
-      metricsClassName={policy.category === "Investment" ? "sm:grid-cols-2 lg:grid-cols-3" : "sm:grid-cols-3"}
+      metricsClassName={
+        policy.category === "Investment"
+          ? policy.isInvestmentLoan
+            ? "sm:grid-cols-2 lg:grid-cols-4"
+            : "sm:grid-cols-2 lg:grid-cols-3"
+          : "sm:grid-cols-3"
+      }
       className={className}
     />
   );

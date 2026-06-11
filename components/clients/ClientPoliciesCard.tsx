@@ -255,6 +255,29 @@ function CompactPolicyRow({
     policy.ongoingInvestmentFrequency === "Custom"
       ? policy.ongoingInvestmentFrequencyCustom || "Custom"
       : policy.ongoingInvestmentFrequency || "—";
+  const secondaryInvestmentMetric = policy.isInvestmentLoan
+    ? {
+        label: "Loan Amount",
+        value: formatCurrency(policy.loanAmount || 0),
+        helper: policy.lender ? `Lender: ${policy.lender}` : undefined,
+      }
+    : {
+        label: "Ongoing Amount",
+        value: policy.ongoingInvestmentAmount ? formatCurrency(policy.ongoingInvestmentAmount) : "—",
+        helper: policy.ongoingInvestmentAmount ? `Start Date: ${ongoingDateRange}` : undefined,
+      };
+  const tertiaryInvestmentMetric =
+    policy.isInvestmentLoan && policy.ongoingInvestmentAmount
+      ? {
+          label: "Ongoing Amount",
+          value: formatCurrency(policy.ongoingInvestmentAmount),
+          helper: `Start Date: ${ongoingDateRange}`,
+        }
+      : {
+          label: "Frequency",
+          value: ongoingFrequency,
+          helper: undefined,
+        };
   const insuranceDateValue =
     policy.category === "Investment"
       ? "—"
@@ -323,13 +346,9 @@ function CompactPolicyRow({
         <div>
           {policy.category === "Investment" ? (
             <Metric
-              label="Ongoing Amount"
-              value={policy.ongoingInvestmentAmount ? formatCurrency(policy.ongoingInvestmentAmount) : "—"}
-              helper={
-                policy.ongoingInvestmentAmount
-                  ? `Start Date: ${ongoingDateRange}`
-                  : undefined
-              }
+              label={secondaryInvestmentMetric.label}
+              value={secondaryInvestmentMetric.value}
+              helper={secondaryInvestmentMetric.helper}
             />
           ) : (
             <Metric
@@ -339,7 +358,11 @@ function CompactPolicyRow({
           )}
         </div>
         {policy.category === "Investment" ? (
-          <Metric label="Frequency" value={ongoingFrequency} />
+          <Metric
+            label={tertiaryInvestmentMetric.label}
+            value={tertiaryInvestmentMetric.value}
+            helper={tertiaryInvestmentMetric.helper}
+          />
         ) : (
           <Metric label="Due Date" value={insuranceDateValue} />
         )}

@@ -131,9 +131,6 @@ function DependentFields({
   );
 }
 
-/** Default Loan Amount the spec wants populated when the toggle is first
- *  enabled. Users can edit it freely after that. */
-const DEFAULT_LOAN_AMOUNT = 100_000;
 const EMPTY_INSURED_PERSONS: NonNullable<PolicyFormValues["insuredPersons"]> = [];
 
 function makeDefaults(defaultClientId?: string): Partial<PolicyFormValues> {
@@ -216,6 +213,7 @@ export function PolicyForm({
   const isInvestmentLoan = watch("isInvestmentLoan") ?? false;
   const isCorporateInsurance = watch("isCorporateInsurance") ?? false;
   const isJoint = watch("isJoint") ?? false;
+  const initialInvestmentAmount = watch("sumAssured");
   const loanAmount = watch("loanAmount");
   const ongoingInvestmentAmount = watch("ongoingInvestmentAmount");
   const ongoingInvestmentFrequency = watch("ongoingInvestmentFrequency");
@@ -356,28 +354,27 @@ export function PolicyForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category]);
 
-  // When Investment Loan is first enabled, pre-fill Loan Amount with the
-  // spec default ($100,000). Don't override an existing user-entered value.
+  // When Investment Loan is enabled, pre-fill Loan Amount from Initial
+  // Investment if the loan amount is still blank. After that, the two amounts
+  // are intentionally editable independently.
   // When the toggle is turned OFF, clear any stale errors from the now-hidden
   // lender / loanAmount fields so a previous failed submit doesn't keep
   // blocking the form.
   useEffect(() => {
     if (isInvestmentLoan) {
       const current = loanAmount;
-      const syncedAmount =
-        typeof current === "number" && current > 0
-          ? current
-          : DEFAULT_LOAN_AMOUNT;
-
-      if (current !== syncedAmount) {
-        setValue("loanAmount", DEFAULT_LOAN_AMOUNT, { shouldValidate: false });
+      if (
+        (typeof current !== "number" || current <= 0) &&
+        typeof initialInvestmentAmount === "number" &&
+        initialInvestmentAmount > 0
+      ) {
+        setValue("loanAmount", initialInvestmentAmount as never, { shouldValidate: false });
       }
-      setValue("sumAssured", syncedAmount as never, { shouldValidate: true });
     } else {
       clearErrors(["lender", "loanAmount"]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isInvestmentLoan, loanAmount]);
+  }, [isInvestmentLoan]);
 
   useEffect(() => {
     if (!isJoint) {
@@ -754,11 +751,10 @@ export function PolicyForm({
                 onValueChange={(n) =>
                   setValue("sumAssured", n as never, { shouldValidate: true })
                 }
-                disabled={isInvestmentLoan}
               />
               {isInvestmentLoan ? (
                 <p className="text-[11px] text-triton-muted">
-                  Matches the investment loan amount automatically.
+                  Loan amount is prefilled from this value, but both amounts can be adjusted.
                 </p>
               ) : null}
               <FieldError message={errors.sumAssured?.message} />
@@ -895,9 +891,6 @@ export function PolicyForm({
                         value={watch("loanAmount")}
                         onValueChange={(n) => {
                           setValue("loanAmount", n as never, {
-                            shouldValidate: true,
-                          });
-                          setValue("sumAssured", n as never, {
                             shouldValidate: true,
                           });
                         }}
