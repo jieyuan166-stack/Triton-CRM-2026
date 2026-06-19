@@ -185,6 +185,7 @@ export function renderEmailHtml(
     emphasizedTerms?: string[];
     template?: "birthday" | "renewal" | "festival" | "custom";
     birthdayCardEnabled?: boolean;
+    inlineHtmlBeforeSignature?: string;
   }
 ): string {
   const rawFilled = applyTemplate(body, vars);
@@ -203,12 +204,14 @@ export function renderEmailHtml(
     options?.template === "birthday" && options.birthdayCardEnabled !== false
       ? birthdayCardImageHtml()
       : "";
-  const separator = (filled.trim() || cardHtml) && signatureHtml ? "<br /><br />" : "";
+  const inlineHtmlBeforeSignature = options?.inlineHtmlBeforeSignature?.trim() ?? "";
+  const separator = (filled.trim() || cardHtml || inlineHtmlBeforeSignature) && signatureHtml ? "<br /><br />" : "";
 
   return [
     '<div style="font-family: Geist, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, sans-serif; font-size: 14px; line-height: 1.6; color: #0F172A;">',
     bodyHtml,
     cardHtml ? `<div style="margin-top: 18px;">${cardHtml}</div>` : "",
+    inlineHtmlBeforeSignature,
     separator,
     signatureHtml
       ? `<div style="margin-top: 2px;">${signatureHtml}</div>`

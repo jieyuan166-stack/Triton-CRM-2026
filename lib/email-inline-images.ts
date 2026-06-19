@@ -10,13 +10,44 @@ export function attachInlineImages(html: string): {
   html: string;
   attachments: InlineImageAttachment[];
 } {
-  // Gmail/Outlook often expose cid inline images as visible attachments.
-  // Signature images are decorative, so outbound mail keeps the HTML text
-  // signature and strips embedded base64 images instead of creating
-  // triton-signature-*.png attachments.
-  const htmlWithoutEmbeddedImages = html
+  const attachments: InlineImageAttachment[] = [];
+
+  const htmlWithInlineImages = html.replace(/<img\b[^>]*>/gi, (tag) => {
+    const isComposeInlineImage = /\bdata-inline-attachment=(["'])true\1/i.test(tag);
+    const srcMatch = /\bsrc=(["'])data:(image\/[^;]+);base64,([^"']+)\1/i.exec(tag);
+
+    if (!srcMatch) return tag;
+
+    // Gmail/Outlook often expose arbitrary cid signature images as visible
+    // attachments. Only user-uploaded compose images carry this explicit
+    // marker; unmarked base64 images are stripped as decorative/unsafe.
+    if (!isComposeInlineImage) return "";
+
+    const contentType = srcMatch[2];
+    const base64 = srcMatch[3].replace(/\s/g, "");
+    const filenameMatch = /\bdata-filename=(["'])(.*?)\1/i.exec(tag);
+    const extension = contentType.split("/")[1]?.replace(/[^a-z0-9.+-]/gi, "") || "png";
+    const filename = (filenameMatch?.[2] || `inline-image-${attachments.length + 1}.${extension}`)
+      .replace(/[\\/:*?"<>|]/g, "-");
+    const cid = `compose-inline-${attachments.length + 1}-${Date.now()}@triton-crm`;
+
+    attachments.push({
+      cid,
+      filename,
+      contentType,
+      content: Buffer.from(base64, "base64"),
+      contentDisposition: "inline",
+    });
+
+    return tag
+      .replace(/\bsrc=(["'])data:image\/[^;]+;base64,[^"']+\1/i, `src="cid:${cid}"`)
+      .replace(/\s+\bdata-inline-attachment=(["'])true\1/gi, "")
+      .replace(/\s+\bdata-filename=(["']).*?\1/gi, "");
+  });
+
+  const htmlWithoutUnmarkedEmbeddedImages = htmlWithInlineImages
     .replace(/<img\b[^>]*\bsrc=(["'])data:image\/[^;]+;base64,[^"']+\1[^>]*>/gi, "")
     .replace(/\s+\bsrc=(["'])data:image\/[^;]+;base64,[^"']+\1/gi, "");
 
-  return { html: htmlWithoutEmbeddedImages, attachments: [] };
+  return { html: htmlWithoutUnmarkedEmbeddedImages, attachments };
 }

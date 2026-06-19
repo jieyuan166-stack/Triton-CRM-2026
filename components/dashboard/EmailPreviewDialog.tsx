@@ -242,6 +242,30 @@ export function EmailPreviewDialog({
     }));
   }
 
+  function isImageAttachment(file: ComposeAttachment) {
+    return file.contentType.startsWith("image/");
+  }
+
+  function escapeHtmlAttr(value: string) {
+    return value
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  function inlineImageAttachmentHtml(files = attachments.filter(isImageAttachment)) {
+    if (files.length === 0) return "";
+    const images = files
+      .map((file) => {
+        const src = `data:${file.contentType};base64,${file.content}`;
+        const filename = escapeHtmlAttr(file.filename);
+        return `<img data-inline-attachment="true" data-filename="${filename}" src="${src}" alt="${filename}" style="display:block;width:100%;max-width:720px;height:auto;border:0;border-radius:12px;margin:0 auto 14px auto;" />`;
+      })
+      .join("");
+    return `<div style="margin-top:18px;">${images}</div>`;
+  }
+
   function policyOptionLabel(policyId?: string) {
     const policy = policyId ? getPolicy(policyId) : undefined;
     if (!policy) return "";
@@ -520,6 +544,7 @@ export function EmailPreviewDialog({
           emphasizedTerms: message.emphasizedTerms,
           template: message.template,
           birthdayCardEnabled,
+          inlineHtmlBeforeSignature: inlineImageAttachmentHtml(),
         }
       );
       const res = await fetch("/api/send-email", {
@@ -537,7 +562,7 @@ export function EmailPreviewDialog({
             settings.profile.email ||
             settings.email.user,
           clientId: message.clientId,
-          attachments: attachments.map(({ filename, contentType, content }) => ({
+          attachments: attachments.filter((file) => !isImageAttachment(file)).map(({ filename, contentType, content }) => ({
             filename,
             contentType,
             content,
@@ -1012,6 +1037,24 @@ export function EmailPreviewDialog({
                 />
               </div>
             ) : null}
+            {attachments.some(isImageAttachment) ? (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                  Inline image preview · sent above signature
+                </p>
+                <div className="space-y-2">
+                  {attachments.filter(isImageAttachment).map((file) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={file.id}
+                      src={`data:${file.contentType};base64,${file.content}`}
+                      alt={file.filename}
+                      className="mx-auto block h-auto w-full max-w-[720px] rounded-lg border border-slate-100"
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : null}
             {signatureHtml ? (
               <div className="rounded-lg border border-slate-200 bg-slate-50">
                 <div className="border-b border-slate-200 px-3 py-2">
@@ -1064,6 +1107,11 @@ export function EmailPreviewDialog({
                         <FileText className="h-3.5 w-3.5 text-slate-400" />
                       )}
                       <span className="min-w-0 flex-1 truncate">{file.filename}</span>
+                      {isImage ? (
+                        <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                          Inline
+                        </span>
+                      ) : null}
                       <span className="shrink-0 text-[11px] text-slate-400">
                         {formatBytes(file.size)}
                       </span>
@@ -1085,7 +1133,7 @@ export function EmailPreviewDialog({
               </div>
             ) : (
               <p className="text-[11px] text-triton-muted">
-                Attach PDFs or images for this send only. Files are not saved in CRM storage.
+                Images are shown inside the email above the signature. PDFs stay as attachments. Files are not saved in CRM storage.
               </p>
             )}
           </div>

@@ -162,7 +162,7 @@ export async function POST(request: Request) {
         content,
       };
     });
-    const totalAttachmentBytes = userAttachments.reduce(
+    const totalAttachmentBytes = [...attachments, ...userAttachments].reduce(
       (sum, attachment) => sum + attachment.content.length,
       0
     );
