@@ -39,6 +39,9 @@ import { displayPolicyNumberWithHash } from "@/lib/policy-number";
 import { cn } from "@/lib/utils";
 
 const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
+const INLINE_IMAGE_MAX_WIDTH = 1200;
+const INLINE_IMAGE_JPEG_QUALITY = 0.82;
+const INLINE_IMAGE_RECOMPRESS_THRESHOLD = 900 * 1024;
 
 const PROVINCE_TIMEZONES: Record<string, string> = {
   BC: "America/Vancouver",
@@ -168,6 +171,7 @@ export function EmailPreviewDialog({
   const [selectedPolicyId, setSelectedPolicyId] = useState<string | undefined>(undefined);
   const [selectedPolicyIds, setSelectedPolicyIds] = useState<string[]>([]);
   const [selectedCommunicationType, setSelectedCommunicationType] = useState("External Email");
+  const [saveToActivity, setSaveToActivity] = useState(true);
   const [sending, setSending] = useState(false);
   const [birthdayConfirmOpen, setBirthdayConfirmOpen] = useState(false);
   const [birthdayWarning, setBirthdayWarning] = useState("");
@@ -190,6 +194,7 @@ export function EmailPreviewDialog({
           (payload.policyId ? [payload.policyId] : [])
       );
       setSelectedCommunicationType(payload.communicationType || "External Email");
+      setSaveToActivity((payload.template ?? "custom") !== "festival");
       setSending(false);
       setBirthdayConfirmOpen(false);
       setBirthdayWarning("");
@@ -325,6 +330,7 @@ export function EmailPreviewDialog({
 
   function applySelectedTemplate(nextTemplate: "custom" | "birthday" | "renewal" | "festival", nextPolicyId = selectedPolicyId) {
     setSelectedTemplate(nextTemplate);
+    setSaveToActivity(nextTemplate !== "festival");
     if (nextTemplate === "custom") return;
     const tpl = settings.templates.find((item) => item.id === nextTemplate);
     if (!tpl) return;
@@ -344,6 +350,75 @@ export function EmailPreviewDialog({
     return window.btoa(binary);
   }
 
+  async function prepareImageAttachment(file: File) {
+    if (
+      !file.type.startsWith("image/") ||
+      file.type === "image/gif" ||
+      file.type === "image/svg+xml"
+    ) {
+      return {
+        filename: file.name,
+        contentType: file.type || "application/octet-stream",
+        size: file.size,
+        content: arrayBufferToBase64(await file.arrayBuffer()),
+      };
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    try {
+      const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error("Could not read image"));
+        img.src = objectUrl;
+      });
+
+      const width = image.naturalWidth || image.width;
+      const height = image.naturalHeight || image.height;
+      const scale = Math.min(1, INLINE_IMAGE_MAX_WIDTH / Math.max(width, 1));
+
+      if (scale === 1 && file.size <= INLINE_IMAGE_RECOMPRESS_THRESHOLD) {
+        return {
+          filename: file.name,
+          contentType: file.type || "image/jpeg",
+          size: file.size,
+          content: arrayBufferToBase64(await file.arrayBuffer()),
+        };
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(width * scale));
+      canvas.height = Math.max(1, Math.round(height * scale));
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Could not resize image");
+      context.fillStyle = "#FFFFFF";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/jpeg", INLINE_IMAGE_JPEG_QUALITY)
+      );
+      if (!blob || blob.size >= file.size) {
+        return {
+          filename: file.name,
+          contentType: file.type || "image/jpeg",
+          size: file.size,
+          content: arrayBufferToBase64(await file.arrayBuffer()),
+        };
+      }
+
+      const filename = file.name.replace(/\.[^.]+$/, "") + ".jpg";
+      return {
+        filename,
+        contentType: "image/jpeg",
+        size: blob.size,
+        content: arrayBufferToBase64(await blob.arrayBuffer()),
+      };
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
+
   async function handleAttachmentChange(files: FileList | null) {
     if (!files || files.length === 0) return;
 
@@ -360,13 +435,20 @@ export function EmailPreviewDialog({
     }
 
     const encoded = await Promise.all(
-      nextFiles.map(async (file) => ({
-        id: `${file.name}-${file.size}-${file.lastModified}-${crypto.randomUUID()}`,
-        filename: file.name,
-        contentType: file.type || "application/octet-stream",
-        size: file.size,
-        content: arrayBufferToBase64(await file.arrayBuffer()),
-      }))
+      nextFiles.map(async (file) => {
+        const prepared = file.type.startsWith("image/")
+          ? await prepareImageAttachment(file)
+          : {
+              filename: file.name,
+              contentType: file.type || "application/octet-stream",
+              size: file.size,
+              content: arrayBufferToBase64(await file.arrayBuffer()),
+            };
+        return {
+          id: `${prepared.filename}-${prepared.size}-${file.lastModified}-${crypto.randomUUID()}`,
+          ...prepared,
+        };
+      })
     );
 
     setAttachments((prev) => [...prev, ...encoded]);
@@ -601,7 +683,7 @@ export function EmailPreviewDialog({
           ? "Festival Greeting"
           : customCommunicationType;
 
-      const shouldWriteActivity = !!clientId && template !== "festival";
+      const shouldWriteActivity = !!clientId && saveToActivity && template !== "festival";
       if (shouldWriteActivity) {
         appendEmailHistory(clientId, {
           subject: prepared.subject,
@@ -998,6 +1080,21 @@ export function EmailPreviewDialog({
                 </div>
               ) : null}
             </div>
+          ) : null}
+
+          {!isBulk && activePayload.clientId ? (
+            <label className="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-3.5 w-3.5 accent-navy"
+                checked={saveToActivity}
+                onChange={(event) => setSaveToActivity(event.target.checked)}
+              />
+              <span>
+                <span className="block font-medium text-slate-700">Save to Activity Timeline</span>
+                <span className="block text-[11px] text-triton-muted">Turn this off for holiday greetings or general announcements.</span>
+              </span>
+            </label>
           ) : null}
 
           <div className="space-y-1.5">
