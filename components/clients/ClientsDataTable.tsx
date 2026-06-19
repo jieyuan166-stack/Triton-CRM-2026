@@ -361,7 +361,7 @@ export function ClientsDataTable() {
         .map((client) => client.email.trim())
         .join(", ");
       const vars = {
-        "Client Name": "Client",
+        "Client Name": "Valued Client",
         Date: new Date().toLocaleDateString("en-CA", {
           year: "numeric",
           month: "short",
