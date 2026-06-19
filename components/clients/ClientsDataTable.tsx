@@ -383,6 +383,7 @@ export function ClientsDataTable() {
         body: applyTemplate(selectedTemplate.body, vars),
         attachments: selectedTemplate.attachments ?? [],
         template: templateKind,
+        templateVars: vars,
       });
       setEmailDialogOpen(true);
       return;

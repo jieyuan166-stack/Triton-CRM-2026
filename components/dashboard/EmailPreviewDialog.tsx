@@ -101,6 +101,7 @@ export interface EmailPreviewPayload {
   reminderDedupeKey?: string;
   emphasizedTerms?: string[];
   attachments?: EmailTemplateAttachment[];
+  templateVars?: Record<string, string | undefined>;
 }
 
 export interface EmailPreviewBatchItem {
@@ -309,12 +310,15 @@ export function EmailPreviewDialog({
   function templateVars(policyId?: string) {
     const policy = policyId ? policies.find((item) => item.id === policyId) : undefined;
     const client = clients.find((item) => item.id === activePayload.clientId);
-    const clientName = client ? `${client.firstName} ${client.lastName}`.trim() : activePayload.contextLabel;
+    const clientName = client
+      ? `${client.firstName} ${client.lastName}`.trim()
+      : activePayload.templateVars?.["Client Name"] ?? (isBulk ? "Valued Client" : activePayload.contextLabel);
     const money = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" });
     const premiumAmount = policy ? money.format(policy.premium ?? 0) : "";
     const totalCoverage = policy ? money.format(policy.sumAssured ?? 0) : "";
     const stageLabel = activePayload.reminderStage === "second" ? "Second Reminder" : activePayload.reminderStage === "first" ? "First Reminder" : "Manual Reminder";
     return {
+      ...(activePayload.templateVars ?? {}),
       "Client Name": clientName,
       Carrier: policy?.carrier ?? "",
       "Policy Name": policy?.productName || policy?.productType || "",
