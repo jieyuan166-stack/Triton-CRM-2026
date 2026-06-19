@@ -4,6 +4,7 @@ export interface InlineImageAttachment {
   contentType: string;
   content: Buffer;
   contentDisposition: "inline";
+  headers?: Record<string, string>;
 }
 
 export function attachInlineImages(html: string): {
@@ -29,7 +30,7 @@ export function attachInlineImages(html: string): {
     const extension = contentType.split("/")[1]?.replace(/[^a-z0-9.+-]/gi, "") || "png";
     const filename = (filenameMatch?.[2] || `inline-image-${attachments.length + 1}.${extension}`)
       .replace(/[\\/:*?"<>|]/g, "-");
-    const cid = `compose-inline-${attachments.length + 1}-${Date.now()}@triton-crm`;
+    const cid = `compose-inline-${attachments.length + 1}-${Date.now()}@crm.tritonwealth.ca`;
 
     attachments.push({
       cid,
@@ -37,6 +38,9 @@ export function attachInlineImages(html: string): {
       contentType,
       content: Buffer.from(base64, "base64"),
       contentDisposition: "inline",
+      headers: {
+        "Content-ID": `<${cid}>`,
+      },
     });
 
     return tag

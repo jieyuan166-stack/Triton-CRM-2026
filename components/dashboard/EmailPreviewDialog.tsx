@@ -601,7 +601,8 @@ export function EmailPreviewDialog({
           ? "Festival Greeting"
           : customCommunicationType;
 
-      if (clientId) {
+      const shouldWriteActivity = !!clientId && template !== "festival";
+      if (shouldWriteActivity) {
         appendEmailHistory(clientId, {
           subject: prepared.subject,
           body: prepared.body,
@@ -615,9 +616,7 @@ export function EmailPreviewDialog({
               ? "Renewal Reminder"
               : template === "birthday"
                 ? "Birthday Greeting"
-                : template === "festival"
-                  ? "Festival Greeting"
-                  : customCommunicationType,
+                : customCommunicationType,
           attachments: attachmentMetadata(),
         });
 
