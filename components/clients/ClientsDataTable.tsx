@@ -28,7 +28,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import {
   EmailPreviewDialog,
-  type EmailPreviewBatchItem,
   type EmailPreviewPayload,
 } from "@/components/dashboard/EmailPreviewDialog";
 import {
@@ -44,6 +43,7 @@ import type { Client } from "@/lib/types";
 import type { EmailTemplateId } from "@/lib/settings-types";
 import { clientPath } from "@/lib/client-slug";
 import { getDynamicTagReasons } from "@/lib/client-tags";
+import { canSendToEmail } from "@/lib/email-address";
 import { applyTemplate } from "@/lib/templates";
 import {
   queryClients,
@@ -234,7 +234,7 @@ export function ClientsDataTable() {
     [clients, selected]
   );
   const selectedClientsWithEmail = selectedClients.filter((client) =>
-    client.email?.trim()
+    canSendToEmail(client.email)
   );
   const selectedTemplate =
     settings.templates.find((template) => template.id === selectedTemplateId) ??
@@ -282,6 +282,9 @@ export function ClientsDataTable() {
     allOnPageIds.length > 0 && allOnPageIds.every((id) => selected.has(id));
   const someOnPageChecked =
     selected.size > 0 && !allOnPageChecked && allOnPageIds.some((id) => selected.has(id));
+  const allMatchingIds = result.matchingIds;
+  const allMatchingChecked =
+    allMatchingIds.length > 0 && allMatchingIds.every((id) => selected.has(id));
 
   function toggleAllOnPage(checked: boolean) {
     setSelected((prev) => {
@@ -296,6 +299,13 @@ export function ClientsDataTable() {
       const next = new Set(prev);
       if (checked) next.add(id);
       else next.delete(id);
+      return next;
+    });
+  }
+  function selectAllMatching() {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      allMatchingIds.forEach((id) => next.add(id));
       return next;
     });
   }
@@ -337,31 +347,42 @@ export function ClientsDataTable() {
       selectedClientsWithEmail.length === 1 ? selectedClientsWithEmail[0] : null;
 
     if (!singleClient) {
-      const templateKind: EmailPreviewBatchItem["template"] =
+      const templateKind =
         selectedTemplate.id === "birthday" ? "birthday" : "custom";
-      const batch: EmailPreviewBatchItem[] = selectedClientsWithEmail.map((client) => {
-        const { clientName, vars } = formatTemplateVars(client);
+      const advisorEmail =
+        settings.email.fromEmail ||
+        settings.profile.email ||
+        settings.email.user;
+      if (!advisorEmail?.trim()) {
+        toast.error("Advisor email is missing.");
+        return;
+      }
+      const bccList = selectedClientsWithEmail
+        .map((client) => client.email.trim())
+        .join(", ");
+      const vars = {
+        "Client Name": "Client",
+        Date: new Date().toLocaleDateString("en-CA", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        }),
+        Carrier: "",
+        "Policy Name": "",
+        "Total Coverage": "",
+        "Death Benefit": "",
+        "Face Amount": "",
+        "Premium Amount": "",
+      };
 
-        return {
-          contextLabel: clientName,
-          to: client.email,
-          subject: applyTemplate(selectedTemplate.subject, vars),
-          body: applyTemplate(selectedTemplate.body, vars),
-          variables: vars,
-          clientId: client.id,
-          template: templateKind,
-        };
-      });
-
-      if (batch.length === 0) return;
       setEmailPayload({
-        contextLabel: `${batch.length} clients`,
-        to: "",
-        subject: selectedTemplate.subject,
-        body: selectedTemplate.body,
+        contextLabel: `${selectedClientsWithEmail.length} clients · BCC`,
+        to: advisorEmail,
+        bcc: bccList,
+        subject: applyTemplate(selectedTemplate.subject, vars),
+        body: applyTemplate(selectedTemplate.body, vars),
         attachments: selectedTemplate.attachments ?? [],
         template: templateKind,
-        batch,
       });
       setEmailDialogOpen(true);
       return;
@@ -458,8 +479,23 @@ export function ClientsDataTable() {
               {selected.size} selected
             </span>
             <span className="text-xs text-slate-500">
-              {selectedClientsWithEmail.length} with email
+              {selectedClientsWithEmail.length} valid email
             </span>
+            {result.total > result.rows.length ? (
+              allMatchingChecked ? (
+                <span className="rounded-full bg-white px-2 py-1 text-[11px] font-medium text-accent-blue ring-1 ring-accent-blue/15">
+                  All {result.total} matching selected
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-accent-blue ring-1 ring-accent-blue/15 transition hover:bg-accent-blue/10"
+                  onClick={selectAllMatching}
+                >
+                  Select all {result.total} matching clients
+                </button>
+              )
+            ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
             <Select

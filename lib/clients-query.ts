@@ -61,6 +61,8 @@ export interface ClientRow {
 
 export interface ClientQueryResult {
   rows: ClientRow[];
+  /** All matching client ids after filters/sort but before pagination. */
+  matchingIds: string[];
   total: number;
   page: number;
   perPage: RowsPerPage;
@@ -306,6 +308,7 @@ export function queryClients(
 
   return {
     rows,
+    matchingIds: filtered.map((row) => row.id),
     total,
     page: safePage,
     perPage,
