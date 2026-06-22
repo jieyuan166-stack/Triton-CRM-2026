@@ -53,6 +53,7 @@ interface ClientPoliciesCardProps {
 }
 
 const DEFAULT_VISIBLE_COUNT = 5;
+type PolicyCategory = keyof typeof CATEGORY_SECTION_STYLE;
 
 function clusterByCarrier(items: Policy[]) {
   return [...items].sort((a, b) => {
@@ -64,7 +65,10 @@ function clusterByCarrier(items: Policy[]) {
 
 export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardProps) {
   const { updatePolicy } = useData();
-  const [expandedList, setExpandedList] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<Record<PolicyCategory, boolean>>({
+    Insurance: false,
+    Investment: false,
+  });
   const [query, setQuery] = useState("");
   const [expandedPolicyIds, setExpandedPolicyIds] = useState<Set<string>>(new Set());
   const [notesPolicyId, setNotesPolicyId] = useState<string | null>(null);
@@ -91,22 +95,35 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
     });
   }, [policies, query]);
 
-  const visiblePolicies = expandedList
-    ? filteredPolicies
-    : filteredPolicies.slice(0, DEFAULT_VISIBLE_COUNT);
-  const hiddenCount = Math.max(filteredPolicies.length - visiblePolicies.length, 0);
-
   const policySections = useMemo(
     () =>
       (["Insurance", "Investment"] as const)
-        .map((category) => ({
-          category,
-          policies: clusterByCarrier(visiblePolicies.filter((p) => p.category === category)),
-          style: CATEGORY_SECTION_STYLE[category],
-        }))
+        .map((category) => {
+          const categoryPolicies = clusterByCarrier(filteredPolicies.filter((p) => p.category === category));
+          const expanded = expandedCategories[category];
+          const visible = expanded
+            ? categoryPolicies
+            : categoryPolicies.slice(0, DEFAULT_VISIBLE_COUNT);
+
+          return {
+            category,
+            policies: visible,
+            total: categoryPolicies.length,
+            hidden: Math.max(categoryPolicies.length - visible.length, 0),
+            expanded,
+            style: CATEGORY_SECTION_STYLE[category],
+          };
+        })
         .filter((s) => s.policies.length > 0),
-    [visiblePolicies]
+    [expandedCategories, filteredPolicies]
   );
+
+  function toggleCategory(category: PolicyCategory) {
+    setExpandedCategories((current) => ({
+      ...current,
+      [category]: !current[category],
+    }));
+  }
 
   function togglePolicyDetails(id: string) {
     setExpandedPolicyIds((prev) => {
@@ -168,7 +185,7 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
             <EmptyState icon={Search} title="No matching policies" description="Try another policy number, carrier, or filter." compact />
           ) : (
         <div className="divide-y divide-slate-100">
-          {policySections.map(({ category, policies: sectionPolicies, style }) => (
+          {policySections.map(({ category, policies: sectionPolicies, total, hidden, expanded, style }) => (
             <section key={category}>
               <div className="flex items-center justify-between gap-3 bg-slate-50/60 px-5 py-2.5 md:px-6">
                 <div className="min-w-0">
@@ -176,7 +193,7 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
                   <p className="text-[11px] text-slate-400">{style.description}</p>
                 </div>
                 <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold font-number ring-1", style.badge)}>
-                  {sectionPolicies.length}
+                  {sectionPolicies.length === total ? total : `${sectionPolicies.length} of ${total}`}
                 </span>
               </div>
 
@@ -195,28 +212,27 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
                     </li>
                 ))}
               </ul>
+              {hidden > 0 || expanded ? (
+                <div className="border-t border-slate-100 px-5 py-2.5 text-center md:px-6">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => toggleCategory(category)}
+                  >
+                    {expanded ? "Show less" : `View all ${total} ${style.label}`}
+                    <ChevronDown
+                      className={cn(
+                        "ml-1.5 h-3.5 w-3.5 transition-transform",
+                        expanded ? "rotate-180" : ""
+                      )}
+                    />
+                  </Button>
+                </div>
+              ) : null}
             </section>
           ))}
         </div>
           )}
-
-          {hiddenCount > 0 || expandedList ? (
-            <div className="border-t border-slate-100 px-5 py-3 text-center md:px-6">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setExpandedList((value) => !value)}
-              >
-                {expandedList ? "Show less" : `View all ${filteredPolicies.length} policies`}
-                <ChevronDown
-                  className={cn(
-                    "ml-1.5 h-3.5 w-3.5 transition-transform",
-                    expandedList ? "rotate-180" : ""
-                  )}
-                />
-              </Button>
-            </div>
-          ) : null}
         </div>
       )}
       <PolicyNotesDialog

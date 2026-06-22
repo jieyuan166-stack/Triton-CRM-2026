@@ -25,7 +25,6 @@ import {
   type ParsedImportProduct,
   type ParsedImportRow,
 } from "@/lib/clients-csv";
-import type { Client } from "@/lib/types";
 
 function downloadTextFile(filename: string, content: string, type = "text/csv;charset=utf-8;") {
   const blob = new Blob([content], { type });
@@ -39,23 +38,9 @@ function downloadTextFile(filename: string, content: string, type = "text/csv;ch
   URL.revokeObjectURL(url);
 }
 
-function applyImportSafeguards(rows: ParsedImportRow[], existingClients: Client[]) {
-  const existingEmails = new Set(existingClients.map((client) => client.email.toLowerCase()));
-  const seenEmails = new Set<string>();
-
+function applyImportSafeguards(rows: ParsedImportRow[]) {
   return rows.map((row) => {
     const extraErrors: ImportRowError[] = [];
-    const email = row.mappedClient.email.toLowerCase();
-
-    if (existingEmails.has(email)) {
-      extraErrors.push({ field: "email", message: "Email already exists in Triton CRM." });
-    }
-
-    if (seenEmails.has(email)) {
-      extraErrors.push({ field: "email", message: "Duplicate email inside the import file." });
-    } else {
-      seenEmails.add(email);
-    }
 
     return {
       ...row,
@@ -96,7 +81,7 @@ export default function ClientsPage() {
 
   const openImportPreview = (records: Record<string, unknown>[]) => {
     const parsed = parseImportedRows(records);
-    const rows = applyImportSafeguards(parsed.rows, clients);
+    const rows = applyImportSafeguards(parsed.rows);
     setPreviewRows(rows);
     setPreviewHeaders(parsed.mapping.sourceHeaders);
     setMappingSummary(

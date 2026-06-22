@@ -386,17 +386,6 @@ export function NewClientDialog({
       return;
     }
 
-    const emailLower = values.email.toLowerCase();
-    const emailExists = clients.some(
-      (existing) => existing.email.toLowerCase() === emailLower
-    );
-
-    if (emailExists) {
-      toast.error("Could not create client", {
-        description: "Email already exists in Triton CRM.",
-      });
-      return;
-    }
 
     const created = createClient(patch);
     replaceClientRelationships(created.id, nextRelationships);

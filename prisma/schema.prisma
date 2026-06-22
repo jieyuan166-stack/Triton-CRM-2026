@@ -60,7 +60,7 @@ model Client {
   backups              BackupRecord[]
 
   @@index([userId])
-  @@unique([userId, email])
+  @@index([userId, email])
   @@index([lastName, firstName])
   @@index([province])
 }
