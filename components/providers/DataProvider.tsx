@@ -162,7 +162,11 @@ function calcAUM(policies: Policy[]): number {
 function visiblePoliciesForClient(policies: Policy[], clientId: string): Policy[] {
   return dedupePolicies(
     policies.filter(
-      (p) => p.clientId === clientId || (p.isJoint && p.jointWithClientId === clientId)
+      (p) =>
+        p.clientId === clientId ||
+        (p.isJoint && p.jointWithClientId === clientId) ||
+        p.policyOwnerClientId === clientId ||
+        p.policyOwner2ClientId === clientId
     )
   );
 }
