@@ -51,6 +51,7 @@ function fmtTimestamp(iso: string): string {
 function backupDisplayName(backup: BackupRecord, isAdmin: boolean): string {
   const date = fmtTimestamp(backup.createdAt);
   if (backup.kind === "database") {
+    if (backup.filename.includes("-pre-deploy")) return `Pre-deploy Database Backup · ${date}`;
     if (backup.filename.includes("-stable")) return `Stable Database Backup · ${date}`;
     if (backup.filename.includes("-manual")) return `Manual Database Backup · ${date}`;
     return `Database Backup · ${date}`;
@@ -61,6 +62,33 @@ function backupDisplayName(backup: BackupRecord, isAdmin: boolean): string {
   const label = backup.source === "auto" ? "Automatic My Backup" : "Manual My Backup";
   return `${owner}${label} · ${date}`;
 }
+
+function wait(ms: number) {
+  return new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function waitForRestart() {
+  // The restore route deliberately sends its success response before asking
+  // Docker to restart the process. Give that hand-off time to begin, then
+  // only reload once the replacement app reports a healthy database.
+  await wait(7_000);
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    try {
+      const response = await fetch(`/api/ready?restore=${Date.now()}`, { cache: "no-store" });
+      if (response.ok) return true;
+    } catch {
+      // Expected while Docker is replacing the app process.
+    }
+    await wait(2_000);
+  }
+  return false;
+}
+
+type RestoreProgress = {
+  target: BackupRecord;
+  phase: "saving" | "restarting" | "complete" | "error";
+  error?: string;
+};
 
 function backupTechnicalName(backup: BackupRecord): string {
   return backup.filename;
@@ -108,6 +136,7 @@ export function BackupsSection() {
   const [creating, setCreating] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [restoring, setRestoring] = useState<string | null>(null);
+  const [restoreProgress, setRestoreProgress] = useState<RestoreProgress | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<BackupRecord | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BackupRecord | null>(null);
 
@@ -147,37 +176,61 @@ export function BackupsSection() {
     setRestoring(confirmTarget.id);
     const target = confirmTarget;
     setConfirmTarget(null);
+    setRestoreProgress({ target, phase: "saving" });
     const r = await restoreBackup(target.id);
-    setRestoring(null);
     if (!r.ok) {
+      setRestoring(null);
+      setRestoreProgress({ target, phase: "error", error: r.error });
       toast.error("Restore failed", { description: r.error });
       void refreshBackups();
       return;
     }
     if (r.restartRequired) {
-      toast.success("Restore started. CRM is restarting. Please wait about 30 seconds...", {
-        description: backupDisplayName(target, isAdmin),
-      });
-      window.setTimeout(() => window.location.reload(), 35000);
+      setRestoreProgress({ target, phase: "restarting" });
+      const restarted = await waitForRestart();
+      setRestoring(null);
+      if (!restarted) {
+        setRestoreProgress({
+          target,
+          phase: "error",
+          error: "CRM did not report ready within one minute. The database file was replaced; refresh this page after the container is healthy.",
+        });
+        return;
+      }
+      setRestoreProgress({ target, phase: "complete" });
+      toast.success("Database restored successfully", { description: backupDisplayName(target, isAdmin) });
+      await wait(1_500);
+      window.location.assign("/settings?restore=database");
       return;
     }
 
-    const replaced = replaceAll(r.data);
+    setRestoreProgress({ target, phase: "saving" });
+    const replaced = await replaceAll(r.data);
     if (!replaced.ok) {
+      setRestoring(null);
+      setRestoreProgress({ target, phase: "error", error: replaced.error });
       toast.error("Restore failed", { description: replaced.error });
       return;
     }
     if (r.data.settings) {
-      await fetch("/api/settings", {
+      const settingsResponse = await fetch("/api/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(r.data.settings),
-      }).catch(() => undefined);
+      });
+      if (!settingsResponse.ok) {
+        setRestoring(null);
+        setRestoreProgress({ target, phase: "error", error: "CRM data was restored, but Settings could not be restored." });
+        return;
+      }
     }
-    toast.success("Data restored successfully! Reloading...", {
+    setRestoring(null);
+    setRestoreProgress({ target, phase: "complete" });
+    toast.success("Your backup was restored successfully", {
       description: backupDisplayName(target, isAdmin),
     });
-    window.setTimeout(() => window.location.reload(), 600);
+    await wait(1_500);
+    window.location.assign("/settings?restore=snapshot");
   }
 
   async function handleDelete() {
@@ -283,12 +336,11 @@ export function BackupsSection() {
           <ul className="divide-y divide-slate-100">
             {backups.map((b) => {
               const isRestoring = restoring === b.id;
+              const adminOnly = b.kind === "database" && !isAdmin;
               const tone = backupTone(b);
-              const canRestore =
-                b.kind === "database" ||
-                !isAdmin ||
-                !b.ownerUserId ||
-                b.ownerUserId === session?.user?.id;
+              const canRestore = b.kind === "database"
+                ? isAdmin
+                : !isAdmin || !b.ownerUserId || b.ownerUserId === session?.user?.id;
               return (
                 <li
                   key={b.id}
@@ -309,6 +361,11 @@ export function BackupsSection() {
                       <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${tone.badge}`}>
                         {tone.label}
                       </span>
+                      {adminOnly ? (
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">
+                          Admin only
+                        </span>
+                      ) : null}
                       {b.important ? (
                         <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 ring-1 ring-amber-100">
                           Important
@@ -337,6 +394,7 @@ export function BackupsSection() {
                       title={b.important ? "Important backup: protected from auto cleanup" : "Mark backup as important"}
                       aria-pressed={!!b.important}
                       aria-label={`${b.important ? "Unmark" : "Mark"} ${backupDisplayName(b, isAdmin)} as important`}
+                      disabled={adminOnly}
                       onClick={() => handleToggleImportant(b)}
                     >
                       <Star className={`h-3.5 w-3.5 ${b.important ? "fill-current" : ""}`} />
@@ -348,6 +406,7 @@ export function BackupsSection() {
                       className="h-8"
                       title="Download backup"
                       aria-label={`Download ${backupDisplayName(b, isAdmin)}`}
+                      disabled={adminOnly}
                       onClick={() => handleDownload(b)}
                     >
                       <Download className="h-3.5 w-3.5" />
@@ -359,7 +418,9 @@ export function BackupsSection() {
                       className="h-8"
                       disabled={isRestoring || b.restorable === false || !canRestore}
                       title={
-                        !canRestore
+                        adminOnly
+                          ? "System database backups can only be restored from the admin account."
+                          : !canRestore
                           ? "Admins can download this user snapshot; the owner must restore it from their account."
                           : b.restorable === false
                           ? "This backup cannot be restored from Settings"
@@ -383,7 +444,7 @@ export function BackupsSection() {
                       className="h-8 text-slate-400 hover:text-accent-red hover:bg-accent-red/10"
                       title="Delete backup"
                       aria-label={`Delete ${backupDisplayName(b, isAdmin)}`}
-                      disabled={isRestoring}
+                      disabled={isRestoring || adminOnly}
                       onClick={() => setDeleteTarget(b)}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -435,6 +496,60 @@ export function BackupsSection() {
               {confirmTarget?.filename.endsWith(".db.gz") ? "Restore & Restart" : "Confirm Restore"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!restoreProgress}
+        onOpenChange={(open) => {
+          if (!open && restoreProgress?.phase === "error") setRestoreProgress(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md" showCloseButton={restoreProgress?.phase === "error"}>
+          <DialogHeader>
+            <DialogTitle>
+              {restoreProgress?.phase === "saving"
+                ? "Restoring your backup"
+                : restoreProgress?.phase === "restarting"
+                  ? "Restoring database and restarting CRM"
+                  : restoreProgress?.phase === "complete"
+                    ? "Restore complete"
+                    : "Restore needs attention"}
+            </DialogTitle>
+            <DialogDescription className="space-y-3 text-left">
+              <span className="block font-medium text-slate-800">
+                {restoreProgress ? backupDisplayName(restoreProgress.target, isAdmin) : null}
+              </span>
+              {restoreProgress?.phase === "saving" ? (
+                <span className="block">Saving the restored client data and settings. Keep this window open.</span>
+              ) : null}
+              {restoreProgress?.phase === "restarting" ? (
+                <span className="block">The database has been replaced. CRM is restarting and this page will reload when the health check is ready.</span>
+              ) : null}
+              {restoreProgress?.phase === "complete" ? (
+                <span className="block">The restored data is ready. Reloading Settings now.</span>
+              ) : null}
+              {restoreProgress?.phase === "error" ? (
+                <span className="block text-accent-red">{restoreProgress.error}</span>
+              ) : null}
+            </DialogDescription>
+          </DialogHeader>
+          {restoreProgress?.phase === "saving" || restoreProgress?.phase === "restarting" ? (
+            <div className="flex items-center gap-2 text-sm text-triton-muted">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Working safely…
+            </div>
+          ) : null}
+          {restoreProgress?.phase === "error" ? (
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => window.location.reload()}>
+                Refresh page
+              </Button>
+              <Button type="button" onClick={() => setRestoreProgress(null)}>
+                Close
+              </Button>
+            </DialogFooter>
+          ) : null}
         </DialogContent>
       </Dialog>
 

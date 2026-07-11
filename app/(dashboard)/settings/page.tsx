@@ -70,7 +70,10 @@ const ADMIN_SECTION: SectionDef = {
 };
 
 export default function SettingsPage() {
-  const [active, setActive] = useState<SectionId>("profile");
+  const [active, setActive] = useState<SectionId>(() => {
+    if (typeof window === "undefined") return "profile";
+    return new URLSearchParams(window.location.search).has("restore") ? "backups" : "profile";
+  });
   const { session, ready } = useAuth();
   const isAdmin = session?.user?.role === "admin";
   const sections = useMemo(
@@ -81,6 +84,12 @@ export default function SettingsPage() {
   useEffect(() => {
     if (ready && active === "users" && !isAdmin) setActive("profile");
   }, [active, isAdmin, ready]);
+
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has("restore")) return;
+    setActive("backups");
+    window.history.replaceState(null, "", "/settings");
+  }, []);
 
   return (
     <>

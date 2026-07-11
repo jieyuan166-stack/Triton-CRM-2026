@@ -406,11 +406,15 @@ export async function listBackupFiles(user: BackupAccessUser): Promise<BackupRec
   const records: Array<BackupRecord | null> = await Promise.all(
     entries.map(async (entry) => {
       if (!entry.isFile() || !isSafeBackupFilename(entry.name)) return null;
-      if (!(await canAccessBackup(entry.name, user))) return null;
       const file = backupPath(entry.name);
-      const stat = await fs.stat(file);
       const kind = kindFor(entry.name);
       const isDb = entry.name.endsWith(".db.gz");
+      // Database backups are shown to every signed-in advisor so the
+      // operational history is visible. The file itself remains admin-only:
+      // download, star, delete, and restore still pass through
+      // assertBackupAccess() below.
+      if (!isDb && !(await canAccessBackup(entry.name, user))) return null;
+      const stat = await fs.stat(file);
       const ownerMeta = await ownerMetadataForFilename(entry.name);
       const ownerUserId = ownerMeta?.ownerUserId;
       const owner = ownerUserId ? usersById.get(ownerUserId) : undefined;

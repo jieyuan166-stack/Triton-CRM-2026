@@ -142,7 +142,7 @@ interface DataContextValue {
   /** Overwrite all three collections in a single render. The shape is
    *  validated; bad records are dropped silently and the orphan sweep runs
    *  so the post-replace state always satisfies the no-orphan invariant. */
-  replaceAll(snapshot: BackupSnapshot): { ok: boolean; error?: string };
+  replaceAll(snapshot: BackupSnapshot): Promise<{ ok: boolean; error?: string }>;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -1017,7 +1017,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [clients, policies, followUps, relationships, emailReminderSends]);
 
   const replaceAll: DataContextValue["replaceAll"] = useCallback(
-    (snapshot) => {
+    async (snapshot) => {
       // Defensive validation — even though BackupsSection has already
       // validated structure, this is the last gate before we overwrite the
       // user's data. Bad records are dropped; orphans are pruned.
@@ -1080,22 +1080,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
               (!send.policyId || nextPolicies.some((policy) => policy.id === send.policyId))
           )
         : [];
+      const restoredSnapshot = {
+        version: 1,
+        capturedAt: new Date().toISOString(),
+        clients: nextClients,
+        policies: nextPolicies,
+        followUps: nextFollowUps,
+        relationships: nextRelationships,
+        emailReminderSends: nextEmailReminderSends,
+      };
+
+      try {
+        // A restore is destructive. Unlike ordinary optimistic edits, it must
+        // finish on the server before the app is allowed to reload.
+        await persistAction("data.replaceAll", { snapshot: restoredSnapshot });
+      } catch (error) {
+        return {
+          ok: false,
+          error: error instanceof Error ? error.message : "Could not save restored data",
+        };
+      }
+
       setClients(nextClients);
       setPolicies(nextPolicies);
       setFollowUps(nextFollowUps);
       setRelationships(nextRelationships);
       setEmailReminderSends(nextEmailReminderSends);
-      persistInBackground("data.replaceAll", {
-        snapshot: {
-          version: 1,
-          capturedAt: new Date().toISOString(),
-          clients: nextClients,
-          policies: nextPolicies,
-          followUps: nextFollowUps,
-          relationships: nextRelationships,
-          emailReminderSends: nextEmailReminderSends,
-        },
-      });
       return { ok: true };
     },
     []
