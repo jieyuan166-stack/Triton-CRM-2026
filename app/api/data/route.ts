@@ -210,9 +210,34 @@ function stripUndefined<T extends Record<string, unknown>>(input: T): T {
   ) as T;
 }
 
-function serializeTagList(value: TagValue[] | undefined, partial: boolean) {
+function normalizeTagListInput(value: unknown): TagValue[] | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return [];
+  if (Array.isArray(value)) {
+    return value.filter(isTagValue);
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed.filter(isTagValue);
+      }
+    } catch {
+      // Fall through to comma-separated legacy format below.
+    }
+    return trimmed
+      .split(",")
+      .map((item) => item.trim())
+      .filter(isTagValue);
+  }
+  return [];
+}
+
+function serializeTagList(value: unknown, partial: boolean) {
   if (value === undefined) return partial ? undefined : null;
-  const tags = value.filter(isTagValue);
+  const tags = normalizeTagListInput(value) ?? [];
   return tags.length > 0 ? JSON.stringify(tags) : null;
 }
 
