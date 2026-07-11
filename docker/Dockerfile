@@ -16,7 +16,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 RUN apk add --no-cache openssl sqlite su-exec
 RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001 -G nodejs
-RUN mkdir -p /app/backups /app/prisma/data && chown -R nextjs:nodejs /app/backups /app/prisma/data
+RUN mkdir -p /app/backups /app/prisma/data /app/uploads /app/disaster-recovery/requests && chown -R nextjs:nodejs /app/backups /app/prisma/data /app/uploads /app/disaster-recovery/requests
 
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
@@ -29,4 +29,4 @@ RUN chmod +x /app/docker/entrypoint.sh
 EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
-CMD ["sh", "-c", "chown -R nextjs:nodejs /app/backups /app/prisma/data && chmod -R u+rwX,g+rwX /app/backups /app/prisma/data && su-exec nextjs:nodejs /app/docker/entrypoint.sh"]
+CMD ["sh", "-c", "chown -R nextjs:nodejs /app/backups /app/prisma/data /app/uploads /app/disaster-recovery/requests && chmod -R u+rwX,g+rwX /app/backups /app/prisma/data /app/uploads /app/disaster-recovery/requests && su-exec nextjs:nodejs /app/docker/entrypoint.sh"]

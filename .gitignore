@@ -27,6 +27,13 @@
 tunnel-watchdog.log
 /cloudflared/
 
+# Full encrypted disaster-recovery runtime data and private NAS secrets.
+/disaster-recovery/*
+!/disaster-recovery/.gitkeep
+/backup-secrets/*
+!/backup-secrets/README.md
+/uploads/
+
 # misc
 .DS_Store
 ._*
@@ -50,3 +57,4 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+__pycache__/

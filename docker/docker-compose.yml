@@ -16,11 +16,18 @@ services:
     volumes:
       - triton-data:/app/prisma/data
       - /volume1/docker/triton-crm/backups:/app/backups
+      - /volume1/docker/triton-crm/uploads:/app/uploads
+      - /volume1/docker/triton-crm/disaster-recovery/backups:/app/disaster-recovery/backups:ro
+      - /volume1/docker/triton-crm/disaster-recovery/status:/app/disaster-recovery/status:ro
+      - /volume1/docker/triton-crm/disaster-recovery/requests:/app/disaster-recovery/requests
     environment:
       # Override values that should be hard-coded for the container regardless
       # of what the env file says.
       DATABASE_URL: file:/app/prisma/data/triton.db
       BACKUP_DIR: /app/backups
+      DISASTER_RECOVERY_BACKUPS_DIR: /app/disaster-recovery/backups
+      DISASTER_RECOVERY_STATUS_DIR: /app/disaster-recovery/status
+      DISASTER_RECOVERY_REQUESTS_DIR: /app/disaster-recovery/requests
       # The remaining values (NEXTAUTH_SECRET, AUTH_SECRET, AUTH_URL,
       # NEXTAUTH_URL, SMTP_*, GOOGLE_MAPS_API_KEY, SEED_*,
       # CRON_SECRET) come from env_file: ../.env.production. We do NOT

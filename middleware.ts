@@ -48,6 +48,7 @@ export function middleware(request: NextRequest) {
   const protectedApi =
     pathname.startsWith("/api/data") ||
     pathname.startsWith("/api/backups") ||
+    pathname.startsWith("/api/disaster-recovery") ||
     pathname.startsWith("/api/clients") ||
     pathname.startsWith("/api/send-email") ||
     pathname.startsWith("/api/email") ||

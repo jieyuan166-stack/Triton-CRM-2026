@@ -28,6 +28,7 @@ import { useData } from "@/components/providers/DataProvider";
 import { useSettings } from "@/components/providers/SettingsProvider";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { EmptyState } from "@/components/ui-shared/EmptyState";
+import { DisasterRecoverySection } from "@/components/settings/DisasterRecoverySection";
 import { formatDate } from "@/lib/date-utils";
 import {
   type BackupRecord,
@@ -276,6 +277,7 @@ export function BackupsSection() {
 
   return (
     <>
+      {isAdmin ? <DisasterRecoverySection /> : null}
       <div className="bg-card rounded-xl border border-slate-200 shadow-sm">
         <div className="px-5 md:px-6 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
           <div>

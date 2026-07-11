@@ -82,8 +82,16 @@ echo "==================================================="
 
 TS="$(date +%Y%m%d-%H%M%S)"
 BACKUP_NAME="triton-${TS}-pre-deploy.db.gz"
-docker exec triton-crm sh -c "sqlite3 /app/prisma/data/triton.db '.backup /tmp/pre.db' && gzip -c /tmp/pre.db > '/app/backups/${BACKUP_NAME}' && sha256sum '/app/backups/${BACKUP_NAME}' > '/app/backups/${BACKUP_NAME}.sha256' && rm -f /tmp/pre.db && chown nextjs:nodejs '/app/backups/${BACKUP_NAME}' '/app/backups/${BACKUP_NAME}.sha256' && chmod 660 '/app/backups/${BACKUP_NAME}' '/app/backups/${BACKUP_NAME}.sha256'"
-echo "      saved: $BACKUP_NAME"
+if [ -f "$REPO_DIR/disaster-recovery/state/activated" ] && [ -f "$REPO_DIR/backup-secrets/backup.env" ]; then
+  echo "      creating verified encrypted offsite pre-deploy backup"
+  "$REPO_DIR/backup-crm.sh" --reason pre-deploy
+  echo "      encrypted offsite pre-deploy backup complete"
+else
+  # Bootstrap fallback only. The full encrypted system is activated by a
+  # manually verified backup after the first deployment that contains its API.
+  docker exec triton-crm sh -c "sqlite3 /app/prisma/data/triton.db '.backup /tmp/pre.db' && gzip -c /tmp/pre.db > '/app/backups/${BACKUP_NAME}' && sha256sum '/app/backups/${BACKUP_NAME}' > '/app/backups/${BACKUP_NAME}.sha256' && rm -f /tmp/pre.db && chown nextjs:nodejs '/app/backups/${BACKUP_NAME}' '/app/backups/${BACKUP_NAME}.sha256' && chmod 660 '/app/backups/${BACKUP_NAME}' '/app/backups/${BACKUP_NAME}.sha256'"
+  echo "      saved bootstrap backup: $BACKUP_NAME"
+fi
 
 echo
 echo "==================================================="
