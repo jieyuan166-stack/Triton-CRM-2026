@@ -106,7 +106,10 @@ echo "==================================================="
 echo "  DEPLOY (triton-crm only — tunnel untouched)"
 echo "==================================================="
 
-docker compose --env-file "$ENV_FILE" up -d triton-crm
+# The classic Compose build used by this NAS can retain a container even after
+# its Dockerfile CMD changes. Force a controlled CRM-only recreate so the
+# validated image and runtime permission model are actually applied.
+docker compose --env-file "$ENV_FILE" up -d --force-recreate triton-crm
 
 echo "Waiting up to 90s for /api/ready..."
 i=0
