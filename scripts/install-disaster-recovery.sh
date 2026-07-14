@@ -19,7 +19,10 @@ mkdir -p "$PROJECT_DIR/uploads" \
   "$PROJECT_DIR/disaster-recovery/status" \
   "$PROJECT_DIR/disaster-recovery/requests" \
   "$PROJECT_DIR/disaster-recovery/staging"
-chmod 700 "$PROJECT_DIR/uploads" "$PROJECT_DIR/disaster-recovery" "$PROJECT_DIR/disaster-recovery/backups" "$PROJECT_DIR/disaster-recovery/status" "$PROJECT_DIR/disaster-recovery/requests" "$PROJECT_DIR/disaster-recovery/staging"
+# `uploads` and `requests` are owned by uid 1001 for the CRM process, so
+# their mode is set by the Docker-rooted command below. The NAS account owns
+# the remaining disaster-recovery directories.
+chmod 700 "$PROJECT_DIR/disaster-recovery" "$PROJECT_DIR/disaster-recovery/backups" "$PROJECT_DIR/disaster-recovery/status" "$PROJECT_DIR/disaster-recovery/staging"
 chmod 600 "$SECRETS_FILE" "$ENV_FILE"
 
 # The CRM runs as uid 1001. Keep it as the owner of writable host mounts while
