@@ -29,9 +29,8 @@ RUN chmod +x /app/docker/entrypoint.sh
 EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
-# Host-mounted uploads and the recovery request queue are provisioned by the
-# NAS installer. Keep uid 1001 for the app files, but run with NAS admin gid
-# 10 so the app can atomically enqueue signed recovery requests in the
-# wellce101:admin-owned, mode-2770 queue. This avoids unsafe world-writable
-# permissions while allowing the NAS worker to own request processing.
-CMD ["sh", "-c", "chown -R nextjs:nodejs /app/backups /app/prisma/data && chmod -R u+rwX,g+rwX /app/backups /app/prisma/data && su-exec 1001:10 /app/docker/entrypoint.sh"]
+# Synology ACLs can mask shared-group permissions on bind mounts. Run the CRM
+# with the NAS service account's numeric identity (uid 1000, gid 10), the same
+# identity used by the host-side recovery worker. The process remains non-root
+# in the container and has access only to the explicitly mounted directories.
+CMD ["sh", "-c", "chown -R 1000:10 /app/backups /app/prisma/data && chmod -R u+rwX,g+rwX /app/backups /app/prisma/data && su-exec 1000:10 /app/docker/entrypoint.sh"]

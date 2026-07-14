@@ -26,23 +26,21 @@ chmod 700 "$PROJECT_DIR/disaster-recovery"
 chmod 700 "$PROJECT_DIR/disaster-recovery/staging"
 chmod 600 "$SECRETS_FILE" "$ENV_FILE"
 
-# The NAS worker owns the signed request queue. The CRM gets the NAS admin
-# group as a supplementary Docker group, so it can enqueue requests without
-# receiving ownership of the worker's processing directories. Uploads remain
-# owned by the CRM process and only readable by the NAS admin group.
+# Synology ACLs mask shared group modes for this project. The CRM and the NAS
+# worker therefore use the same restricted NAS service identity (1000:10) for
+# the explicitly mounted recovery directories. The CRM still runs non-root and
+# has no Docker socket or access to backup secrets.
 docker run --rm \
   -v "$PROJECT_DIR/disaster-recovery/backups:/backups" \
   -v "$PROJECT_DIR/disaster-recovery/status:/status" \
   -v "$PROJECT_DIR/disaster-recovery/requests:/requests" \
   -v "$PROJECT_DIR/uploads:/uploads" \
   alpine:3.20 sh -c '
-    chown -R 1000:10 /backups /status /requests &&
+    chown -R 1000:10 /backups /status /requests /uploads &&
     find /backups /status -type d -exec chmod 2750 {} \; &&
     find /backups /status -type f -exec chmod 640 {} \; &&
-    chown -R 1000:10 /requests &&
     find /requests -type d -exec chmod 2770 {} \; &&
     find /requests -type f -exec chmod 660 {} \; &&
-    chown -R 1001:10 /uploads &&
     chmod -R u=rwX,g=rX,o= /uploads
   '
 
