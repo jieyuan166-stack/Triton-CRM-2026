@@ -11,6 +11,42 @@ ensure_dr_directories
 load_control_secret
 mkdir -p "$DR_REQUESTS_DIR/processing" "$DR_REQUESTS_DIR/processed" "$DR_REQUESTS_DIR/failed"
 
+delete_backup() {
+  backup_name="$1"
+  safe_backup_name "$backup_name"
+  archive="$DR_BACKUPS_DIR/$backup_name"
+  metadata="$archive.meta.json"
+  checksum="$archive.sha256"
+  [ -f "$archive" ] || { echo "Backup file was not found." >&2; return 1; }
+
+  remote_uploaded=false
+  remote_key=""
+  if [ -f "$metadata" ]; then
+    remote_uploaded="$(python3 - "$metadata" <<'PY'
+import json, sys
+data = json.load(open(sys.argv[1], encoding='utf-8'))
+print('true' if data.get('remote', {}).get('uploaded') else 'false')
+PY
+)"
+    remote_key="$(python3 - "$metadata" <<'PY'
+import json, sys
+data = json.load(open(sys.argv[1], encoding='utf-8'))
+print(data.get('remote', {}).get('key', ''))
+PY
+)"
+  fi
+
+  if [ "$remote_uploaded" = true ]; then
+    [ -n "$remote_key" ] || { echo "Backup metadata is missing its B2 object key." >&2; return 1; }
+    load_backup_secrets
+    b2_required
+    b2_remove "$remote_key"
+    b2_remove "$remote_key.sha256" || true
+  fi
+
+  rm -f "$archive" "$checksum" "$metadata"
+}
+
 for request_file in "$DR_REQUESTS_DIR"/*.json; do
   [ -f "$request_file" ] || continue
   request_id="$(basename "$request_file" .json)"
@@ -20,8 +56,10 @@ for request_file in "$DR_REQUESTS_DIR"/*.json; do
   valid="$(python3 - "$processing" <<'PY'
 import hashlib, hmac, json, os, sys
 request = json.load(open(sys.argv[1], encoding='utf-8'))
+filenames = request.get("filenames")
+target = "\n".join(sorted(set(filenames))) if isinstance(filenames, list) and filenames else request.get("filename", "") or ""
 payload = "|".join([
-    request.get("id", ""), request.get("action", ""), request.get("filename", "") or "",
+    request.get("id", ""), request.get("action", ""), target,
     request.get("requestedAt", ""), request.get("requestedBy", {}).get("id", ""), request.get("confirmation", "") or "",
 ])
 expected = hmac.new(os.environ["BACKUP_CONTROL_SECRET"].encode(), payload.encode(), hashlib.sha256).hexdigest()
@@ -39,9 +77,16 @@ import json, sys
 print(json.load(open(sys.argv[1], encoding='utf-8')).get('action', ''))
 PY
 )"
-  filename="$(python3 - "$processing" <<'PY'
+filename="$(python3 - "$processing" <<'PY'
 import json, sys
 print(json.load(open(sys.argv[1], encoding='utf-8')).get('filename') or '')
+PY
+)"
+filenames="$(python3 - "$processing" <<'PY'
+import json, sys
+request = json.load(open(sys.argv[1], encoding='utf-8'))
+for filename in request.get('filenames') or []:
+    print(filename)
 PY
 )"
   write_status "$request_id" running "NAS worker is processing the request" "$filename"
@@ -66,6 +111,18 @@ PY
     restore)
       "$PROJECT_DIR/restore-crm.sh" "$filename" --confirmed
       result=$?
+      ;;
+    delete)
+      result=0
+      deleted_count=0
+      while IFS= read -r backup_name; do
+        [ -n "$backup_name" ] || continue
+        delete_backup "$backup_name" || { result=1; break; }
+        deleted_count=$((deleted_count + 1))
+      done <<EOF
+$filenames
+EOF
+      completion_message="$deleted_count encrypted backup(s) deleted"
       ;;
     *)
       result=1

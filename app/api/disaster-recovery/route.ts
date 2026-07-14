@@ -6,7 +6,11 @@ import { enqueueDisasterRecoveryRequest, listDisasterRecoveryBackups } from "@/l
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const requestSchema = z.object({ action: z.enum(["backup", "test-email"]) }).strict();
+const requestSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("backup") }).strict(),
+  z.object({ action: z.literal("test-email") }).strict(),
+  z.object({ action: z.literal("delete"), filenames: z.array(z.string().min(1)).min(1).max(100), confirmation: z.literal("DELETE") }).strict(),
+]);
 
 function requireAdmin(session: Awaited<ReturnType<typeof requireSession>>) {
   return !!session && session.user.role === "admin";
@@ -30,6 +34,8 @@ export async function POST(request: Request) {
   try {
     const queued = await enqueueDisasterRecoveryRequest({
       action: parsed.data.action,
+      filenames: parsed.data.action === "delete" ? parsed.data.filenames : undefined,
+      confirmation: parsed.data.action === "delete" ? parsed.data.confirmation : undefined,
       requestedById: session.user.id,
       requestedByEmail: session.user.email,
     });

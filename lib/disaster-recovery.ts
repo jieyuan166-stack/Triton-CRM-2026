@@ -28,7 +28,7 @@ const metadataSchema = z.object({
 });
 
 export type DisasterRecoveryBackup = z.infer<typeof metadataSchema>;
-export type DisasterRecoveryRequestAction = "backup" | "restore" | "test-email";
+export type DisasterRecoveryRequestAction = "backup" | "restore" | "delete" | "test-email";
 
 const root = process.env.DISASTER_RECOVERY_ROOT || path.join(process.cwd(), "disaster-recovery");
 export const disasterRecoveryPaths = {
@@ -37,8 +37,11 @@ export const disasterRecoveryPaths = {
   requests: process.env.DISASTER_RECOVERY_REQUESTS_DIR || path.join(root, "requests"),
 };
 
-function requestPayload(input: { id: string; action: DisasterRecoveryRequestAction; filename?: string; requestedAt: string; requestedById: string; confirmation?: string }) {
-  return [input.id, input.action, input.filename ?? "", input.requestedAt, input.requestedById, input.confirmation ?? ""].join("|");
+function requestPayload(input: { id: string; action: DisasterRecoveryRequestAction; filename?: string; filenames?: string[]; requestedAt: string; requestedById: string; confirmation?: string }) {
+  const targets = input.filenames?.length
+    ? [...new Set(input.filenames)].sort().join("\n")
+    : input.filename ?? "";
+  return [input.id, input.action, targets, input.requestedAt, input.requestedById, input.confirmation ?? ""].join("|");
 }
 
 function controlSecret() {
@@ -89,20 +92,30 @@ export async function enqueueDisasterRecoveryRequest(input: {
   requestedById: string;
   requestedByEmail?: string | null;
   filename?: string;
+  filenames?: string[];
   confirmation?: string;
 }) {
   if (input.filename) assertDisasterRecoveryFilename(input.filename);
+  const filenames = input.filenames ? [...new Set(input.filenames)] : [];
+  for (const filename of filenames) assertDisasterRecoveryFilename(filename);
   if (input.action === "restore" && input.confirmation !== "RESTORE") {
     throw new Error("RESTORE confirmation is required");
   }
+  if (input.action === "delete" && input.confirmation !== "DELETE") {
+    throw new Error("DELETE confirmation is required");
+  }
+  if (input.action === "delete" && filenames.length === 0) {
+    throw new Error("At least one backup filename is required");
+  }
   const id = randomUUID();
   const requestedAt = new Date().toISOString();
-  const payload = requestPayload({ id, action: input.action, filename: input.filename, requestedAt, requestedById: input.requestedById, confirmation: input.confirmation });
+  const payload = requestPayload({ id, action: input.action, filename: input.filename, filenames, requestedAt, requestedById: input.requestedById, confirmation: input.confirmation });
   const signature = createHmac("sha256", controlSecret()).update(payload).digest("hex");
   const request = {
     id,
     action: input.action,
     filename: input.filename,
+    filenames: filenames.length ? filenames : undefined,
     confirmation: input.confirmation,
     requestedAt,
     requestedBy: { id: input.requestedById, email: input.requestedByEmail ?? null },
@@ -136,11 +149,12 @@ export async function readDisasterRecoveryStatus(id: string) {
   }
 }
 
-export function verifyDisasterRecoveryRequestSignature(request: { id: string; action: DisasterRecoveryRequestAction; filename?: string; requestedAt: string; requestedBy: { id: string }; confirmation?: string; signature: string }) {
+export function verifyDisasterRecoveryRequestSignature(request: { id: string; action: DisasterRecoveryRequestAction; filename?: string; filenames?: string[]; requestedAt: string; requestedBy: { id: string }; confirmation?: string; signature: string }) {
   const expected = createHmac("sha256", controlSecret()).update(requestPayload({
     id: request.id,
     action: request.action,
     filename: request.filename,
+    filenames: request.filenames,
     requestedAt: request.requestedAt,
     requestedById: request.requestedBy.id,
     confirmation: request.confirmation,
