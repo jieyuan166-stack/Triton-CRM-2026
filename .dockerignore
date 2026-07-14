@@ -10,3 +10,5 @@ Dockerfile
 docker-compose.yml
 
 /backups
+/uploads
+/disaster-recovery
