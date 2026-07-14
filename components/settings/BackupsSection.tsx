@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -23,7 +24,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ConfirmDialog } from "@/components/ui-shared/ConfirmDialog";
 import { useData } from "@/components/providers/DataProvider";
 import { useSettings } from "@/components/providers/SettingsProvider";
 import { useAuth } from "@/components/providers/AuthProvider";
@@ -130,6 +130,7 @@ export function BackupsSection() {
     createBackup,
     restoreBackup,
     deleteBackup,
+    deleteBackups,
     setBackupImportant,
   } = useSettings();
   const { getSnapshot, replaceAll } = useData();
@@ -139,7 +140,9 @@ export function BackupsSection() {
   const [restoring, setRestoring] = useState<string | null>(null);
   const [restoreProgress, setRestoreProgress] = useState<RestoreProgress | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<BackupRecord | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<BackupRecord | null>(null);
+  const [selectedBackupIds, setSelectedBackupIds] = useState<Set<string>>(new Set());
+  const [deleteTargets, setDeleteTargets] = useState<BackupRecord[]>([]);
+  const [deleting, setDeleting] = useState(false);
 
   async function handleCreate() {
     setCreating(true);
@@ -235,16 +238,42 @@ export function BackupsSection() {
   }
 
   async function handleDelete() {
-    if (!deleteTarget) return;
-    const target = deleteTarget;
-    const r = await deleteBackup(target.id);
+    if (deleteTargets.length === 0) return;
+    setDeleting(true);
+    const targets = deleteTargets;
+    const r = targets.length === 1
+      ? await deleteBackup(targets[0].id)
+      : await deleteBackups(targets.map((backup) => backup.id));
+    setDeleting(false);
     if (!r.ok) {
       toast.error("Delete failed", { description: r.error });
       void refreshBackups();
       return;
     }
-    setDeleteTarget(null);
-    toast.success("Backup deleted", { description: backupDisplayName(target, isAdmin) });
+    const deleted = new Set(targets.map((backup) => backup.id));
+    setSelectedBackupIds((selected) => new Set([...selected].filter((id) => !deleted.has(id))));
+    setDeleteTargets([]);
+    toast.success(targets.length === 1 ? "Backup deleted" : "Backups deleted", {
+      description: targets.length === 1 ? backupDisplayName(targets[0], isAdmin) : `${targets.length} selected backups were deleted.`,
+    });
+  }
+
+  const deletableBackups = backups.filter((backup) => !(backup.kind === "database" && !isAdmin));
+  const allDeletableSelected = deletableBackups.length > 0 && deletableBackups.every((backup) => selectedBackupIds.has(backup.id));
+  const someDeletableSelected = selectedBackupIds.size > 0 && !allDeletableSelected;
+  const mutationInProgress = deleting || !!restoring;
+
+  function toggleBackupSelection(id: string, checked: boolean) {
+    setSelectedBackupIds((selected) => {
+      const next = new Set(selected);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  function toggleAllBackupSelections(checked: boolean) {
+    setSelectedBackupIds(checked ? new Set(deletableBackups.map((backup) => backup.id)) : new Set());
   }
 
   async function handleToggleImportant(b: BackupRecord) {
@@ -335,6 +364,14 @@ export function BackupsSection() {
             description="Click 'Backup Now' to create the first one."
           />
         ) : (
+          <>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/70 px-5 py-3 md:px-6">
+            <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-slate-600">
+              <Checkbox aria-label="Select all deletable backups" checked={allDeletableSelected} indeterminate={someDeletableSelected} disabled={mutationInProgress || deletableBackups.length === 0} onCheckedChange={(checked) => toggleAllBackupSelections(checked === true)} />
+              Select all deletable backups
+            </label>
+            {selectedBackupIds.size > 0 ? <div className="flex items-center gap-3"><span className="text-xs text-slate-500">{selectedBackupIds.size} selected</span><Button type="button" size="sm" variant="outline" disabled={mutationInProgress} className="border-rose-200 text-rose-700 hover:bg-rose-50" onClick={() => setDeleteTargets(deletableBackups.filter((backup) => selectedBackupIds.has(backup.id)))}><Trash2 className="mr-1.5 h-3.5 w-3.5" />Delete selected</Button></div> : null}
+          </div>
           <ul className="divide-y divide-slate-100">
             {backups.map((b) => {
               const isRestoring = restoring === b.id;
@@ -343,11 +380,13 @@ export function BackupsSection() {
               const canRestore = b.kind === "database"
                 ? isAdmin
                 : !isAdmin || !b.ownerUserId || b.ownerUserId === session?.user?.id;
+              const canDelete = !adminOnly;
               return (
                 <li
                   key={b.id}
                   className="flex items-center gap-3 px-5 md:px-6 py-3.5 hover:bg-slate-50 transition-colors"
                 >
+                  <Checkbox aria-label={`Select ${backupDisplayName(b, isAdmin)}`} checked={selectedBackupIds.has(b.id)} disabled={!canDelete || mutationInProgress} onCheckedChange={(checked) => toggleBackupSelection(b.id, checked === true)} />
                   <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${tone.icon}`}>
                     <Archive className="h-4 w-4" />
                   </div>
@@ -418,7 +457,7 @@ export function BackupsSection() {
                       size="sm"
                       variant="outline"
                       className="h-8"
-                      disabled={isRestoring || b.restorable === false || !canRestore}
+                      disabled={mutationInProgress || b.restorable === false || !canRestore}
                       title={
                         adminOnly
                           ? "System database backups can only be restored from the admin account."
@@ -446,8 +485,8 @@ export function BackupsSection() {
                       className="h-8 text-slate-400 hover:text-accent-red hover:bg-accent-red/10"
                       title="Delete backup"
                       aria-label={`Delete ${backupDisplayName(b, isAdmin)}`}
-                      disabled={isRestoring || adminOnly}
-                      onClick={() => setDeleteTarget(b)}
+                      disabled={mutationInProgress || !canDelete}
+                      onClick={() => setDeleteTargets([b])}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -456,6 +495,7 @@ export function BackupsSection() {
               );
             })}
           </ul>
+          </>
         )}
       </div>
 
@@ -555,32 +595,21 @@ export function BackupsSection() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete confirmation — uses the shared ConfirmDialog so the copy and
-          button styling match the Clients delete flow. */}
-      <ConfirmDialog
-        open={!!deleteTarget}
-        onOpenChange={(o) => {
-          if (!o) setDeleteTarget(null);
-        }}
-        title="Delete Backup?"
-        description={
-          deleteTarget ? (
-            <>
-              Are you sure you want to delete{" "}
-              <span className="font-medium text-slate-800">{backupDisplayName(deleteTarget, isAdmin)}</span>?
-              <span className="mt-2 block break-all rounded-md bg-slate-50 p-2 font-number text-[11px] text-slate-500">
-                {backupTechnicalName(deleteTarget)}
-              </span>
-              {deleteTarget.important ? " This backup is marked important." : ""} This
-              action cannot be undone.
-            </>
-          ) : (
-            "Are you sure you want to delete this backup file? This action cannot be undone."
-          )
-        }
-        confirmLabel="Delete"
-        onConfirm={handleDelete}
-      />
+      <Dialog open={deleteTargets.length > 0} onOpenChange={(open) => { if (!open && !deleting) setDeleteTargets([]); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Delete {deleteTargets.length === 1 ? "backup" : `${deleteTargets.length} backups`}?</DialogTitle>
+            <DialogDescription>These backup files, their checksums, and their local metadata will be permanently removed. Important backups can also be deleted manually.</DialogDescription>
+          </DialogHeader>
+          <ul className="max-h-40 space-y-1 overflow-y-auto rounded-md bg-slate-50 p-3 font-number text-[11px] text-slate-600">
+            {deleteTargets.map((backup) => <li key={backup.id} className="break-all">{backupTechnicalName(backup)}</li>)}
+          </ul>
+          <DialogFooter>
+            <Button type="button" variant="outline" disabled={deleting} onClick={() => setDeleteTargets([])}>Cancel</Button>
+            <Button type="button" className="bg-accent-red hover:bg-accent-red/90 text-white" disabled={deleting} onClick={() => void handleDelete()}>{deleting ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Trash2 className="mr-1.5 h-3.5 w-3.5" />}Delete {deleteTargets.length === 1 ? "backup" : "backups"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

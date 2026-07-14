@@ -606,17 +606,37 @@ export async function restoreDatabaseBackup(filename: string, user?: BackupAcces
 }
 
 export async function deleteBackupFile(filename: string, user?: BackupAccessUser) {
-  if (user) await assertBackupAccess(filename, user);
-  await fs.unlink(backupPath(filename));
-  await fs.unlink(backupChecksumPath(filename)).catch(() => undefined);
+  await deleteBackupFiles([filename], user);
+}
+
+export async function deleteBackupFiles(filenames: string[], user?: BackupAccessUser) {
+  const uniqueFilenames = [...new Set(filenames)];
+  if (uniqueFilenames.length === 0) throw new Error("Select at least one backup to delete");
+
+  // Authorize and verify every target before deleting any file. This prevents
+  // a mixed-owner batch from partially deleting the backups the user can see.
+  for (const filename of uniqueFilenames) {
+    if (user) await assertBackupAccess(filename, user);
+    await fs.access(backupPath(filename)).catch((error) => {
+      throw safeBackupReadError(error);
+    });
+  }
+
   const flags = await readBackupFlags();
-  if (flags[filename]) {
+  const owners = await readBackupOwners();
+  const flagsChanged = uniqueFilenames.some((filename) => filename in flags);
+  const ownersChanged = uniqueFilenames.some((filename) => filename in owners);
+  for (const filename of uniqueFilenames) {
+    await fs.unlink(backupPath(filename));
+    await fs.unlink(backupChecksumPath(filename)).catch(() => undefined);
     delete flags[filename];
+    delete owners[filename];
+  }
+
+  if (flagsChanged) {
     await writeBackupFlags(flags);
   }
-  const owners = await readBackupOwners();
-  if (owners[filename]) {
-    delete owners[filename];
+  if (ownersChanged) {
     await writeBackupOwners(owners);
   }
 }

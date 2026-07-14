@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { auditLog, requireSession, unauthorized } from "@/lib/api-security";
-import { createDatabaseBackup, createSnapshotBackup, listBackupFiles, setBackupImportant } from "@/lib/server-backups";
+import { BackupAccessError, createDatabaseBackup, createSnapshotBackup, deleteBackupFiles, listBackupFiles, setBackupImportant } from "@/lib/server-backups";
 import { buildUserSnapshot } from "@/lib/user-backup-snapshots";
 
 export const runtime = "nodejs";
@@ -77,6 +77,31 @@ export async function PATCH(request: Request) {
     return NextResponse.json(
       { ok: false, error: error instanceof Error ? error.message : "Backup flag update failed" },
       { status: 400 },
+    );
+  }
+}
+
+export async function DELETE(request: Request) {
+  const session = await requireSession();
+  if (!session) return unauthorized();
+
+  const body = await request.json().catch(() => null) as { ids?: unknown } | null;
+  const ids = Array.isArray(body?.ids) && body.ids.every((id) => typeof id === "string")
+    ? [...new Set(body.ids)]
+    : [];
+  if (ids.length === 0 || ids.length > 100) {
+    return NextResponse.json({ ok: false, error: "Select between 1 and 100 backups to delete" }, { status: 400 });
+  }
+
+  try {
+    await deleteBackupFiles(ids, session.user);
+    await auditLog({ action: "delete_backups", entityType: "backup", metadata: { count: ids.length } });
+    return NextResponse.json({ ok: true, deleted: ids.length });
+  } catch (error) {
+    console.error("[backups] batch delete failed", { count: ids.length, userId: session.user.id, role: session.user.role, error });
+    return NextResponse.json(
+      { ok: false, error: error instanceof Error ? error.message : "Delete failed" },
+      { status: error instanceof BackupAccessError ? 403 : 404 },
     );
   }
 }
