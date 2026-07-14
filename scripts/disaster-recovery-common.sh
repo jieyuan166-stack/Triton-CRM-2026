@@ -86,6 +86,18 @@ b2_required() {
   : "${AWS_SECRET_ACCESS_KEY:?AWS_SECRET_ACCESS_KEY is required for offsite backup}"
 }
 
+offsite_delivery_is_configured() {
+  [ -n "${B2_S3_ENDPOINT:-}" ] || return 1
+  [ -n "${B2_BUCKET:-}" ] || return 1
+  [ -n "${AWS_ACCESS_KEY_ID:-}" ] || return 1
+  [ -n "${AWS_SECRET_ACCESS_KEY:-}" ] || return 1
+  [ -n "${BACKUP_EMAIL_TO:-}" ] || return 1
+  [ -n "${BACKUP_SMTP_HOST:-}" ] || return 1
+  [ -n "${BACKUP_SMTP_USER:-}" ] || return 1
+  [ -n "${BACKUP_SMTP_PASSWORD:-}" ] || return 1
+  [ -n "${BACKUP_SMTP_FROM_EMAIL:-}" ] || return 1
+}
+
 b2_run() {
   docker run --rm --env-file "$SECRETS_FILE" -e AWS_EC2_METADATA_DISABLED=true \
     "${B2_AWS_CLI_IMAGE:-amazon/aws-cli:2.17.44}" \

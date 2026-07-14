@@ -1,5 +1,12 @@
 # Triton CRM Disaster Recovery
 
+When B2 and backup-notification SMTP credentials are present, each completed
+full backup is encrypted, verified, uploaded, and reported by email. Before
+those offsite credentials are configured, `Full backup now` and the biweekly
+schedule still create and verify an encrypted local archive. The Settings page
+marks those archives `B2 pending`; they are not an offsite disaster-recovery
+substitute.
+
 ## First-time NAS setup
 
 1. Create a private Backblaze B2 bucket and least-privilege Application Key.

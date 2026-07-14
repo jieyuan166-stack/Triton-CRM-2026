@@ -11,19 +11,6 @@ ensure_dr_directories
 load_control_secret
 mkdir -p "$DR_REQUESTS_DIR/processing" "$DR_REQUESTS_DIR/processed" "$DR_REQUESTS_DIR/failed"
 
-offsite_delivery_is_configured() {
-  [ -f "$SECRETS_FILE" ] || return 1
-  grep -q '^B2_S3_ENDPOINT=.' "$SECRETS_FILE" || return 1
-  grep -q '^B2_BUCKET=.' "$SECRETS_FILE" || return 1
-  grep -q '^AWS_ACCESS_KEY_ID=.' "$SECRETS_FILE" || return 1
-  grep -q '^AWS_SECRET_ACCESS_KEY=.' "$SECRETS_FILE" || return 1
-  grep -q '^BACKUP_EMAIL_TO=.' "$PROJECT_DIR/.env.production" || return 1
-  grep -q '^BACKUP_SMTP_HOST=.' "$PROJECT_DIR/.env.production" || return 1
-  grep -q '^BACKUP_SMTP_USER=.' "$PROJECT_DIR/.env.production" || return 1
-  grep -q '^BACKUP_SMTP_PASSWORD=.' "$PROJECT_DIR/.env.production" || return 1
-  grep -q '^BACKUP_SMTP_FROM_EMAIL=.' "$PROJECT_DIR/.env.production" || return 1
-}
-
 for request_file in "$DR_REQUESTS_DIR"/*.json; do
   [ -f "$request_file" ] || continue
   request_id="$(basename "$request_file" .json)"
@@ -63,6 +50,7 @@ PY
   completion_message="Request completed successfully"
   case "$action" in
     backup)
+      load_backup_secrets
       if offsite_delivery_is_configured; then
         "$PROJECT_DIR/backup-crm.sh" --reason manual
       else

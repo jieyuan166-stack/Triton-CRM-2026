@@ -31,7 +31,12 @@ ensure_dr_directories
 load_control_secret
 load_backup_secrets
 
+if ! offsite_delivery_is_configured; then
+  local_only=true
+fi
+
 if [ "$test_email" = true ]; then
+  offsite_delivery_is_configured || { echo "Backup email delivery is not configured." >&2; exit 1; }
   curl --fail --silent --show-error \
     -X POST -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" \
     -d '{"mode":"test"}' "$CRM_URL/api/automation/disaster-backup-notify"
@@ -40,8 +45,12 @@ fi
 
 state_dir="$DR_ROOT/state"
 mkdir -p "$state_dir"
-if [ "$reason" = "scheduled" ] && [ -f "$state_dir/last-biweekly-success.epoch" ]; then
-  last="$(cat "$state_dir/last-biweekly-success.epoch" 2>/dev/null || printf 0)"
+schedule_state="$state_dir/last-biweekly-local-success.epoch"
+if offsite_delivery_is_configured; then
+  schedule_state="$state_dir/last-biweekly-success.epoch"
+fi
+if [ "$reason" = "scheduled" ] && [ -f "$schedule_state" ]; then
+  last="$(cat "$schedule_state" 2>/dev/null || printf 0)"
   now="$(date +%s)"
   if [ "$((now - last))" -lt 1209600 ]; then
     echo "A successful full disaster-recovery backup is less than 14 days old; skipping scheduled run."
@@ -97,6 +106,9 @@ python3 "$PROJECT_DIR/scripts/create_crm_backup_metadata.py" \
   --manifest "$stage/manifest.json" --archive "$archive_path" --output "$archive_path.meta.json" --reason "$reason"
 
 if [ "$local_only" = true ]; then
+  if [ "$reason" = "scheduled" ]; then
+    date +%s > "$schedule_state"
+  fi
   echo "Created verified local encrypted backup: $archive_path"
   exit 0
 fi
@@ -126,7 +138,7 @@ python3 "$PROJECT_DIR/scripts/create_crm_backup_metadata.py" \
   --remote-key "$remote_key" --remote-uploaded --email-sent --download-url "$download_url"
 
 if [ "$reason" = "scheduled" ]; then
-  date +%s > "$state_dir/last-biweekly-success.epoch"
+  date +%s > "$schedule_state"
 fi
 touch "$state_dir/activated"
 
