@@ -22,9 +22,13 @@ mkdir -p "$PROJECT_DIR/uploads" \
 chmod 700 "$PROJECT_DIR/uploads" "$PROJECT_DIR/disaster-recovery" "$PROJECT_DIR/disaster-recovery/backups" "$PROJECT_DIR/disaster-recovery/status" "$PROJECT_DIR/disaster-recovery/requests" "$PROJECT_DIR/disaster-recovery/staging"
 chmod 600 "$SECRETS_FILE" "$ENV_FILE"
 
-# The CRM runs as uid 1001. It only needs write access to the signed request
-# queue; backups and status remain read-only inside the web container.
-docker run --rm -v "$PROJECT_DIR/disaster-recovery/requests:/requests" alpine:3.20 sh -c 'chown 1001:1001 /requests && chmod 700 /requests'
+# The CRM runs as uid 1001. Keep it as the owner of writable host mounts while
+# granting the NAS admin group read/traverse access so a later Docker build can
+# stat the repository without exposing the data to other NAS users.
+docker run --rm \
+  -v "$PROJECT_DIR/disaster-recovery/requests:/requests" \
+  -v "$PROJECT_DIR/uploads:/uploads" \
+  alpine:3.20 sh -c 'chown -R 1001:10 /requests /uploads && chmod -R u=rwX,g=rX,o= /requests /uploads'
 
 chmod 700 "$PROJECT_DIR/backup-crm.sh" "$PROJECT_DIR/restore-crm.sh" "$PROJECT_DIR/verify-crm-backup.sh" "$PROJECT_DIR/restore-test-crm.sh" "$PROJECT_DIR/scripts/disaster-recovery-worker.sh"
 
