@@ -111,7 +111,10 @@ export async function enqueueDisasterRecoveryRequest(input: {
   await fs.mkdir(disasterRecoveryPaths.requests, { recursive: true });
   const temp = path.join(disasterRecoveryPaths.requests, `.${id}.tmp`);
   const target = path.join(disasterRecoveryPaths.requests, `${id}.json`);
-  await fs.writeFile(temp, `${JSON.stringify(request)}\n`, { mode: 0o600 });
+  // The queue directory is setgid to the NAS admin group. The CRM process
+  // writes the signed request, while the host-side worker (a different UID in
+  // the same private group) must read it after the atomic rename.
+  await fs.writeFile(temp, `${JSON.stringify(request)}\n`, { mode: 0o640 });
   await fs.rename(temp, target);
   return { id, requestedAt };
 }
