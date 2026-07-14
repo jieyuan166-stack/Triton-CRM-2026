@@ -59,7 +59,8 @@ age_encrypt() {
   output="$2"
   docker run --rm \
     -v "$(dirname "$input"):/work" \
-    "${BACKUP_AGE_IMAGE:-ghcr.io/filosottile/age:v1.2.1}" \
+    "${BACKUP_AGE_IMAGE:-alpine:3.20}" \
+    sh -ec 'command -v age >/dev/null 2>&1 || apk add --no-cache age >/dev/null; exec age "$@"' -- \
     -r "$BACKUP_AGE_RECIPIENT" \
     -o "/work/$(basename "$output")" \
     "/work/$(basename "$input")"
@@ -71,7 +72,8 @@ age_decrypt() {
   docker run --rm \
     -v "$(dirname "$input"):/work" \
     -v "$BACKUP_AGE_IDENTITY_FILE:/secrets/age-identity.txt:ro" \
-    "${BACKUP_AGE_IMAGE:-ghcr.io/filosottile/age:v1.2.1}" \
+    "${BACKUP_AGE_IMAGE:-alpine:3.20}" \
+    sh -ec 'command -v age >/dev/null 2>&1 || apk add --no-cache age >/dev/null; exec age "$@"' -- \
     -d -i /secrets/age-identity.txt \
     -o "/work/$(basename "$output")" \
     "/work/$(basename "$input")"

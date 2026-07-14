@@ -11,6 +11,19 @@ ensure_dr_directories
 load_control_secret
 mkdir -p "$DR_REQUESTS_DIR/processing" "$DR_REQUESTS_DIR/processed" "$DR_REQUESTS_DIR/failed"
 
+offsite_delivery_is_configured() {
+  [ -f "$SECRETS_FILE" ] || return 1
+  grep -q '^B2_S3_ENDPOINT=.' "$SECRETS_FILE" || return 1
+  grep -q '^B2_BUCKET=.' "$SECRETS_FILE" || return 1
+  grep -q '^AWS_ACCESS_KEY_ID=.' "$SECRETS_FILE" || return 1
+  grep -q '^AWS_SECRET_ACCESS_KEY=.' "$SECRETS_FILE" || return 1
+  grep -q '^BACKUP_EMAIL_TO=.' "$PROJECT_DIR/.env.production" || return 1
+  grep -q '^BACKUP_SMTP_HOST=.' "$PROJECT_DIR/.env.production" || return 1
+  grep -q '^BACKUP_SMTP_USER=.' "$PROJECT_DIR/.env.production" || return 1
+  grep -q '^BACKUP_SMTP_PASSWORD=.' "$PROJECT_DIR/.env.production" || return 1
+  grep -q '^BACKUP_SMTP_FROM_EMAIL=.' "$PROJECT_DIR/.env.production" || return 1
+}
+
 for request_file in "$DR_REQUESTS_DIR"/*.json; do
   [ -f "$request_file" ] || continue
   request_id="$(basename "$request_file" .json)"
@@ -47,9 +60,15 @@ PY
   write_status "$request_id" running "NAS worker is processing the request" "$filename"
 
   set +e
+  completion_message="Request completed successfully"
   case "$action" in
     backup)
-      "$PROJECT_DIR/backup-crm.sh" --reason manual
+      if offsite_delivery_is_configured; then
+        "$PROJECT_DIR/backup-crm.sh" --reason manual
+      else
+        "$PROJECT_DIR/backup-crm.sh" --reason manual --local-only
+        completion_message="Verified encrypted local backup completed. B2 upload and email are pending configuration."
+      fi
       result=$?
       ;;
     test-email)
@@ -67,7 +86,7 @@ PY
   set -e
 
   if [ "$result" -eq 0 ]; then
-    write_status "$request_id" completed "Request completed successfully" "$filename"
+    write_status "$request_id" completed "$completion_message" "$filename"
     mv "$processing" "$DR_REQUESTS_DIR/processed/$request_id.json"
   else
     write_status "$request_id" failed "Request failed. Check /volume1/docker/triton-crm/disaster-recovery/worker.log" "$filename"

@@ -6,7 +6,7 @@ with mode `600` and keep matching recovery credentials in a password manager.
 ## `backup.env`
 
 ```sh
-BACKUP_AGE_IMAGE=ghcr.io/filosottile/age:v1.2.1
+BACKUP_AGE_IMAGE=alpine:3.20
 BACKUP_AGE_RECIPIENT=age1...
 BACKUP_AGE_IDENTITY_FILE=/volume1/docker/triton-crm/backup-secrets/age-identity.txt
 
@@ -21,6 +21,10 @@ AWS_SECRET_ACCESS_KEY=...
 
 `age-identity.txt` must contain the matching private `AGE-SECRET-KEY-...` line.
 It must never be committed, emailed with a backup, or stored in the CRM database.
+
+The `BACKUP_AGE_*` values are sufficient for verified local encrypted backups.
+The B2 values are required before the worker enables offsite upload and backup
+email delivery.
 
 The notification SMTP values and `BACKUP_EMAIL_TO` belong in NAS
 `.env.production` because the CRM's authenticated notification endpoint sends

@@ -116,7 +116,7 @@ export function DisasterRecoverySection() {
             <ShieldCheck className="h-4 w-4 text-amber-600" />
             <h3 className="text-sm font-semibold uppercase tracking-wide">Disaster Recovery</h3>
           </div>
-          <p className="mt-1 text-xs text-slate-600">Encrypted full CRM backup: database, relationships, users, settings, and managed uploads.</p>
+          <p className="mt-1 text-xs text-slate-600">Encrypted full CRM backup: database, relationships, users, settings, and managed uploads. Until B2 is configured, manual backups remain verified locally and are marked B2 pending.</p>
           {latest ? <p className="mt-2 text-xs text-slate-500">Last verified: {formatDate(latest.verifiedAt)} · {latest.remote.uploaded ? "B2 uploaded" : "B2 pending"} · {latest.email.sent ? "email sent" : "email pending"}</p> : null}
         </div>
         <div className="flex flex-wrap gap-2">

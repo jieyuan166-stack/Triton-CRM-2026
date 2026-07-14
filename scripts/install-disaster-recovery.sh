@@ -9,8 +9,10 @@ ENV_FILE="$PROJECT_DIR/.env.production"
 [ -f "$SECRETS_FILE" ] || { echo "Create $SECRETS_FILE from backup-secrets/README.md first." >&2; exit 1; }
 [ -f "$ENV_FILE" ] || { echo "Missing $ENV_FILE" >&2; exit 1; }
 grep -q '^BACKUP_CONTROL_SECRET=.' "$ENV_FILE" || { echo "BACKUP_CONTROL_SECRET is required in .env.production." >&2; exit 1; }
-grep -q '^BACKUP_EMAIL_TO=.' "$ENV_FILE" || { echo "BACKUP_EMAIL_TO is required in .env.production." >&2; exit 1; }
-grep -q '^BACKUP_SMTP_PASSWORD=.' "$ENV_FILE" || { echo "BACKUP_SMTP_PASSWORD is required in .env.production." >&2; exit 1; }
+
+# A verified local encrypted backup is useful immediately. B2 and notification
+# credentials are optional at install time; the worker only enables offsite
+# delivery after every required B2 and mail variable is present.
 
 mkdir -p "$PROJECT_DIR/uploads" \
   "$PROJECT_DIR/disaster-recovery/backups" \
