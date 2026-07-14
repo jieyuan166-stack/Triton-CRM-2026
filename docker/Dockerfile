@@ -29,8 +29,9 @@ RUN chmod +x /app/docker/entrypoint.sh
 EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
-# Host-mounted uploads and the recovery request queue are provisioned with
-# uid 1001 ownership by the NAS installer. Do not chown them during every
-# boot: that would remove the NAS admin group's read access and can block a
-# later Docker build before .dockerignore takes effect.
-CMD ["sh", "-c", "chown -R nextjs:nodejs /app/backups /app/prisma/data && chmod -R u+rwX,g+rwX /app/backups /app/prisma/data /app/uploads /app/disaster-recovery/requests && su-exec nextjs:nodejs /app/docker/entrypoint.sh"]
+# Host-mounted uploads and the recovery request queue are provisioned by the
+# NAS installer. Keep uid 1001 for the app files, but run with NAS admin gid
+# 10 so the app can atomically enqueue signed recovery requests in the
+# wellce101:admin-owned, mode-2770 queue. This avoids unsafe world-writable
+# permissions while allowing the NAS worker to own request processing.
+CMD ["sh", "-c", "chown -R nextjs:nodejs /app/backups /app/prisma/data && chmod -R u+rwX,g+rwX /app/backups /app/prisma/data /app/uploads /app/disaster-recovery/requests && su-exec 1001:10 /app/docker/entrypoint.sh"]
