@@ -78,9 +78,9 @@ export function DisasterRecoverySection() {
     return () => window.clearInterval(timer);
   }, [activeRequest]);
 
-  const latest = backups[0];
-  const activeLabel = useMemo(() => activeRequest ? `${activeRequest.state === "running" ? "Working" : "Queued"}: ${activeRequest.message}` : null, [activeRequest]);
   const requestInFlight = !!activeRequest && !["completed", "failed"].includes(activeRequest.state);
+  const latest = backups[0];
+  const activeLabel = useMemo(() => requestInFlight && activeRequest ? `${activeRequest.state === "running" ? "Working" : "Queued"}: ${activeRequest.message}` : null, [activeRequest, requestInFlight]);
   const allBackupsSelected = backups.length > 0 && backups.every((backup) => selectedFilenames.has(backup.filename));
   const someBackupsSelected = selectedFilenames.size > 0 && !allBackupsSelected;
 

@@ -93,6 +93,7 @@ PY
 
   set +e
   completion_message="Request completed successfully"
+  failure_message="Request failed. Check /volume1/docker/triton-crm/disaster-recovery/worker.log"
   case "$action" in
     backup)
       load_backup_secrets
@@ -105,8 +106,16 @@ PY
       result=$?
       ;;
     test-email)
-      "$PROJECT_DIR/backup-crm.sh" --test-email
+      test_output="$("$PROJECT_DIR/backup-crm.sh" --test-email 2>&1)"
       result=$?
+      if [ "$result" -ne 0 ]; then
+        printf '%s\n' "$test_output" >&2
+        case "$test_output" in
+          *"Backup email delivery is not configured."*)
+            failure_message="Backup notification delivery is not configured. Add the private backup SMTP and B2 settings before testing delivery."
+            ;;
+        esac
+      fi
       ;;
     restore)
       "$PROJECT_DIR/restore-crm.sh" "$filename" --confirmed
@@ -134,7 +143,7 @@ EOF
     write_status "$request_id" completed "$completion_message" "$filename"
     mv "$processing" "$DR_REQUESTS_DIR/processed/$request_id.json"
   else
-    write_status "$request_id" failed "Request failed. Check /volume1/docker/triton-crm/disaster-recovery/worker.log" "$filename"
+    write_status "$request_id" failed "$failure_message" "$filename"
     mv "$processing" "$DR_REQUESTS_DIR/failed/$request_id.json"
   fi
 done

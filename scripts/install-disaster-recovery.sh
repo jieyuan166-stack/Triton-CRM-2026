@@ -19,14 +19,14 @@ mkdir -p "$PROJECT_DIR/uploads" \
   "$PROJECT_DIR/disaster-recovery/status" \
   "$PROJECT_DIR/disaster-recovery/requests" \
   "$PROJECT_DIR/disaster-recovery/staging"
-# The staging directory remains NAS-worker-only. Synology ACLs can mask group
+# The staging directory remains NAS-worker-only. UGREEN NAS ACLs can mask group
 # mode changes made by the NAS login user, so mounted subdirectory permissions
 # are set from a short-lived Docker-root helper below.
 chmod 700 "$PROJECT_DIR/disaster-recovery"
 chmod 700 "$PROJECT_DIR/disaster-recovery/staging"
 chmod 600 "$SECRETS_FILE" "$ENV_FILE"
 
-# Synology ACLs mask shared group modes for this project. The CRM and the NAS
+# UGREEN NAS ACLs can mask shared group modes for this project. The CRM and the NAS
 # worker therefore use the same restricted NAS service identity (1000:10) for
 # the explicitly mounted recovery directories. The CRM still runs non-root and
 # has no Docker socket or access to backup secrets.
