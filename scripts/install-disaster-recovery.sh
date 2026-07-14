@@ -19,10 +19,10 @@ mkdir -p "$PROJECT_DIR/uploads" \
   "$PROJECT_DIR/disaster-recovery/status" \
   "$PROJECT_DIR/disaster-recovery/requests" \
   "$PROJECT_DIR/disaster-recovery/staging"
-# The app runs as uid 1001 / NAS admin gid 10. It needs group read access to
-# metadata/archive mounts and group write access only to the signed queue.
-# The staging directory remains NAS-worker-only.
-chmod 2750 "$PROJECT_DIR/disaster-recovery" "$PROJECT_DIR/disaster-recovery/backups" "$PROJECT_DIR/disaster-recovery/status"
+# The staging directory remains NAS-worker-only. Synology ACLs can mask group
+# mode changes made by the NAS login user, so mounted subdirectory permissions
+# are set from a short-lived Docker-root helper below.
+chmod 700 "$PROJECT_DIR/disaster-recovery"
 chmod 700 "$PROJECT_DIR/disaster-recovery/staging"
 chmod 600 "$SECRETS_FILE" "$ENV_FILE"
 
@@ -31,9 +31,14 @@ chmod 600 "$SECRETS_FILE" "$ENV_FILE"
 # receiving ownership of the worker's processing directories. Uploads remain
 # owned by the CRM process and only readable by the NAS admin group.
 docker run --rm \
+  -v "$PROJECT_DIR/disaster-recovery/backups:/backups" \
+  -v "$PROJECT_DIR/disaster-recovery/status:/status" \
   -v "$PROJECT_DIR/disaster-recovery/requests:/requests" \
   -v "$PROJECT_DIR/uploads:/uploads" \
   alpine:3.20 sh -c '
+    chown -R 1000:10 /backups /status /requests &&
+    find /backups /status -type d -exec chmod 2750 {} \; &&
+    find /backups /status -type f -exec chmod 640 {} \; &&
     chown -R 1000:10 /requests &&
     find /requests -type d -exec chmod 2770 {} \; &&
     find /requests -type f -exec chmod 660 {} \; &&
