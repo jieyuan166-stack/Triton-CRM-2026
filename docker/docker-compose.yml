@@ -13,6 +13,11 @@ services:
       - "3001:3000"
     networks:
       - triton-net
+    # The NAS disaster-recovery worker owns the signed request queue. The CRM
+    # process gets only the NAS admin group as a supplementary group so it can
+    # enqueue requests without gaining Docker or backup-directory access.
+    group_add:
+      - "10"
     volumes:
       - triton-data:/app/prisma/data
       - /volume1/docker/triton-crm/backups:/app/backups
