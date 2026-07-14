@@ -19,10 +19,11 @@ mkdir -p "$PROJECT_DIR/uploads" \
   "$PROJECT_DIR/disaster-recovery/status" \
   "$PROJECT_DIR/disaster-recovery/requests" \
   "$PROJECT_DIR/disaster-recovery/staging"
-# `uploads` and `requests` are owned by uid 1001 for the CRM process, so
-# their mode is set by the Docker-rooted command below. The NAS account owns
-# the remaining disaster-recovery directories.
-chmod 700 "$PROJECT_DIR/disaster-recovery" "$PROJECT_DIR/disaster-recovery/backups" "$PROJECT_DIR/disaster-recovery/status" "$PROJECT_DIR/disaster-recovery/staging"
+# The app runs as uid 1001 / NAS admin gid 10. It needs group read access to
+# metadata/archive mounts and group write access only to the signed queue.
+# The staging directory remains NAS-worker-only.
+chmod 2750 "$PROJECT_DIR/disaster-recovery" "$PROJECT_DIR/disaster-recovery/backups" "$PROJECT_DIR/disaster-recovery/status"
+chmod 700 "$PROJECT_DIR/disaster-recovery/staging"
 chmod 600 "$SECRETS_FILE" "$ENV_FILE"
 
 # The NAS worker owns the signed request queue. The CRM gets the NAS admin
@@ -32,7 +33,13 @@ chmod 600 "$SECRETS_FILE" "$ENV_FILE"
 docker run --rm \
   -v "$PROJECT_DIR/disaster-recovery/requests:/requests" \
   -v "$PROJECT_DIR/uploads:/uploads" \
-  alpine:3.20 sh -c 'chown -R 1000:10 /requests && chmod -R 2770 /requests && chown -R 1001:10 /uploads && chmod -R u=rwX,g=rX,o= /uploads'
+  alpine:3.20 sh -c '
+    chown -R 1000:10 /requests &&
+    find /requests -type d -exec chmod 2770 {} \; &&
+    find /requests -type f -exec chmod 660 {} \; &&
+    chown -R 1001:10 /uploads &&
+    chmod -R u=rwX,g=rX,o= /uploads
+  '
 
 chmod 700 "$PROJECT_DIR/backup-crm.sh" "$PROJECT_DIR/restore-crm.sh" "$PROJECT_DIR/verify-crm-backup.sh" "$PROJECT_DIR/restore-test-crm.sh" "$PROJECT_DIR/scripts/disaster-recovery-worker.sh"
 

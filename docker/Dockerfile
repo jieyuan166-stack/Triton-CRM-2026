@@ -34,4 +34,4 @@ ENV HOSTNAME=0.0.0.0
 # 10 so the app can atomically enqueue signed recovery requests in the
 # wellce101:admin-owned, mode-2770 queue. This avoids unsafe world-writable
 # permissions while allowing the NAS worker to own request processing.
-CMD ["sh", "-c", "chown -R nextjs:nodejs /app/backups /app/prisma/data && chmod -R u+rwX,g+rwX /app/backups /app/prisma/data /app/uploads /app/disaster-recovery/requests && su-exec 1001:10 /app/docker/entrypoint.sh"]
+CMD ["sh", "-c", "chown -R nextjs:nodejs /app/backups /app/prisma/data && chmod -R u+rwX,g+rwX /app/backups /app/prisma/data && su-exec 1001:10 /app/docker/entrypoint.sh"]
