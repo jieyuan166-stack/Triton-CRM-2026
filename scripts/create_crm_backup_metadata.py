@@ -34,6 +34,7 @@ def main() -> None:
 
     manifest = json.loads(Path(args.manifest).read_text(encoding="utf-8"))
     archive = Path(args.archive)
+    output = Path(args.output)
     reason = args.reason.lower()
     created_at = manifest["createdAt"]
     classes = ["manual"] if reason == "manual" else [reason]
@@ -54,7 +55,6 @@ def main() -> None:
             classes.append("monthly")
 
     previous = {}
-    output = Path(args.output)
     if output.exists():
         previous = json.loads(output.read_text(encoding="utf-8"))
 
