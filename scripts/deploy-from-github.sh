@@ -22,7 +22,8 @@ trap cleanup EXIT INT TERM
 
 archive="$stage/source.tar.gz"
 curl -fsSL --retry 3 --connect-timeout 15 \
-  "https://github.com/$REPOSITORY/archive/refs/heads/$REF.tar.gz" -o "$archive"
+  -H 'Cache-Control: no-cache' \
+  "https://github.com/$REPOSITORY/archive/refs/heads/$REF.tar.gz?cache_bust=$(date +%s)" -o "$archive"
 tar -xzf "$archive" -C "$stage"
 source_dir="$(find "$stage" -mindepth 1 -maxdepth 1 -type d -name '*-*' | head -n 1)"
 
