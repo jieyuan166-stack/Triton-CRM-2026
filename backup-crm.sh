@@ -169,15 +169,21 @@ import json, sys
 from pathlib import Path
 Path(sys.argv[1]).write_text(json.dumps({"mode": "backup", "filename": sys.argv[2], "downloadUrl": sys.argv[3]}) + "\n")
 PY
+  set +e
   curl --fail --silent --show-error \
     -X POST -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" \
     --data-binary "@$payload_file" "$CRM_URL/api/automation/disaster-backup-notify" >/dev/null
-
-  python3 "$PROJECT_DIR/scripts/create_crm_backup_metadata.py" \
-    --manifest "$stage/manifest.json" --archive "$archive_path" --output "$archive_path.meta.json" --reason "$reason" \
-    --remote-key "$remote_key" --remote-uploaded --email-sent --download-url "$download_url"
-  if [ "$provider" = "github-git" ]; then
-    github_git_sync_files upload "$archive_path.meta.json"
+  notification_result=$?
+  set -e
+  if [ "$notification_result" -eq 0 ]; then
+    python3 "$PROJECT_DIR/scripts/create_crm_backup_metadata.py" \
+      --manifest "$stage/manifest.json" --archive "$archive_path" --output "$archive_path.meta.json" --reason "$reason" \
+      --remote-key "$remote_key" --remote-uploaded --email-sent --download-url "$download_url"
+    if [ "$provider" = "github-git" ]; then
+      github_git_sync_files upload "$archive_path.meta.json"
+    fi
+  else
+    echo "WARNING: encrypted backup was uploaded, but notification email could not be sent." >&2
   fi
 fi
 
