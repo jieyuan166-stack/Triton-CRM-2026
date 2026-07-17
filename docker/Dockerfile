@@ -18,18 +18,16 @@ RUN apk add --no-cache openssl sqlite su-exec
 RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001 -G nodejs
 RUN mkdir -p /app/backups /app/prisma/data /app/uploads /app/disaster-recovery/requests && chown -R nextjs:nodejs /app/backups /app/prisma/data /app/uploads /app/disaster-recovery/requests
 
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
-COPY --chown=nextjs:nodejs docker/entrypoint.sh /app/docker/entrypoint.sh
-# Source archives downloaded by NAS can inherit a restrictive umask. The
-# runtime user is intentionally different from the build user, so normalize
-# only application code permissions here; mounted data and secrets stay private.
-RUN find /app -type d -exec chmod 755 {} + \
-  && find /app -type f -exec chmod a+r {} + \
-  && chmod 755 /app/docker/entrypoint.sh
+# The NAS starts the CRM as uid 1000/gid 10. Copy immutable application files
+# with that owner instead of recursively chmod-ing the entire node_modules tree.
+# Mounted data and secrets retain their separate, private permissions.
+COPY --from=builder --chown=1000:10 /app/.next/standalone ./
+COPY --from=builder --chown=1000:10 /app/.next/static ./.next/static
+COPY --from=builder --chown=1000:10 /app/public ./public
+COPY --from=builder --chown=1000:10 /app/prisma ./prisma
+COPY --from=builder --chown=1000:10 /app/node_modules ./node_modules
+COPY --chown=1000:10 docker/entrypoint.sh /app/docker/entrypoint.sh
+RUN chmod 755 /app/docker/entrypoint.sh
 
 EXPOSE 3000
 ENV PORT=3000
