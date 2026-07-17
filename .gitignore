@@ -30,6 +30,7 @@ tunnel-watchdog.log
 # Full encrypted disaster-recovery runtime data and private NAS secrets.
 /disaster-recovery/*
 !/disaster-recovery/.gitkeep
+/.github-sync/
 /backup-secrets/*
 !/backup-secrets/README.md
 /uploads/

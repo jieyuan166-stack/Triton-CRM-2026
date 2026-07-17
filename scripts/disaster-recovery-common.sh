@@ -86,16 +86,38 @@ b2_required() {
   : "${AWS_SECRET_ACCESS_KEY:?AWS_SECRET_ACCESS_KEY is required for offsite backup}"
 }
 
-offsite_delivery_is_configured() {
-  [ -n "${B2_S3_ENDPOINT:-}" ] || return 1
-  [ -n "${B2_BUCKET:-}" ] || return 1
-  [ -n "${AWS_ACCESS_KEY_ID:-}" ] || return 1
-  [ -n "${AWS_SECRET_ACCESS_KEY:-}" ] || return 1
+backup_email_delivery_is_configured() {
   [ -n "${BACKUP_EMAIL_TO:-}" ] || return 1
   [ -n "${BACKUP_SMTP_HOST:-}" ] || return 1
   [ -n "${BACKUP_SMTP_USER:-}" ] || return 1
   [ -n "${BACKUP_SMTP_PASSWORD:-}" ] || return 1
   [ -n "${BACKUP_SMTP_FROM_EMAIL:-}" ] || return 1
+}
+
+b2_offsite_is_configured() {
+  [ -n "${B2_S3_ENDPOINT:-}" ] || return 1
+  [ -n "${B2_BUCKET:-}" ] || return 1
+  [ -n "${AWS_ACCESS_KEY_ID:-}" ] || return 1
+  [ -n "${AWS_SECRET_ACCESS_KEY:-}" ] || return 1
+}
+
+github_offsite_is_configured() {
+  [ -n "${GITHUB_BACKUP_REPOSITORY:-}" ] || return 1
+  [ -n "${GITHUB_BACKUP_TOKEN:-}" ] || return 1
+}
+
+offsite_delivery_provider() {
+  if github_offsite_is_configured; then
+    printf '%s\n' github
+  elif b2_offsite_is_configured; then
+    printf '%s\n' b2
+  else
+    printf '%s\n' none
+  fi
+}
+
+offsite_delivery_is_configured() {
+  [ "$(offsite_delivery_provider)" != "none" ]
 }
 
 b2_run() {
@@ -133,6 +155,86 @@ b2_presign() {
 b2_remove() {
   remote_key="$1"
   b2_run s3 rm "s3://$B2_BUCKET/$remote_key"
+}
+
+github_api() {
+  endpoint="$1"
+  shift
+  curl --fail --silent --show-error \
+    -H "Accept: application/vnd.github+json" \
+    -H "Authorization: Bearer $GITHUB_BACKUP_TOKEN" \
+    -H "X-GitHub-Api-Version: 2022-11-28" \
+    "$@" "https://api.github.com/repos/$GITHUB_BACKUP_REPOSITORY$endpoint"
+}
+
+github_create_release() {
+  tag="$1"
+  name="$2"
+  reason="$3"
+  payload="$(python3 - "$tag" "$name" "$reason" <<'PY'
+import json
+import sys
+
+tag, name, reason = sys.argv[1:]
+print(json.dumps({
+    "tag_name": tag,
+    "name": name,
+    "body": "Encrypted Triton CRM disaster-recovery archive. Reason: " + reason + ".",
+    "draft": False,
+    "prerelease": False,
+}))
+PY
+)"
+  printf '%s' "$payload" | github_api "/releases" -X POST \
+    -H "Content-Type: application/json" --data-binary @-
+}
+
+github_release_values() {
+  python3 -c '
+import json, sys
+release = json.load(sys.stdin)
+upload_url = release["upload_url"].split("{")[0]
+print("|".join([str(release["id"]), upload_url, release["html_url"]]))
+'
+}
+
+github_upload_release_asset() {
+  upload_url="$1"
+  file="$2"
+  content_type="$3"
+  name="$(basename "$file")"
+  encoded_name="$(python3 - "$name" <<'PY'
+from urllib.parse import quote
+import sys
+print(quote(sys.argv[1], safe=""))
+PY
+)"
+  curl --fail --silent --show-error -X POST \
+    -H "Accept: application/vnd.github+json" \
+    -H "Authorization: Bearer $GITHUB_BACKUP_TOKEN" \
+    -H "X-GitHub-Api-Version: 2022-11-28" \
+    -H "Content-Type: $content_type" \
+    --data-binary "@$file" "${upload_url}?name=${encoded_name}" >/dev/null
+}
+
+github_verify_release_assets() {
+  release_id="$1"
+  shift
+  github_api "/releases/$release_id/assets?per_page=100" | python3 -c '
+import json, sys
+expected = set(sys.argv[1:])
+actual = {asset["name"] for asset in json.load(sys.stdin)}
+missing = sorted(expected - actual)
+if missing:
+    raise SystemExit("GitHub release is missing assets: " + ", ".join(missing))
+' "$@"
+}
+
+github_delete_release_by_tag() {
+  tag="$1"
+  release="$(github_api "/releases/tags/$tag")"
+  release_id="$(printf '%s' "$release" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')"
+  github_api "/releases/$release_id" -X DELETE >/dev/null
 }
 
 write_status() {

@@ -83,6 +83,21 @@ cd /volume1/docker/triton-crm
 bash scripts/deploy-safe.sh
 ```
 
+### Deploy Directly From GitHub (no Mac required)
+
+After reviewing or editing code in GitHub, SSH to the NAS and run:
+
+```sh
+cd /volume1/docker/triton-crm
+sh scripts/deploy-from-github.sh main
+```
+
+The script downloads the GitHub source to a temporary NAS directory, mirrors
+only source files, preserves NAS-only data (`.env.production`, backups,
+uploads, disaster-recovery archives, and secrets), then runs the normal safe
+deployment procedure. The CRM database and customer files never pass through a
+Mac during this workflow.
+
 The script will:
 1. Pre-check env vars, file permissions, compose syntax, container state
 2. Take a SQLite backup labelled `triton-{timestamp}-pre-deploy.db.gz`

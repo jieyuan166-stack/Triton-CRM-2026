@@ -31,12 +31,13 @@ ensure_dr_directories
 load_control_secret
 load_backup_secrets
 
-if ! offsite_delivery_is_configured; then
+provider="$(offsite_delivery_provider)"
+if [ "$provider" = "none" ]; then
   local_only=true
 fi
 
 if [ "$test_email" = true ]; then
-  offsite_delivery_is_configured || { echo "Backup email delivery is not configured." >&2; exit 1; }
+  backup_email_delivery_is_configured || { echo "Backup email delivery is not configured." >&2; exit 1; }
   curl --fail --silent --show-error \
     -X POST -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" \
     -d '{"mode":"test"}' "$CRM_URL/api/automation/disaster-backup-notify"
@@ -113,29 +114,52 @@ if [ "$local_only" = true ]; then
   exit 0
 fi
 
-b2_required
-remote_prefix="${B2_PREFIX:-production}"
-remote_key="$remote_prefix/$archive_name"
-b2_copy_from_local "$archive_path" "$remote_key"
-b2_copy_from_local "$archive_path.sha256" "$remote_key.sha256"
-download_url="$(b2_presign "$remote_key")"
+case "$provider" in
+  b2)
+    b2_required
+    remote_prefix="${B2_PREFIX:-production}"
+    remote_key="$remote_prefix/$archive_name"
+    b2_copy_from_local "$archive_path" "$remote_key"
+    b2_copy_from_local "$archive_path.sha256" "$remote_key.sha256"
+    download_url="$(b2_presign "$remote_key")"
+    ;;
+  github)
+    release_tag="backup-${timestamp}-${reason}"
+    release="$(github_create_release "$release_tag" "$archive_name" "$reason")"
+    release_values="$(printf '%s' "$release" | github_release_values)"
+    IFS='|' read -r release_id release_upload_url download_url <<EOF
+$release_values
+EOF
+    github_upload_release_asset "$release_upload_url" "$archive_path" application/octet-stream
+    github_upload_release_asset "$release_upload_url" "$archive_path.sha256" text/plain
+    github_verify_release_assets "$release_id" "$(basename "$archive_path")" "$(basename "$archive_path.sha256")"
+    remote_key="github-release:$release_tag"
+    ;;
+  *)
+    echo "No supported offsite backup provider is configured." >&2
+    exit 1
+    ;;
+esac
+
 python3 "$PROJECT_DIR/scripts/create_crm_backup_metadata.py" \
   --manifest "$stage/manifest.json" --archive "$archive_path" --output "$archive_path.meta.json" --reason "$reason" \
   --remote-key "$remote_key" --remote-uploaded --download-url "$download_url"
 
-payload_file="$stage/notify.json"
-python3 - "$payload_file" "$archive_name" "$download_url" <<'PY'
+if backup_email_delivery_is_configured; then
+  payload_file="$stage/notify.json"
+  python3 - "$payload_file" "$archive_name" "$download_url" <<'PY'
 import json, sys
 from pathlib import Path
 Path(sys.argv[1]).write_text(json.dumps({"mode": "backup", "filename": sys.argv[2], "downloadUrl": sys.argv[3]}) + "\n")
 PY
-curl --fail --silent --show-error \
-  -X POST -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" \
-  --data-binary "@$payload_file" "$CRM_URL/api/automation/disaster-backup-notify" >/dev/null
+  curl --fail --silent --show-error \
+    -X POST -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" \
+    --data-binary "@$payload_file" "$CRM_URL/api/automation/disaster-backup-notify" >/dev/null
 
-python3 "$PROJECT_DIR/scripts/create_crm_backup_metadata.py" \
-  --manifest "$stage/manifest.json" --archive "$archive_path" --output "$archive_path.meta.json" --reason "$reason" \
-  --remote-key "$remote_key" --remote-uploaded --email-sent --download-url "$download_url"
+  python3 "$PROJECT_DIR/scripts/create_crm_backup_metadata.py" \
+    --manifest "$stage/manifest.json" --archive "$archive_path" --output "$archive_path.meta.json" --reason "$reason" \
+    --remote-key "$remote_key" --remote-uploaded --email-sent --download-url "$download_url"
+fi
 
 if [ "$reason" = "scheduled" ]; then
   date +%s > "$schedule_state"
@@ -151,11 +175,24 @@ import json, sys
 print(json.load(open(sys.argv[1], encoding='utf-8')).get('remote', {}).get('key', ''))
 PY
 )"
-    if [ -n "$old_key" ] && b2_remove "$old_key"; then
-      b2_remove "$old_key.sha256" || true
-      rm -f "$DR_BACKUPS_DIR/$old_name" "$DR_BACKUPS_DIR/$old_name.sha256" "$old_meta"
-    fi
+    case "$provider" in
+      b2)
+        if [ -n "$old_key" ] && b2_remove "$old_key"; then
+          b2_remove "$old_key.sha256" || true
+          rm -f "$DR_BACKUPS_DIR/$old_name" "$DR_BACKUPS_DIR/$old_name.sha256" "$old_meta"
+        fi
+        ;;
+      github)
+        case "$old_key" in
+          github-release:*)
+            if github_delete_release_by_tag "${old_key#github-release:}"; then
+              rm -f "$DR_BACKUPS_DIR/$old_name" "$DR_BACKUPS_DIR/$old_name.sha256" "$old_meta"
+            fi
+            ;;
+        esac
+        ;;
+    esac
   done
 fi
 
-echo "Created, verified, encrypted, uploaded, and emailed: $archive_path"
+echo "Created, verified, encrypted, and uploaded to $provider: $archive_path"

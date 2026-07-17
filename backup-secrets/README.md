@@ -29,3 +29,18 @@ email delivery.
 The notification SMTP values and `BACKUP_EMAIL_TO` belong in NAS
 `.env.production` because the CRM's authenticated notification endpoint sends
 the email. They must also remain mode `600` and out of Git.
+
+## GitHub Releases (alternative offsite storage)
+
+Do not upload CRM archives to the public source repository. Create a separate
+private repository, then add a fine-grained token limited to that repository:
+
+```sh
+GITHUB_BACKUP_REPOSITORY=jieyuan166-stack/Triton-CRM-Encrypted-Backups
+GITHUB_BACKUP_TOKEN=github_pat_...
+```
+
+The token needs repository `Contents: Read and write` permission. The NAS only
+uploads `.tar.gz.age` encrypted archives, SHA-256 files, and non-sensitive
+metadata as private Release assets. It never uploads an unencrypted database,
+uploads directory, or recovery key.
