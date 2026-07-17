@@ -23,15 +23,18 @@ export function isProvinceCode(v: unknown): v is ProvinceCode {
 }
 
 // === Tags ===
-// All Client tags are now COMPUTED from the client + their policies — see
-// lib/client-tags.ts:calculateClientTags. The values below are used as
-// canonical identifiers in URL params, filter dropdowns, and badge styling.
+// Some Client tags are computed from the client + their policies while others
+// are advisor-managed — see lib/client-tags.ts:calculateClientTags. The values
+// below are canonical identifiers in URL params, filter dropdowns, and badge
+// styling.
 export const TAG_VALUES = [
   "insurance",
   "investment",
   "VIP",
   "Loan",
   "Corporate",
+  "Potential",
+  "Follow-up",
   "Missing Information",
 ] as const;
 export type TagValue = (typeof TAG_VALUES)[number];
@@ -42,6 +45,8 @@ export const TAG_LABELS: Record<TagValue, string> = {
   VIP: "VIP",
   Loan: "Loan",
   Corporate: "Corporate",
+  Potential: "Potential",
+  "Follow-up": "Follow-up",
   "Missing Information": "Missing Information",
 };
 

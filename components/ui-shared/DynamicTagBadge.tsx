@@ -7,8 +7,10 @@ import {
   Banknote,
   Building2,
   CircleAlert,
+  Clock3,
   Shield,
   Sparkles,
+  Target,
   TrendingUp,
 } from "lucide-react";
 import {
@@ -44,6 +46,14 @@ const STYLES: Record<
   Corporate: {
     icon: Building2,
     className: "bg-slate-100 text-slate-700 ring-slate-300/70",
+  },
+  Potential: {
+    icon: Target,
+    className: "bg-amber-50 text-amber-800 ring-amber-200/80",
+  },
+  "Follow-up": {
+    icon: Clock3,
+    className: "bg-blue-50 text-blue-700 ring-blue-200/80",
   },
   "Missing Information": {
     icon: CircleAlert,
