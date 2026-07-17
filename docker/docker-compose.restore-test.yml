@@ -13,7 +13,7 @@ services:
     ports:
       - "127.0.0.1:${RESTORE_TEST_PORT:-3002}:3000"
     volumes:
-      - ${RESTORE_TEST_DATA_VOLUME}:/app/prisma/data
+      - restore-test-data:/app/prisma/data
       - ${RESTORE_TEST_UPLOADS_DIR}:/app/uploads
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/api/ready"]
@@ -23,5 +23,6 @@ services:
       start_period: 20s
 
 volumes:
-  ${RESTORE_TEST_DATA_VOLUME}:
+  restore-test-data:
+    name: ${RESTORE_TEST_DATA_VOLUME}
     external: true
