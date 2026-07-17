@@ -24,7 +24,12 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --chown=nextjs:nodejs docker/entrypoint.sh /app/docker/entrypoint.sh
-RUN chmod 755 /app/docker/entrypoint.sh
+# Source archives downloaded by NAS can inherit a restrictive umask. The
+# runtime user is intentionally different from the build user, so normalize
+# only application code permissions here; mounted data and secrets stay private.
+RUN find /app -type d -exec chmod 755 {} + \
+  && find /app -type f -exec chmod a+r {} + \
+  && chmod 755 /app/docker/entrypoint.sh
 
 EXPOSE 3000
 ENV PORT=3000
