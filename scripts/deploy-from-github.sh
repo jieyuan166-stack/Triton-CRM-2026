@@ -47,4 +47,16 @@ rsync -a --delete \
   --exclude='*.log' \
   "$source_dir/" "$PROJECT_DIR/"
 
+# GitHub archive extraction can inherit a restrictive NAS umask. Normalize
+# executable source scripts before Docker copies them into the runtime image.
+for executable in \
+  docker/entrypoint.sh \
+  backup-crm.sh \
+  restore-crm.sh \
+  verify-crm-backup.sh \
+  scripts/deploy-safe.sh \
+  scripts/deploy-from-github.sh; do
+  [ -f "$PROJECT_DIR/$executable" ] && chmod 755 "$PROJECT_DIR/$executable"
+done
+
 exec sh "$PROJECT_DIR/scripts/deploy-safe.sh"
