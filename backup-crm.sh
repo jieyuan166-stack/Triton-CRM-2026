@@ -146,12 +146,20 @@ EOF
     ;;
 esac
 
-python3 "$PROJECT_DIR/scripts/create_crm_backup_metadata.py" \
-  --manifest "$stage/manifest.json" --archive "$archive_path" --output "$archive_path.meta.json" --reason "$reason" \
-  --remote-key "$remote_key" --remote-uploaded --download-url "$download_url"
-
 if [ "$provider" = "github-git" ]; then
+  # Do not claim an offsite copy exists until the Git push has succeeded.
+  python3 "$PROJECT_DIR/scripts/create_crm_backup_metadata.py" \
+    --manifest "$stage/manifest.json" --archive "$archive_path" --output "$archive_path.meta.json" --reason "$reason" \
+    --remote-key "$remote_key" --download-url "$download_url"
   github_git_sync_files upload "$archive_path" "$archive_path.sha256" "$archive_path.meta.json"
+  python3 "$PROJECT_DIR/scripts/create_crm_backup_metadata.py" \
+    --manifest "$stage/manifest.json" --archive "$archive_path" --output "$archive_path.meta.json" --reason "$reason" \
+    --remote-key "$remote_key" --remote-uploaded --download-url "$download_url"
+  github_git_sync_files upload "$archive_path.meta.json"
+else
+  python3 "$PROJECT_DIR/scripts/create_crm_backup_metadata.py" \
+    --manifest "$stage/manifest.json" --archive "$archive_path" --output "$archive_path.meta.json" --reason "$reason" \
+    --remote-key "$remote_key" --remote-uploaded --download-url "$download_url"
 fi
 
 if backup_email_delivery_is_configured; then

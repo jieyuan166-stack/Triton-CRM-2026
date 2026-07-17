@@ -262,8 +262,10 @@ github_git_sync_files() {
   key_dir="$(dirname "$GITHUB_BACKUP_DEPLOY_KEY")"
   key_name="$(basename "$GITHUB_BACKUP_DEPLOY_KEY")"
   hosts_name="$(basename "$GITHUB_BACKUP_KNOWN_HOSTS")"
-  docker run --rm --user "$(id -u):$(id -g)" \
-    --env HOME=/tmp \
+  docker run --rm \
+    --env HOME=/root \
+    --env "HOST_UID=$(id -u)" \
+    --env "HOST_GID=$(id -g)" \
     --env "GITHUB_BACKUP_GIT_REMOTE=$GITHUB_BACKUP_GIT_REMOTE" \
     --env "GITHUB_BACKUP_FILES=$files" \
     --env "GITHUB_BACKUP_MODE=$mode" \
@@ -275,6 +277,7 @@ github_git_sync_files() {
     --entrypoint /bin/sh \
     "${GITHUB_GIT_IMAGE:-alpine/git:2.47.2}" -c '
       set -eu
+      trap '\''chown -R "$HOST_UID:$HOST_GID" /work'\'' EXIT
       git clone --depth 1 "$GITHUB_BACKUP_GIT_REMOTE" repo
       cd repo
       git config user.name "Triton CRM NAS Backup"
