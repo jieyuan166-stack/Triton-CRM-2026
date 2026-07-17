@@ -35,6 +35,7 @@ source_dir="$(find "$stage" -mindepth 1 -maxdepth 1 -type d -name '*-*' | head -
 # GitHub, so removed source files do not linger between deployments.
 rsync -a --delete \
   --exclude='.env.production' \
+  --exclude='cloudflared/***' \
   --exclude='backup-secrets/***' \
   --exclude='backups/***' \
   --exclude='uploads/***' \
