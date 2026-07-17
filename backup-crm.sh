@@ -176,6 +176,9 @@ PY
   python3 "$PROJECT_DIR/scripts/create_crm_backup_metadata.py" \
     --manifest "$stage/manifest.json" --archive "$archive_path" --output "$archive_path.meta.json" --reason "$reason" \
     --remote-key "$remote_key" --remote-uploaded --email-sent --download-url "$download_url"
+  if [ "$provider" = "github-git" ]; then
+    github_git_sync_files upload "$archive_path.meta.json"
+  fi
 fi
 
 if [ "$reason" = "scheduled" ]; then

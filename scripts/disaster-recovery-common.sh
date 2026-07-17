@@ -87,11 +87,13 @@ b2_required() {
 }
 
 backup_email_delivery_is_configured() {
-  [ -n "${BACKUP_EMAIL_TO:-}" ] || return 1
-  [ -n "${BACKUP_SMTP_HOST:-}" ] || return 1
-  [ -n "${BACKUP_SMTP_USER:-}" ] || return 1
-  [ -n "${BACKUP_SMTP_PASSWORD:-}" ] || return 1
-  [ -n "${BACKUP_SMTP_FROM_EMAIL:-}" ] || return 1
+  # A dedicated backup account may be supplied, but normal deployments reuse
+  # the existing server-side CRM SMTP credentials. The recipient defaults to
+  # the primary sender address so offsite backups never depend on a Mac.
+  [ -n "${BACKUP_EMAIL_TO:-${BACKUP_SMTP_FROM_EMAIL:-${SMTP_FROM_EMAIL:-}}}" ] || return 1
+  [ -n "${BACKUP_SMTP_USER:-${SMTP_USER:-}}" ] || return 1
+  [ -n "${BACKUP_SMTP_PASSWORD:-${SMTP_PASSWORD:-}}" ] || return 1
+  [ -n "${BACKUP_SMTP_FROM_EMAIL:-${SMTP_FROM_EMAIL:-}}" ] || return 1
 }
 
 b2_offsite_is_configured() {

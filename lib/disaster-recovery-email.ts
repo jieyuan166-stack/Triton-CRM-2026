@@ -5,9 +5,9 @@ import { readEncryptedDisasterRecoveryBackup, getDisasterRecoveryBackup } from "
 
 const EMAIL_ATTACHMENT_LIMIT = 18 * 1024 * 1024;
 
-function required(name: string) {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is not configured`);
+function backupSetting(name: string, fallbackName?: string, fallbackValue?: string) {
+  const value = process.env[`BACKUP_${name}`] || (fallbackName ? process.env[fallbackName] : undefined) || fallbackValue;
+  if (!value) throw new Error(`BACKUP_${name} is not configured`);
   return value;
 }
 
@@ -22,14 +22,17 @@ function formatBytes(bytes: number) {
 }
 
 export async function sendDisasterRecoveryNotification(input: { mode: "backup" | "test"; filename?: string; downloadUrl?: string }) {
-  const to = required("BACKUP_EMAIL_TO");
-  const host = required("BACKUP_SMTP_HOST");
-  const user = required("BACKUP_SMTP_USER");
-  const password = required("BACKUP_SMTP_PASSWORD");
-  const fromEmail = required("BACKUP_SMTP_FROM_EMAIL");
-  const fromName = process.env.BACKUP_SMTP_FROM_NAME || "Triton CRM Backup";
-  const port = Number(process.env.BACKUP_SMTP_PORT || "465");
-  const secure = asBoolean(process.env.BACKUP_SMTP_SECURE, port === 465);
+  // Dedicated backup credentials are optional. When they are not supplied,
+  // notifications use the CRM's existing server-side SMTP account and return
+  // to that account's inbox. Credentials never leave environment variables.
+  const fromEmail = backupSetting("SMTP_FROM_EMAIL", "SMTP_FROM_EMAIL");
+  const to = process.env.BACKUP_EMAIL_TO || fromEmail;
+  const host = backupSetting("SMTP_HOST", "SMTP_HOST", "smtp.gmail.com");
+  const user = backupSetting("SMTP_USER", "SMTP_USER");
+  const password = backupSetting("SMTP_PASSWORD", "SMTP_PASSWORD");
+  const fromName = process.env.BACKUP_SMTP_FROM_NAME || process.env.SMTP_FROM_NAME || "Triton CRM Backup";
+  const port = Number(process.env.BACKUP_SMTP_PORT || process.env.SMTP_PORT || "465");
+  const secure = asBoolean(process.env.BACKUP_SMTP_SECURE ?? process.env.SMTP_SECURE, port === 465);
   const transporter = nodemailer.createTransport({ host, port, secure, auth: { user, pass: password } });
 
   if (input.mode === "test") {

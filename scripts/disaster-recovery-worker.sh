@@ -37,11 +37,21 @@ PY
   fi
 
   if [ "$remote_uploaded" = true ]; then
-    [ -n "$remote_key" ] || { echo "Backup metadata is missing its B2 object key." >&2; return 1; }
+    [ -n "$remote_key" ] || { echo "Backup metadata is missing its offsite object key." >&2; return 1; }
     load_backup_secrets
-    b2_required
-    b2_remove "$remote_key"
-    b2_remove "$remote_key.sha256" || true
+    case "$remote_key" in
+      github-git:*)
+        github_git_sync_files delete "$archive" "$checksum" "$metadata"
+        ;;
+      github-release:*)
+        github_delete_release_by_tag "${remote_key#github-release:}"
+        ;;
+      *)
+        b2_required
+        b2_remove "$remote_key"
+        b2_remove "$remote_key.sha256" || true
+        ;;
+    esac
   fi
 
   rm -f "$archive" "$checksum" "$metadata"
@@ -112,7 +122,7 @@ PY
         printf '%s\n' "$test_output" >&2
         case "$test_output" in
           *"Backup email delivery is not configured."*)
-            failure_message="Backup notification delivery is not configured. Add the private backup SMTP and B2 settings before testing delivery."
+            failure_message="Backup notification delivery is not configured. Configure the CRM SMTP account or dedicated backup SMTP settings before testing delivery."
             ;;
         esac
       fi
