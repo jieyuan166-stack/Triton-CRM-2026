@@ -316,7 +316,8 @@ github_git_fetch_archive() {
   key_dir="$(dirname "$GITHUB_BACKUP_DEPLOY_KEY")"
   key_name="$(basename "$GITHUB_BACKUP_DEPLOY_KEY")"
   hosts_name="$(basename "$GITHUB_BACKUP_KNOWN_HOSTS")"
-  filename="$(docker run --rm \
+  filename="$(
+    docker run --rm \
     --env HOME=/root \
     --env "GITHUB_BACKUP_GIT_REMOTE=$GITHUB_BACKUP_GIT_REMOTE" \
     --env "GITHUB_BACKUP_REQUESTED=$requested" \
@@ -343,7 +344,8 @@ github_git_fetch_archive() {
       cp "$file" "$file.sha256" /backups/
       test ! -f "$file.meta.json" || cp "$file.meta.json" /backups/
       printf "%s" "$file"
-    '")"
+    '
+  )"
   rm -rf "$work_dir"
   safe_backup_name "$filename"
   chown "$(id -u):$(id -g)" "$DR_BACKUPS_DIR/$filename" "$DR_BACKUPS_DIR/$filename.sha256" 2>/dev/null || true
