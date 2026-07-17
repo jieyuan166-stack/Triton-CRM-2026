@@ -101,14 +101,24 @@ b2_offsite_is_configured() {
   [ -n "${AWS_SECRET_ACCESS_KEY:-}" ] || return 1
 }
 
-github_offsite_is_configured() {
+github_release_offsite_is_configured() {
   [ -n "${GITHUB_BACKUP_REPOSITORY:-}" ] || return 1
   [ -n "${GITHUB_BACKUP_TOKEN:-}" ] || return 1
 }
 
+github_git_offsite_is_configured() {
+  [ -n "${GITHUB_BACKUP_GIT_REMOTE:-}" ] || return 1
+  [ -n "${GITHUB_BACKUP_DEPLOY_KEY:-}" ] || return 1
+  [ -n "${GITHUB_BACKUP_KNOWN_HOSTS:-}" ] || return 1
+  [ -r "$GITHUB_BACKUP_DEPLOY_KEY" ] || return 1
+  [ -r "$GITHUB_BACKUP_KNOWN_HOSTS" ] || return 1
+}
+
 offsite_delivery_provider() {
-  if github_offsite_is_configured; then
-    printf '%s\n' github
+  if github_release_offsite_is_configured; then
+    printf '%s\n' github-release
+  elif github_git_offsite_is_configured; then
+    printf '%s\n' github-git
   elif b2_offsite_is_configured; then
     printf '%s\n' b2
   else
@@ -235,6 +245,63 @@ github_delete_release_by_tag() {
   release="$(github_api "/releases/tags/$tag")"
   release_id="$(printf '%s' "$release" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')"
   github_api "/releases/$release_id" -X DELETE >/dev/null
+}
+
+github_git_sync_files() {
+  mode="$1"
+  shift
+  [ "$#" -gt 0 ] || return 0
+
+  work_dir="$DR_STAGING_DIR/github-git-$(date +%s)-$$"
+  mkdir -p "$work_dir"
+  files=""
+  for file in "$@"; do
+    files="$files $(basename "$file")"
+  done
+
+  key_dir="$(dirname "$GITHUB_BACKUP_DEPLOY_KEY")"
+  key_name="$(basename "$GITHUB_BACKUP_DEPLOY_KEY")"
+  hosts_name="$(basename "$GITHUB_BACKUP_KNOWN_HOSTS")"
+  docker run --rm --user "$(id -u):$(id -g)" \
+    --env HOME=/tmp \
+    --env "GITHUB_BACKUP_GIT_REMOTE=$GITHUB_BACKUP_GIT_REMOTE" \
+    --env "GITHUB_BACKUP_FILES=$files" \
+    --env "GITHUB_BACKUP_MODE=$mode" \
+    --env "GIT_SSH_COMMAND=ssh -i /secrets/$key_name -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/secrets/$hosts_name" \
+    -v "$DR_BACKUPS_DIR:/backups:ro" \
+    -v "$work_dir:/work" \
+    -v "$key_dir:/secrets:ro" \
+    --workdir /work \
+    --entrypoint /bin/sh \
+    "${GITHUB_GIT_IMAGE:-alpine/git:2.47.2}" -c '
+      set -eu
+      git clone --depth 1 "$GITHUB_BACKUP_GIT_REMOTE" repo
+      cd repo
+      git config user.name "Triton CRM NAS Backup"
+      git config user.email "nas-backup@tritonwealth.ca"
+      case "$GITHUB_BACKUP_MODE" in
+        upload)
+          mkdir -p archives
+          for file in $GITHUB_BACKUP_FILES; do
+            cp "/backups/$file" "archives/$file"
+          done
+          git add archives
+          git diff --cached --quiet && exit 0
+          git commit -m "Store encrypted CRM backup $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push origin HEAD:main
+          ;;
+        delete)
+          for file in $GITHUB_BACKUP_FILES; do
+            git rm -f --ignore-unmatch "archives/$file"
+          done
+          git diff --cached --quiet && exit 0
+          git commit -m "Prune expired encrypted CRM backup"
+          git push origin HEAD:main
+          ;;
+        *) exit 2 ;;
+      esac
+    '
+  rm -rf "$work_dir"
 }
 
 write_status() {

@@ -123,7 +123,7 @@ case "$provider" in
     b2_copy_from_local "$archive_path.sha256" "$remote_key.sha256"
     download_url="$(b2_presign "$remote_key")"
     ;;
-  github)
+  github-release)
     release_tag="backup-${timestamp}-${reason}"
     release="$(github_create_release "$release_tag" "$archive_name" "$reason")"
     release_values="$(printf '%s' "$release" | github_release_values)"
@@ -135,6 +135,11 @@ EOF
     github_verify_release_assets "$release_id" "$(basename "$archive_path")" "$(basename "$archive_path.sha256")"
     remote_key="github-release:$release_tag"
     ;;
+  github-git)
+    remote_key="github-git:archives/$archive_name"
+    download_url="https://github.com/${GITHUB_BACKUP_GIT_REMOTE#git@github.com:}"
+    download_url="${download_url%.git}/tree/main/archives"
+    ;;
   *)
     echo "No supported offsite backup provider is configured." >&2
     exit 1
@@ -144,6 +149,10 @@ esac
 python3 "$PROJECT_DIR/scripts/create_crm_backup_metadata.py" \
   --manifest "$stage/manifest.json" --archive "$archive_path" --output "$archive_path.meta.json" --reason "$reason" \
   --remote-key "$remote_key" --remote-uploaded --download-url "$download_url"
+
+if [ "$provider" = "github-git" ]; then
+  github_git_sync_files upload "$archive_path" "$archive_path.sha256" "$archive_path.meta.json"
+fi
 
 if backup_email_delivery_is_configured; then
   payload_file="$stage/notify.json"
@@ -182,10 +191,19 @@ PY
           rm -f "$DR_BACKUPS_DIR/$old_name" "$DR_BACKUPS_DIR/$old_name.sha256" "$old_meta"
         fi
         ;;
-      github)
+      github-release)
         case "$old_key" in
           github-release:*)
             if github_delete_release_by_tag "${old_key#github-release:}"; then
+              rm -f "$DR_BACKUPS_DIR/$old_name" "$DR_BACKUPS_DIR/$old_name.sha256" "$old_meta"
+            fi
+            ;;
+        esac
+        ;;
+      github-git)
+        case "$old_key" in
+          github-git:*)
+            if github_git_sync_files delete "$DR_BACKUPS_DIR/$old_name" "$DR_BACKUPS_DIR/$old_name.sha256" "$old_meta"; then
               rm -f "$DR_BACKUPS_DIR/$old_name" "$DR_BACKUPS_DIR/$old_name.sha256" "$old_meta"
             fi
             ;;
