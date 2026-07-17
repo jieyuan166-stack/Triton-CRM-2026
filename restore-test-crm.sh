@@ -130,8 +130,18 @@ search_term="$(docker compose -p "$test_project" -f "$PROJECT_DIR/docker/docker-
 [ -n "$search_term" ] || { echo "Restored database contains no searchable client records." >&2; exit 1; }
 curl -fsS -b "$cookie" "http://127.0.0.1:$test_port/api/clients?search=$search_term" | python3 -c 'import json,sys; assert json.load(sys.stdin).get("total", 0) > 0'
 
-volume_path="$(docker volume inspect "$test_volume" --format '{{.Mountpoint}}')"
-python3 "$PROJECT_DIR/scripts/verify_crm_backup.py" "$stage/manifest.json" "$volume_path/triton.db" "$test_root/uploads" > "$test_root/restore-test-report.json"
+# Docker named-volume mountpoints are intentionally unreadable to the NAS
+# service account. Copy the disposable database through Docker to the test
+# staging directory, then run the same integrity verifier against that copy.
+restored_db="$stage/restored-triton.db"
+docker run --rm \
+  -e "HOST_UID=$(id -u)" \
+  -e "HOST_GID=$(id -g)" \
+  -v "$test_volume:/data:ro" \
+  -v "$stage:/restore" \
+  alpine:3.20 \
+  sh -c 'cp /data/triton.db /restore/restored-triton.db && chown "$HOST_UID:$HOST_GID" /restore/restored-triton.db && chmod 600 /restore/restored-triton.db'
+python3 "$PROJECT_DIR/scripts/verify_crm_backup.py" "$stage/manifest.json" "$restored_db" "$test_root/uploads" > "$test_root/restore-test-report.json"
 
 docker compose -p "$test_project" -f "$PROJECT_DIR/docker/docker-compose.restore-test.yml" --env-file "$PROJECT_DIR/.env.production" down -v
 docker volume rm "$test_volume" >/dev/null 2>&1 || true
