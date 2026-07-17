@@ -40,7 +40,10 @@ jobs remain enabled separately.
 Install Docker, restore the CRM source, recreate `.env.production` and
 `backup-secrets/backup.env` from the password manager, run the setup script,
 then use `./restore-crm.sh latest`. If the local backup directory is empty,
-the script downloads the most recent encrypted archive and checksum from B2.
+the script downloads the most recent encrypted archive and checksum from B2 or
+the configured private GitHub backup repository. GitHub restores use the NAS
+deploy key and download only encrypted archive files; no customer data is ever
+committed to the public source repository.
 
 The package intentionally excludes SMTP passwords, B2 credentials, Cloudflare
 credentials, and the age identity. Those secrets must come from the password

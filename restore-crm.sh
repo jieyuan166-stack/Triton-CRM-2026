@@ -36,10 +36,21 @@ PY
   printf '%s\n' "$DR_BACKUPS_DIR/$filename"
 }
 
+fetch_latest_from_github() {
+  github_git_fetch_archive latest
+}
+
 if [ "$target" = "latest" ]; then
   archive="$(find "$DR_BACKUPS_DIR" -maxdepth 1 -type f -name 'triton-crm-backup-*.tar.gz.age' -print | sort | tail -n 1 || true)"
   if [ -z "$archive" ]; then
-    archive="$(fetch_latest_from_b2)"
+    if b2_offsite_is_configured; then
+      archive="$(fetch_latest_from_b2)"
+    elif github_git_offsite_is_configured; then
+      archive="$(fetch_latest_from_github)"
+    else
+      echo "No local backup exists and no offsite backup provider is configured." >&2
+      exit 1
+    fi
   fi
 elif [ -f "$target" ]; then
   archive="$target"
@@ -47,10 +58,17 @@ else
   archive="$DR_BACKUPS_DIR/$target"
   if [ ! -f "$archive" ]; then
     safe_backup_name "$(basename "$target")"
-    b2_required
-    remote_prefix="${B2_PREFIX:-production}"
-    b2_copy_to_local "$remote_prefix/$target" "$archive"
-    b2_copy_to_local "$remote_prefix/$target.sha256" "$archive.sha256"
+    if b2_offsite_is_configured; then
+      b2_required
+      remote_prefix="${B2_PREFIX:-production}"
+      b2_copy_to_local "$remote_prefix/$target" "$archive"
+      b2_copy_to_local "$remote_prefix/$target.sha256" "$archive.sha256"
+    elif github_git_offsite_is_configured; then
+      archive="$(github_git_fetch_archive "$target")"
+    else
+      echo "The requested backup is not local and no offsite backup provider is configured." >&2
+      exit 1
+    fi
   fi
 fi
 

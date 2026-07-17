@@ -53,6 +53,7 @@ for executable in \
   docker/entrypoint.sh \
   backup-crm.sh \
   restore-crm.sh \
+  restore-test-crm.sh \
   verify-crm-backup.sh \
   scripts/deploy-safe.sh \
   scripts/deploy-from-github.sh; do

@@ -307,6 +307,49 @@ github_git_sync_files() {
   rm -rf "$work_dir"
 }
 
+github_git_fetch_archive() {
+  requested="${1:-latest}"
+  github_git_offsite_is_configured || { echo "GitHub backup deploy key is not configured." >&2; return 1; }
+
+  work_dir="$DR_STAGING_DIR/github-git-fetch-$(date +%s)-$$"
+  mkdir -p "$work_dir"
+  key_dir="$(dirname "$GITHUB_BACKUP_DEPLOY_KEY")"
+  key_name="$(basename "$GITHUB_BACKUP_DEPLOY_KEY")"
+  hosts_name="$(basename "$GITHUB_BACKUP_KNOWN_HOSTS")"
+  filename="$(docker run --rm \
+    --env HOME=/root \
+    --env "GITHUB_BACKUP_GIT_REMOTE=$GITHUB_BACKUP_GIT_REMOTE" \
+    --env "GITHUB_BACKUP_REQUESTED=$requested" \
+    --env "GIT_SSH_COMMAND=ssh -i /secrets/$key_name -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/secrets/$hosts_name" \
+    -v "$DR_BACKUPS_DIR:/backups" \
+    -v "$work_dir:/work" \
+    -v "$key_dir:/secrets:ro" \
+    --workdir /work \
+    --entrypoint /bin/sh \
+    "${GITHUB_GIT_IMAGE:-alpine/git:2.47.2}" -c '
+      set -eu
+      git clone --depth 1 "$GITHUB_BACKUP_GIT_REMOTE" repo >&2
+      cd repo/archives
+      if [ "$GITHUB_BACKUP_REQUESTED" = latest ]; then
+        file="$(find . -maxdepth 1 -type f -name "triton-crm-backup-*.tar.gz.age" -print | sed "s#^./##" | sort | tail -n 1)"
+      else
+        file="$GITHUB_BACKUP_REQUESTED"
+      fi
+      case "$file" in
+        triton-crm-backup-*.tar.gz.age) ;;
+        *) echo "Requested GitHub backup does not exist or has an invalid name." >&2; exit 1 ;;
+      esac
+      test -f "$file" && test -f "$file.sha256"
+      cp "$file" "$file.sha256" /backups/
+      test ! -f "$file.meta.json" || cp "$file.meta.json" /backups/
+      printf "%s" "$file"
+    '")"
+  rm -rf "$work_dir"
+  safe_backup_name "$filename"
+  chown "$(id -u):$(id -g)" "$DR_BACKUPS_DIR/$filename" "$DR_BACKUPS_DIR/$filename.sha256" 2>/dev/null || true
+  printf '%s\n' "$DR_BACKUPS_DIR/$filename"
+}
+
 write_status() {
   request_id="$1"
   state="$2"
