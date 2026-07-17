@@ -1,18 +1,18 @@
 # Triton CRM Disaster Recovery
 
-When B2 and backup-notification SMTP credentials are present, each completed
-full backup is encrypted, verified, uploaded, and reported by email. Before
-those offsite credentials are configured, `Full backup now` and the biweekly
-schedule still create and verify an encrypted local archive. The Settings page
-marks those archives `B2 pending`; they are not an offsite disaster-recovery
-substitute.
+Each completed full backup is encrypted with age, verified locally, and pushed
+to the private `Triton-CRM-Encrypted-Backups` GitHub repository. The public
+source repository never receives CRM data. Backblaze B2 remains an optional
+second offsite copy; it is not required for the GitHub-backed recovery path.
 
 ## First-time NAS setup
 
-1. Create a private Backblaze B2 bucket and least-privilege Application Key.
+1. Ensure the private GitHub backup repository and its single-repository NAS
+   deploy key are configured in `/volume1/docker/triton-crm/backup-secrets/backup.env`.
 2. Create `/volume1/docker/triton-crm/backup-secrets/backup.env` from
-   `backup-secrets/README.md`, then save the same age private key and B2
-   credentials in a password manager.
+   `backup-secrets/README.md`, then save the age private key and GitHub backup
+   repository access in a password manager. Backblaze B2 credentials are
+   optional and provide a second independent copy.
 3. Add the following private values to `/volume1/docker/triton-crm/.env.production`:
    `BACKUP_CONTROL_SECRET`, `BACKUP_EMAIL_TO`, `BACKUP_SMTP_HOST`,
    `BACKUP_SMTP_PORT`, `BACKUP_SMTP_SECURE`, `BACKUP_SMTP_USER`,
@@ -37,13 +37,20 @@ jobs remain enabled separately.
 
 ## New NAS or replacement disks
 
-Install Docker, restore the CRM source, recreate `.env.production` and
-`backup-secrets/backup.env` from the password manager, run the setup script,
-then use `./restore-crm.sh latest`. If the local backup directory is empty,
-the script downloads the most recent encrypted archive and checksum from B2 or
-the configured private GitHub backup repository. GitHub restores use the NAS
-deploy key and download only encrypted archive files; no customer data is ever
-committed to the public source repository.
+Install Docker, restore the CRM source from the public GitHub repository,
+recreate `.env.production` and `backup-secrets/backup.env` from the password
+manager, run the setup script, then use `./restore-crm.sh latest`. If the local
+backup directory is empty, the script downloads the newest encrypted archive
+and checksum from the private GitHub backup repository (or B2 if configured).
+
+If the NAS itself is lost, generate a new single-repository deploy key after
+rebuilding the NAS, or download the encrypted archive from GitHub using the
+repository owner's account and place it in
+`/volume1/docker/triton-crm/disaster-recovery/backups/` before running restore.
+The only non-repository recovery material that must be preserved outside the
+NAS is the age private identity in the password manager. GitHub stores only
+encrypted archives, checksums, and non-sensitive count metadata; no customer
+data is ever committed to the public source repository.
 
 The package intentionally excludes SMTP passwords, B2 credentials, Cloudflare
 credentials, and the age identity. Those secrets must come from the password
