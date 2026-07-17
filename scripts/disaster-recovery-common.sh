@@ -319,6 +319,8 @@ github_git_fetch_archive() {
   filename="$(
     docker run --rm \
     --env HOME=/root \
+    --env "HOST_UID=$(id -u)" \
+    --env "HOST_GID=$(id -g)" \
     --env "GITHUB_BACKUP_GIT_REMOTE=$GITHUB_BACKUP_GIT_REMOTE" \
     --env "GITHUB_BACKUP_REQUESTED=$requested" \
     --env "GIT_SSH_COMMAND=ssh -i /secrets/$key_name -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/secrets/$hosts_name" \
@@ -329,6 +331,7 @@ github_git_fetch_archive() {
     --entrypoint /bin/sh \
     "${GITHUB_GIT_IMAGE:-alpine/git:2.47.2}" -c '
       set -eu
+      trap '\''chown -R "$HOST_UID:$HOST_GID" /work'\'' EXIT
       git clone --depth 1 "$GITHUB_BACKUP_GIT_REMOTE" repo >&2
       cd repo/archives
       if [ "$GITHUB_BACKUP_REQUESTED" = latest ]; then
