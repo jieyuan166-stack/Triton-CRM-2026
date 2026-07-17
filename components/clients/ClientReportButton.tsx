@@ -5,54 +5,32 @@ import { FileBarChart2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { useData } from "@/components/providers/DataProvider";
 import { buildClientReportFilename } from "@/lib/client-report";
-import { buildFamilySummary } from "@/lib/family";
-import type { Client, Policy } from "@/lib/types";
+import type { Client } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type ClientReportButtonProps = {
   client: Client;
-  policies: Policy[];
   className?: string;
   label?: string;
 };
 
 export function ClientReportButton({
   client,
-  policies,
   className,
   label = "Portfolio Review",
 }: ClientReportButtonProps) {
-  const { clients, policies: allPolicies, relationships } = useData();
   const [isGenerating, setIsGenerating] = useState(false);
 
   const handleDownload = async () => {
     setIsGenerating(true);
 
     try {
-      const familySummary = buildFamilySummary(client, clients, allPolicies, relationships);
-      const reportPolicies =
-        familySummary.linkedClients.length > 0
-          ? familySummary.policies
-          : policies;
+      // The report API resolves the current client, direct family links, and
+      // policies server-side so the downloaded PDF cannot depend on stale UI data.
       const response = await fetch(`/api/clients/${client.id}/report`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          client,
-          policies: reportPolicies,
-          family: familySummary.linkedClients.length > 0
-            ? {
-                linkedClients: familySummary.linkedClients.map((link) => ({
-                  client: link.client,
-                  relationship: link.relationship,
-                })),
-                insuranceFaceAmount: familySummary.insuranceFaceAmount,
-                investmentAum: familySummary.investmentAum,
-              }
-            : undefined,
-        }),
+        method: "GET",
+        cache: "no-store",
       });
 
       if (!response.ok) {

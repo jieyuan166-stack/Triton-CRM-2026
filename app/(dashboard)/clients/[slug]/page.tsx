@@ -99,7 +99,6 @@ export default function ClientDetailPage() {
     <>
       <ClientHeader
         client={client}
-        reportPolicies={policies}
         onEdit={() => setEditOpen(true)}
         onDelete={() => setDeleteOpen(true)}
       />

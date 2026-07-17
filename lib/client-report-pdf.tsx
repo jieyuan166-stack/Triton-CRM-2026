@@ -12,6 +12,7 @@ import {
 import type { Carrier, Client, EmailHistoryEntry, Policy } from "@/lib/types";
 import { formatDate as formatCalendarDate } from "@/lib/date-utils";
 import { formatCurrency as formatMoney } from "@/lib/format";
+import { calculatePortfolioMetrics } from "@/lib/portfolio-metrics";
 import { displayPolicyNumber } from "@/lib/policy-number";
 
 const styles = StyleSheet.create({
@@ -346,10 +347,6 @@ function buildAddress(client: Client) {
 
 type ReportPolicy = Policy & { owner?: Client };
 
-function policyOwnerLabel(policy: ReportPolicy, fallbackClient: Client) {
-  return clientName(policy.owner ?? fallbackClient);
-}
-
 function policyPartySummary(policy: ReportPolicy) {
   const parts = [];
   const owners = [policy.policyOwnerName, policy.policyOwner2Name]
@@ -367,6 +364,126 @@ function policyPartySummary(policy: ReportPolicy) {
   return parts.join(" · ");
 }
 
+type ReportFamily = {
+  linkedClients?: Array<{ client: Client; relationship: string }>;
+  policies?: ReportPolicy[];
+  insuranceFaceAmount?: number;
+  investmentAum?: number;
+};
+
+const columns = [
+  { key: "carrier", width: "14%" },
+  { key: "category", width: "12%" },
+  { key: "product", width: "22%" },
+  { key: "policy", width: "15%" },
+  { key: "face", width: "14%" },
+  { key: "premium", width: "12%" },
+  { key: "status", width: "11%" },
+];
+
+function ReportHeader({
+  logoDataUri,
+  chip,
+  name,
+  generatedDate,
+}: {
+  logoDataUri?: string;
+  chip: string;
+  name?: string;
+  generatedDate?: Date;
+}) {
+  return (
+    <>
+      <View style={styles.rule} />
+      <View style={styles.header}>
+        {logoDataUri ? <Image src={logoDataUri} style={styles.logo} /> : <Text>Triton Wealth</Text>}
+        <View style={styles.meta}>
+          <Text style={styles.chip}>{chip}</Text>
+          {name ? <Text>Prepared for {name}</Text> : null}
+          {generatedDate ? <Text>Generated {formatDate(generatedDate.toISOString())}</Text> : null}
+        </View>
+      </View>
+    </>
+  );
+}
+
+function ReportFooter({ label = "Confidential Portfolio Review" }: { label?: string }) {
+  return (
+    <View fixed style={styles.footer}>
+      <Text style={styles.footerBrand}>Triton Wealth Management Corporation</Text>
+      <Text style={styles.footerMeta}>{label}</Text>
+    </View>
+  );
+}
+
+function ProductTable({
+  title,
+  number,
+  policies,
+  carrierLogoDataUris,
+  emptyMessage,
+}: {
+  title: string;
+  number: string;
+  policies: ReportPolicy[];
+  carrierLogoDataUris?: Partial<Record<Carrier, string>>;
+  emptyMessage: string;
+}) {
+  return (
+    <View style={styles.section}>
+      <View style={styles.sectionTitle}>
+        <Text style={styles.sectionTitleText}>{title}</Text>
+        <Text style={styles.sectionNumber}>{number}</Text>
+      </View>
+      <View style={styles.sectionBody}>
+        <View style={styles.tableHeader}>
+          {["Carrier", "Category", "Product", "Policy #", "Total Coverage", "Premium", "Status"].map((label, index) => (
+            <Text key={label} style={[styles.th, { width: columns[index].width }]}>{label}</Text>
+          ))}
+        </View>
+        {policies.length === 0 ? (
+          <Text style={{ color: "#94A3B8", paddingVertical: 14, textAlign: "center" }}>
+            {emptyMessage}
+          </Text>
+        ) : (
+          policies.map((policy) => (
+            <View key={policy.id} style={styles.tableRow} wrap={false}>
+              <View style={[styles.carrierCell, { width: columns[0].width }]}>
+                {carrierLogoDataUris?.[policy.carrier] ? (
+                  <View style={styles.carrierLogoFrame}>
+                    <Image
+                      src={carrierLogoDataUris[policy.carrier]}
+                      style={styles.carrierLogo}
+                    />
+                  </View>
+                ) : null}
+                <Text style={styles.carrierText}>{policy.carrier}</Text>
+              </View>
+              <Text style={[styles.td, { width: columns[1].width }]}>{policy.category}</Text>
+              <View style={{ width: columns[2].width }}>
+                <Text style={styles.td}>{policy.productName || policy.productType}</Text>
+                {policyPartySummary(policy) ? (
+                  <Text style={styles.partyLine}>{policyPartySummary(policy)}</Text>
+                ) : null}
+              </View>
+              <Text style={[styles.td, { width: columns[3].width }]}>
+                {displayPolicyNumber(policy.policyNumber)}
+              </Text>
+              <Text style={[styles.td, { width: columns[4].width }]}>
+                {formatCurrency(policy.sumAssured)}
+              </Text>
+              <Text style={[styles.td, { width: columns[5].width }]}>
+                {formatCurrency(policy.premium)}
+              </Text>
+              <Text style={[styles.td, { width: columns[6].width }]}>{policy.status || "active"}</Text>
+            </View>
+          ))
+        )}
+      </View>
+    </View>
+  );
+}
+
 function ReportDocument({
   client,
   policies,
@@ -377,48 +494,47 @@ function ReportDocument({
 }: {
   client: Client;
   policies: Policy[];
-  family?: {
-    linkedClients?: Array<{ client: Client; relationship: string }>;
-    insuranceFaceAmount?: number;
-    investmentAum?: number;
-  };
+  family?: ReportFamily;
   logoDataUri?: string;
   carrierLogoDataUris?: Partial<Record<Carrier, string>>;
   generatedDate: Date;
 }) {
   const reportPolicies = policies as ReportPolicy[];
-  const activePolicies = reportPolicies.filter((policy) => policy.status !== "lapsed");
-  const totalFaceAmount = activePolicies.reduce((sum, policy) => sum + (policy.sumAssured || 0), 0);
-  const totalPremium = activePolicies.reduce((sum, policy) => sum + (policy.premium || 0), 0);
+  const hasFamily = Boolean(family?.linkedClients?.length);
+  // Joint accounts are represented once in the Family Portfolio page rather
+  // than being repeated under the primary client and the joint grouping.
+  const clientPortfolioPolicies = hasFamily
+    ? reportPolicies.filter((policy) => !policy.isJoint)
+    : reportPolicies;
+  const activeClientPolicies = clientPortfolioPolicies.filter((policy) => policy.status === "active");
+  const clientMetrics = calculatePortfolioMetrics(activeClientPolicies);
+  const totalPremium = activeClientPolicies.reduce((sum, policy) => sum + (policy.premium || 0), 0);
   const name = clientName(client);
   const communicationLog = [...(client.emailHistory ?? [])]
     .sort((a, b) => (a.date < b.date ? 1 : -1))
     .slice(0, 6);
 
-  const columns = [
-    { key: "carrier", width: "14%" },
-    { key: "category", width: "12%" },
-    { key: "product", width: "22%" },
-    { key: "policy", width: "15%" },
-    { key: "face", width: "14%" },
-    { key: "premium", width: "12%" },
-    { key: "status", width: "11%" },
-  ];
+  const familyPolicies = family?.policies ?? [];
+  const familyIndividualGroups = (family?.linkedClients ?? []).map((link) => ({
+    client: link.client,
+    relationship: link.relationship,
+    policies: familyPolicies.filter(
+      (policy) => policy.owner?.id === link.client.id && !policy.isJoint
+    ),
+  }));
+  const jointPolicies = familyPolicies.filter((policy) => policy.isJoint);
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <View style={styles.rule} />
-        <View style={styles.header}>
-          {logoDataUri ? <Image src={logoDataUri} style={styles.logo} /> : <Text>Triton Wealth</Text>}
-          <View style={styles.meta}>
-            <Text style={styles.chip}>Portfolio Review</Text>
-            <Text>Prepared for {name}</Text>
-            <Text>Generated {formatDate(generatedDate.toISOString())}</Text>
-          </View>
-        </View>
+        <ReportHeader
+          logoDataUri={logoDataUri}
+          chip="Portfolio Review"
+          name={name}
+          generatedDate={generatedDate}
+        />
 
-        <Text style={styles.eyebrow}>Client Portfolio Review</Text>
+        <Text style={styles.eyebrow}>Individual Portfolio Review</Text>
         <Text style={styles.title}>{name}</Text>
         <Text style={styles.subtitle}>
           A concise relationship overview prepared for review, planning, and product record accuracy.
@@ -427,11 +543,15 @@ function ReportDocument({
         <View style={styles.metrics}>
           <View style={styles.metric}>
             <Text style={styles.metricLabel}>Products</Text>
-            <Text style={styles.metricValue}>{policies.length}</Text>
+            <Text style={styles.metricValue}>{clientPortfolioPolicies.length}</Text>
           </View>
           <View style={styles.metric}>
             <Text style={styles.metricLabel}>Total Coverage</Text>
-            <Text style={styles.metricValue}>{formatCurrency(totalFaceAmount)}</Text>
+            <Text style={styles.metricValue}>{formatCurrency(clientMetrics.insuranceFaceAmount)}</Text>
+          </View>
+          <View style={styles.metric}>
+            <Text style={styles.metricLabel}>Investment AUM</Text>
+            <Text style={styles.metricValue}>{formatCurrency(clientMetrics.investmentAum)}</Text>
           </View>
           <View style={styles.metric}>
             <Text style={styles.metricLabel}>Total Premium</Text>
@@ -460,96 +580,86 @@ function ReportDocument({
           </View>
         </View>
 
-        <View style={styles.section}>
-          <View style={styles.sectionTitle}>
-            <Text style={styles.sectionTitleText}>Products</Text>
-            <Text style={styles.sectionNumber}>02</Text>
-          </View>
-          <View style={styles.sectionBody}>
-            <View style={styles.tableHeader}>
-            {["Carrier", "Category", "Product / Owner", "Policy #", "Total Coverage", "Premium", "Status"].map((label, index) => (
-                <Text key={label} style={[styles.th, { width: columns[index].width }]}>{label}</Text>
-              ))}
-            </View>
-            {policies.length === 0 ? (
-              <Text style={{ color: "#94A3B8", paddingVertical: 14, textAlign: "center" }}>
-                No products recorded for this client.
-              </Text>
-            ) : (
-              reportPolicies.slice(0, 10).map((policy) => (
-                <View key={policy.id} style={styles.tableRow}>
-                  <View style={[styles.carrierCell, { width: columns[0].width }]}>
-                    {carrierLogoDataUris?.[policy.carrier] ? (
-                      <View style={styles.carrierLogoFrame}>
-                        <Image
-                          src={carrierLogoDataUris[policy.carrier]}
-                          style={styles.carrierLogo}
-                        />
-                      </View>
-                    ) : null}
-                    <Text style={styles.carrierText}>{policy.carrier}</Text>
-                  </View>
-                  <Text style={[styles.td, { width: columns[1].width }]}>{policy.category}</Text>
-                  <View style={{ width: columns[2].width }}>
-                    <Text style={styles.td}>{policy.productType}</Text>
-                    {family?.linkedClients?.length ? (
-                      <Text style={styles.partyLine}>
-                        Owner: {policyOwnerLabel(policy, client)}
-                      </Text>
-                    ) : null}
-                    {policyPartySummary(policy) ? (
-                      <Text style={styles.partyLine}>{policyPartySummary(policy)}</Text>
-                    ) : null}
-                  </View>
-                  <Text style={[styles.td, { width: columns[3].width }]}>{displayPolicyNumber(policy.policyNumber)}</Text>
-                  <Text style={[styles.td, { width: columns[4].width }]}>{formatCurrency(policy.sumAssured)}</Text>
-                  <Text style={[styles.td, { width: columns[5].width }]}>{formatCurrency(policy.premium)}</Text>
-                  <Text style={[styles.td, { width: columns[6].width }]}>{policy.status || "active"}</Text>
-                </View>
-              ))
-            )}
-          </View>
-        </View>
+        <ProductTable
+          title={hasFamily ? "Individual Products" : "Products"}
+          number="02"
+          policies={clientPortfolioPolicies}
+          carrierLogoDataUris={carrierLogoDataUris}
+          emptyMessage="No individual products recorded for this client."
+        />
 
-        {family?.linkedClients?.length ? (
+        <ReportFooter />
+      </Page>
+
+      {hasFamily ? (
+        <Page size="A4" style={styles.page}>
+          <ReportHeader
+            logoDataUri={logoDataUri}
+            chip="Family Portfolio"
+            name={name}
+            generatedDate={generatedDate}
+          />
+          <Text style={styles.eyebrow}>Direct Family Overview</Text>
+          <Text style={styles.title}>Family Portfolio</Text>
+          <Text style={styles.subtitle}>
+            Directly linked family members and shared accounts, grouped for a complete household review.
+          </Text>
+
+          <View style={styles.metrics}>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Linked Clients</Text>
+              <Text style={styles.metricValue}>{family?.linkedClients?.length ?? 0}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Family Total Coverage</Text>
+              <Text style={styles.metricValue}>{formatCurrency(family?.insuranceFaceAmount)}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Family Investment AUM</Text>
+              <Text style={styles.metricValue}>{formatCurrency(family?.investmentAum)}</Text>
+            </View>
+          </View>
+
           <View style={styles.section}>
             <View style={styles.sectionTitle}>
-              <Text style={styles.sectionTitleText}>Family Overview</Text>
+              <Text style={styles.sectionTitleText}>Linked Clients</Text>
               <Text style={styles.sectionNumber}>03</Text>
             </View>
             <View style={styles.sectionBody}>
-              {family.linkedClients.map((link) => (
+              {family?.linkedClients?.map((link) => (
                 <View key={link.client.id} style={styles.infoRow}>
                   <Text style={styles.infoLabel}>{link.relationship}</Text>
                   <Text>{clientName(link.client)}</Text>
                 </View>
               ))}
-              <View style={[styles.infoRow, { marginTop: 4 }]}>
-                <Text style={styles.infoLabel}>Family Insurance</Text>
-                <Text>{formatCurrency(family.insuranceFaceAmount ?? 0)}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Family Investment</Text>
-                <Text>{formatCurrency(family.investmentAum ?? 0)}</Text>
-              </View>
             </View>
           </View>
-        ) : null}
 
-        <View style={styles.footer}>
-          <Text style={styles.footerBrand}>Triton Wealth Management Corporation</Text>
-          <Text style={styles.footerMeta}>Confidential Portfolio Review</Text>
-        </View>
-      </Page>
+          {familyIndividualGroups.map((group, index) => (
+            <ProductTable
+              key={group.client.id}
+              title={`${clientName(group.client)}'s Portfolio`}
+              number={`0${index + 4}`}
+              policies={group.policies}
+              carrierLogoDataUris={carrierLogoDataUris}
+              emptyMessage="No individual products recorded."
+            />
+          ))}
+
+          <ProductTable
+            title="Joint Accounts"
+            number={`0${familyIndividualGroups.length + 4}`}
+            policies={jointPolicies}
+            carrierLogoDataUris={carrierLogoDataUris}
+            emptyMessage="No joint products recorded."
+          />
+
+          <ReportFooter label="Confidential Family Portfolio" />
+        </Page>
+      ) : null}
 
       <Page size="A4" style={styles.page}>
-        <View style={styles.rule} />
-        <View style={styles.header}>
-          {logoDataUri ? <Image src={logoDataUri} style={styles.logo} /> : <Text>Triton Wealth</Text>}
-          <View style={styles.meta}>
-            <Text style={styles.chip}>Disclosure</Text>
-          </View>
-        </View>
+        <ReportHeader logoDataUri={logoDataUri} chip="Disclosure" />
         <Text style={styles.eyebrow}>Important Information</Text>
         <Text style={styles.title}>Communication & Disclosure</Text>
 
@@ -609,10 +719,7 @@ function ReportDocument({
             authorized recipients. If received in error, please delete it and notify the sender immediately.
           </Text>
         </View>
-        <View style={styles.footer}>
-          <Text style={styles.footerBrand}>Triton Wealth Management Corporation</Text>
-          <Text style={styles.footerMeta}>Page 2 · Confidential</Text>
-        </View>
+        <ReportFooter label="Confidential · Communication & Disclosure" />
       </Page>
     </Document>
   );
@@ -623,6 +730,7 @@ export async function renderClientReportPdf(input: {
   policies: Policy[];
   family?: {
     linkedClients?: Array<{ client: Client; relationship: string }>;
+    policies?: Array<Policy & { owner: Client }>;
     insuranceFaceAmount?: number;
     investmentAum?: number;
   };

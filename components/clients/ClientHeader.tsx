@@ -36,19 +36,17 @@ import { formatCurrency } from "@/lib/format";
 import { calculateAutoClientTags, getDynamicTagReasons } from "@/lib/client-tags";
 import { TAG_VALUES, type TagValue } from "@/lib/constants";
 import { calculatePortfolioMetrics } from "@/lib/portfolio-metrics";
-import type { ClientWithStats, Policy } from "@/lib/types";
+import type { ClientWithStats } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 interface ClientHeaderProps {
   client: ClientWithStats;
-  reportPolicies?: Policy[];
   onEdit?: () => void;
   onDelete?: () => void;
 }
 
 export function ClientHeader({
   client,
-  reportPolicies = [],
   onEdit,
   onDelete,
 }: ClientHeaderProps) {
@@ -235,7 +233,6 @@ export function ClientHeader({
 
           <ClientReportButton
             client={client}
-            policies={reportPolicies}
             className="self-start xl:self-end"
           />
           {onDelete ? (
