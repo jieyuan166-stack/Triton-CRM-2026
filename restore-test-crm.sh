@@ -30,6 +30,8 @@ test_port="${RESTORE_TEST_PORT:-3002}"
 stage="$DR_STAGING_DIR/restore-test-$test_id"
 mkdir -p "$test_root/uploads" "$stage"
 cleanup() {
+  docker compose -p "$test_project" -f "$PROJECT_DIR/docker/docker-compose.restore-test.yml" down -v >/dev/null 2>&1 || true
+  docker volume rm "$test_volume" >/dev/null 2>&1 || true
   rm -rf "$stage"
 }
 trap cleanup EXIT INT TERM

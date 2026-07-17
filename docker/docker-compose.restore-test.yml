@@ -21,3 +21,7 @@ services:
       timeout: 5s
       retries: 12
       start_period: 20s
+
+volumes:
+  ${RESTORE_TEST_DATA_VOLUME}:
+    external: true
