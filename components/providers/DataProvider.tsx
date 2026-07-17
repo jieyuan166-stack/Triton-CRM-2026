@@ -61,6 +61,7 @@ interface DataContextValue {
 
   // mutations — clients
   createClient(input: Omit<Client, "id" | "createdAt">): Client;
+  createClientAsync(input: Omit<Client, "id" | "createdAt">): Promise<Client>;
   updateClient(id: string, patch: Partial<Omit<Client, "id">>): Client | null;
   updateClientAsync(id: string, patch: Partial<Omit<Client, "id">>): Promise<Client | null>;
   deleteClient(id: string): boolean;
@@ -546,6 +547,40 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setClients((prev) => [...prev, next]);
       persistInBackground("client.create", { client: next });
       return next;
+    },
+    [clients]
+  );
+
+  const createClientAsync: DataContextValue["createClientAsync"] = useCallback(
+    async (input) => {
+      const id = uid("cli");
+      const normalizedInput = {
+        ...input,
+        firstName: toTitleCaseName(input.firstName),
+        lastName: toTitleCaseName(input.lastName),
+      };
+      const next: Client = {
+        ...normalizedInput,
+        id,
+        slug: buildUniqueClientSlug(
+          {
+            id,
+            firstName: normalizedInput.firstName,
+            lastName: normalizedInput.lastName,
+          },
+          clients
+        ),
+        createdAt: new Date().toISOString(),
+      };
+
+      setClients((prev) => [...prev, next]);
+      try {
+        await persistAction("client.create", { client: next });
+        return next;
+      } catch (error) {
+        setClients((prev) => prev.filter((client) => client.id !== id));
+        throw error;
+      }
     },
     [clients]
   );
@@ -1130,6 +1165,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       getFollowUpsByClient,
       getClientRelationships,
       createClient,
+      createClientAsync,
       updateClient,
       updateClientAsync,
       deleteClient,
@@ -1170,6 +1206,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       getFollowUpsByClient,
       getClientRelationships,
       createClient,
+      createClientAsync,
       updateClient,
       updateClientAsync,
       deleteClient,

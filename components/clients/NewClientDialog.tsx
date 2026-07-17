@@ -126,10 +126,9 @@ export function NewClientDialog({
 }: NewClientDialogProps) {
   const {
     clients,
-    createClient,
+    createClientAsync,
     updateClientAsync,
     getClientRelationships,
-    replaceClientRelationships,
     replaceClientRelationshipsAsync,
   } = useData();
   const router = useRouter();
@@ -387,8 +386,19 @@ export function NewClientDialog({
     }
 
 
-    const created = createClient(patch);
-    replaceClientRelationships(created.id, nextRelationships);
+    let created: Client;
+    try {
+      created = await createClientAsync(patch);
+      if (nextRelationships.length > 0) {
+        await replaceClientRelationshipsAsync(created.id, nextRelationships);
+      }
+    } catch (error) {
+      toast.error("Could not create client", {
+        description:
+          error instanceof Error ? error.message : "Please refresh and try again.",
+      });
+      return;
+    }
     toast.success("Client created", {
       description: `${created.firstName} ${created.lastName} added to your book`,
       action: {
