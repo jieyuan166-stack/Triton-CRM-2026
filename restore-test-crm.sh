@@ -26,7 +26,47 @@ test_id="$(date +%Y%m%d%H%M%S)-$$"
 test_root="$DR_ROOT/test-runs/$test_id"
 test_volume="triton-restore-test-data-$test_id"
 test_project="triton-restore-test-$test_id"
-test_port="${RESTORE_TEST_PORT:-3002}"
+requested_test_port="${RESTORE_TEST_PORT:-}"
+
+# The production NAS can already use common web ports (for example, the public
+# website uses 3002). Pick an unused loopback port for this disposable test so
+# a restore verification never conflicts with an existing service.
+port_is_available() {
+  python3 - "$1" <<'PY'
+import socket
+import sys
+
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+try:
+    sock.bind(("127.0.0.1", int(sys.argv[1])))
+except OSError:
+    raise SystemExit(1)
+finally:
+    sock.close()
+PY
+}
+
+if [ -n "$requested_test_port" ]; then
+  port_is_available "$requested_test_port" || {
+    echo "Requested restore test port $requested_test_port is already in use." >&2
+    exit 1
+  }
+  test_port="$requested_test_port"
+else
+  test_port=""
+  candidate_port=3100
+  while [ "$candidate_port" -le 3199 ]; do
+    if port_is_available "$candidate_port"; then
+      test_port="$candidate_port"
+      break
+    fi
+    candidate_port=$((candidate_port + 1))
+  done
+  [ -n "$test_port" ] || {
+    echo "No available loopback port found for the isolated restore test." >&2
+    exit 1
+  }
+fi
 stage="$DR_STAGING_DIR/restore-test-$test_id"
 mkdir -p "$test_root/uploads" "$stage"
 cleanup() {
