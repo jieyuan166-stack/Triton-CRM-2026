@@ -104,6 +104,19 @@ while [ "$attempt" -lt 30 ]; do
 done
 curl -fsS "http://127.0.0.1:$test_port/api/ready" >/dev/null || { echo "Isolated CRM did not become ready." >&2; exit 1; }
 
+# Verify the exact restored database before the authentication smoke test
+# changes a disposable user credential. This preserves the backup SHA-256
+# assertion while still proving a browser login and search work afterwards.
+restored_db="$stage/restored-triton.db"
+docker run --rm \
+  -e "HOST_UID=$(id -u)" \
+  -e "HOST_GID=$(id -g)" \
+  -v "$test_volume:/data:ro" \
+  -v "$stage:/restore" \
+  alpine:3.20 \
+  sh -c 'cp /data/triton.db /restore/restored-triton.db && chown "$HOST_UID:$HOST_GID" /restore/restored-triton.db && chmod 600 /restore/restored-triton.db'
+python3 "$PROJECT_DIR/scripts/verify_crm_backup.py" "$stage/manifest.json" "$restored_db" "$test_root/uploads" > "$test_root/restore-test-report.json"
+
 # Change one user only inside the disposable volume, so a real browser/session
 # flow can prove the restored application can authenticate and fetch CRM data.
 docker compose -p "$test_project" -f "$PROJECT_DIR/docker/docker-compose.restore-test.yml" --env-file "$PROJECT_DIR/.env.production" exec -T -e "RESTORE_TEST_PASSWORD=$test_password" triton-crm-restore-test node - <<'NODE'
@@ -129,19 +142,6 @@ curl -fsS -b "$cookie" "http://127.0.0.1:$test_port/api/data" | python3 -c 'impo
 search_term="$(docker compose -p "$test_project" -f "$PROJECT_DIR/docker/docker-compose.restore-test.yml" --env-file "$PROJECT_DIR/.env.production" exec -T triton-crm-restore-test sh -lc "sqlite3 /app/prisma/data/triton.db \"SELECT lower(substr(firstName, 1, 1)) FROM Client WHERE trim(firstName) <> '' LIMIT 1;\"" | tr -d '\r\n')"
 [ -n "$search_term" ] || { echo "Restored database contains no searchable client records." >&2; exit 1; }
 curl -fsS -b "$cookie" "http://127.0.0.1:$test_port/api/clients?search=$search_term" | python3 -c 'import json,sys; assert json.load(sys.stdin).get("total", 0) > 0'
-
-# Docker named-volume mountpoints are intentionally unreadable to the NAS
-# service account. Copy the disposable database through Docker to the test
-# staging directory, then run the same integrity verifier against that copy.
-restored_db="$stage/restored-triton.db"
-docker run --rm \
-  -e "HOST_UID=$(id -u)" \
-  -e "HOST_GID=$(id -g)" \
-  -v "$test_volume:/data:ro" \
-  -v "$stage:/restore" \
-  alpine:3.20 \
-  sh -c 'cp /data/triton.db /restore/restored-triton.db && chown "$HOST_UID:$HOST_GID" /restore/restored-triton.db && chmod 600 /restore/restored-triton.db'
-python3 "$PROJECT_DIR/scripts/verify_crm_backup.py" "$stage/manifest.json" "$restored_db" "$test_root/uploads" > "$test_root/restore-test-report.json"
 
 docker compose -p "$test_project" -f "$PROJECT_DIR/docker/docker-compose.restore-test.yml" --env-file "$PROJECT_DIR/.env.production" down -v
 docker volume rm "$test_volume" >/dev/null 2>&1 || true
