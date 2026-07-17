@@ -46,4 +46,4 @@ rsync -a --delete \
   --exclude='*.log' \
   "$source_dir/" "$PROJECT_DIR/"
 
-exec "$PROJECT_DIR/scripts/deploy-safe.sh"
+exec sh "$PROJECT_DIR/scripts/deploy-safe.sh"
