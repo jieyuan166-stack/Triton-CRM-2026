@@ -20,7 +20,7 @@ import {
   getPremiumReminderStage,
   premiumReminderCycleKey,
   premiumReminderDedupeKey,
-  premiumReminderStageLabel,
+  premiumReminderEmailStageLabel,
   resolvePremiumReminderDate,
 } from "@/lib/premium-reminders";
 import { daysUntil, formatDate } from "@/lib/date-utils";
@@ -135,7 +135,7 @@ export async function POST(request: Request) {
       const dueInDays = daysUntil(dueDate, now);
       const stage = getPremiumReminderStage(dueInDays);
       if (!stage || !renewalTpl) continue;
-      const stageLabel = premiumReminderStageLabel(stage);
+      const stageLabel = premiumReminderEmailStageLabel(stage);
       const cycleKey = premiumReminderCycleKey({ id: policy.id } as never, dueDate);
       const recipients = [policy.client];
       if (policy.isJoint && policy.jointWithClient && policy.jointWithClient.id !== policy.clientId) {

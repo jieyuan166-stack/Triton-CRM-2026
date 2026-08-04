@@ -52,18 +52,18 @@ export const DEFAULT_TEMPLATES: EmailTemplate[] = [
   {
     id: "birthday",
     label: "Birthday",
-    subject: "Happy Birthday from Jeffrey Yuan",
+    subject: "生日祝福 / Happy Birthday from Jeffrey Yuan",
     body:
-      "Dear [Client Name],\n\nWishing you a very happy birthday from Jeffrey Yuan.\n\nMay the year ahead bring you good health, happiness, success, and continued prosperity. We truly appreciate your trust and support, and we look forward to continuing to serve you in the years ahead.\n\nEnjoy your special day!\n\nWarm regards,\n\n尊敬的 [Client Name]，\n\nJeffrey Yuan 诚挚祝您生日快乐！\n\n愿您在新的一岁里身体健康、万事顺遂、幸福美满、事业兴旺。感谢您一直以来的信任与支持，我们也期待在未来继续为您提供专业服务。\n\n祝您度过一个愉快而难忘的生日！\n\n诚挚问候",
+      "尊敬的 [Client Name]，\n\nJeffrey Yuan 诚挚祝您生日快乐！\n\n愿您在新的一岁里身体健康、万事顺遂、幸福美满、事业兴旺。感谢您一直以来的信任与支持，我们也期待在未来继续为您提供专业服务。\n\n祝您度过一个愉快而难忘的生日！\n\n诚挚问候，\n\nDear [Client Name],\n\nWishing you a very happy birthday from Jeffrey Yuan.\n\nMay the year ahead bring you good health, happiness, success, and continued prosperity. We truly appreciate your trust and support, and we look forward to continuing to serve you in the years ahead.\n\nEnjoy your special day!\n\nWarm regards,",
     attachments: [],
     variables: ["[Client Name]", "[Date]"],
   },
   {
     id: "renewal",
     label: "Renewal",
-    subject: "[Reminder Stage] · Premium Payment Reminder · [Carrier] [Policy Name] · #[Policy Number]",
+    subject: "[Reminder Stage] · 保费缴费提醒 / Premium Payment Reminder · [Carrier] [Policy Name] · #[Policy Number]",
     body:
-      "Dear [Client Name],\n\n[Reminder Stage]\n\nI hope you are doing well.\n\nThis is a friendly reminder that the premium payment of [Premium Amount] for your [Carrier] [Policy Name] policy, policy number [Policy Number], with total coverage of [Total Coverage], is due on [Date].\n\nTo ensure your coverage remains active and uninterrupted, please arrange the payment before the due date. Should you have any questions regarding your policy or if you would like to schedule a review of your coverage, please feel free to contact me at any time.\n\nIf you have already made the payment, please disregard this reminder.\n\nThank you for your continued trust and support.\n\nBest regards,\n\n<sub>* If you are a Manulife Vitality client, actual premium varies by your Vitality status — please refer to your statement for the current amount.</sub>\n\n尊敬的 [Client Name]，\n\n您好！\n\n温馨提醒您，您在 [Carrier] 的 [Policy Name] 保单（保单号码：[Policy Number]，总保障额度：[Total Coverage]）保费 [Premium Amount] 将于 [Date] 到期。\n\n为确保您的保障持续有效并避免保障中断，请您在到期日前完成缴费。如您对保单内容有任何疑问，或希望重新检视您的保障规划，欢迎随时与我联系。\n\n如果您已经完成缴费，请忽略此提醒。\n\n感谢您一直以来的信任与支持！\n\n<sub>* 如果您是 Manulife Vitality 客户，实际保费会根据您的 Vitality 等级调整，具体金额请以 statement 为准。</sub>",
+      "尊敬的 [Client Name]，\n\n您好！\n\n[Reminder Stage]\n\n温馨提醒您，您在 [Carrier] 的 [Policy Name] 保单（保单号码：[Policy Number]，总保障额度：[Total Coverage]）保费 [Premium Amount] 将于 [Date] 到期。\n\n为确保您的保障持续有效并避免保障中断，请您在到期日前完成缴费。如您对保单内容有任何疑问，或希望重新检视您的保障规划，欢迎随时与我联系。\n\n如果您已经完成缴费，请忽略此提醒。\n\n感谢您一直以来的信任与支持！\n\n<sub>* 如果您是 Manulife Vitality 客户，实际保费会根据您的 Vitality 等级调整，具体金额请以 statement 为准。</sub>\n\nDear [Client Name],\n\nI hope you are doing well.\n\n[Reminder Stage]\n\nThis is a friendly reminder that the premium payment of [Premium Amount] for your [Carrier] [Policy Name] policy, policy number [Policy Number], with total coverage of [Total Coverage], is due on [Date].\n\nTo ensure your coverage remains active and uninterrupted, please arrange the payment before the due date. Should you have any questions regarding your policy or if you would like to schedule a review of your coverage, please feel free to contact me at any time.\n\nIf you have already made the payment, please disregard this reminder.\n\nThank you for your continued trust and support.\n\nBest regards,\n\n<sub>* If you are a Manulife Vitality client, actual premium varies by your Vitality status — please refer to your statement for the current amount.</sub>",
     attachments: [],
     variables: [
       "[Client Name]",

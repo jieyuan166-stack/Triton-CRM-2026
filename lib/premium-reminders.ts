@@ -54,6 +54,14 @@ export function premiumReminderStageLabel(stage: EmailReminderStage): string {
   return stage === "first" ? "First Reminder" : "Second Reminder";
 }
 
+/** Customer-facing bilingual stage label. Keep dashboard labels concise while
+ * email subjects and bodies consistently lead with Chinese. */
+export function premiumReminderEmailStageLabel(stage: EmailReminderStage): string {
+  return stage === "first"
+    ? "第一次提醒 / First Reminder"
+    : "第二次提醒 / Second Reminder";
+}
+
 export function premiumReminderCycleKey(policy: Policy, dueDate: string): string {
   return `${policy.id}:${dueDate}`;
 }

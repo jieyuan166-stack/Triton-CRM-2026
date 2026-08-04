@@ -101,6 +101,27 @@ export function buildDefaultSettingsForUser(user: SettingsUser): AppSettings {
   };
 }
 
+function isEnglishFirstBilingualSystemTemplate(templateId: string, body: string | undefined): boolean {
+  if (!body) return false;
+  if (templateId === "birthday") {
+    return (
+      body.startsWith("Dear [Client Name],") &&
+      body.includes("Wishing you a very happy birthday from") &&
+      body.includes("尊敬的 [Client Name]，") &&
+      body.includes("诚挚问候")
+    );
+  }
+  if (templateId === "renewal") {
+    return (
+      body.includes("This is a friendly reminder that the premium payment of [Premium Amount]") &&
+      body.includes("尊敬的 [Client Name]，") &&
+      body.includes("温馨提醒您") &&
+      body.includes("If you have already made the payment")
+    );
+  }
+  return false;
+}
+
 function mergeEmailTemplates(input: unknown, defaults: AppSettings): AppSettings["templates"] {
   if (!Array.isArray(input) || input.length === 0) return defaults.templates;
   return defaults.templates.map((defaultTemplate) => {
@@ -158,14 +179,20 @@ function mergeEmailTemplates(input: unknown, defaults: AppSettings): AppSettings
         : [];
     const savedSubject = typeof saved.subject === "string" ? saved.subject : undefined;
     const savedBody = typeof saved.body === "string" ? saved.body : undefined;
+    const isEnglishFirstSystemTemplate = isEnglishFirstBilingualSystemTemplate(
+      defaultTemplate.id,
+      savedBody
+    );
     const isDefaultLikeTemplate =
       savedSubject === legacy?.subject ||
       savedBody === legacy?.body ||
+      isEnglishFirstSystemTemplate ||
       previousRenewalDefaults.some((template) => savedSubject === template.subject || savedBody === template.body) ||
       previousBirthdayDefaults.some((template) => savedSubject === template.subject || savedBody === template.body);
     const subject =
       typeof saved.subject === "string" &&
       saved.subject !== legacy?.subject &&
+      !isEnglishFirstSystemTemplate &&
       !previousRenewalDefaults.some((template) => saved.subject === template.subject) &&
       !previousBirthdayDefaults.some((template) => saved.subject === template.subject)
         ? saved.subject
@@ -173,6 +200,7 @@ function mergeEmailTemplates(input: unknown, defaults: AppSettings): AppSettings
     const body =
       typeof saved.body === "string" &&
       saved.body !== legacy?.body &&
+      !isEnglishFirstSystemTemplate &&
       !previousRenewalDefaults.some((template) => saved.body === template.body) &&
       !previousBirthdayDefaults.some((template) => saved.body === template.body)
         ? saved.body

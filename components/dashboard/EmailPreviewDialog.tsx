@@ -32,6 +32,7 @@ import {
   shouldIncludeBirthdayCardForAdvisor,
 } from "@/lib/templates";
 import { displayPolicyNumberWithHash } from "@/lib/policy-number";
+import { premiumReminderEmailStageLabel } from "@/lib/premium-reminders";
 import { cn } from "@/lib/utils";
 
 const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
@@ -311,7 +312,9 @@ export function EmailPreviewDialog({
     const money = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" });
     const premiumAmount = policy ? money.format(policy.premium ?? 0) : "";
     const totalCoverage = policy ? money.format(policy.sumAssured ?? 0) : "";
-    const stageLabel = activePayload.reminderStage === "second" ? "Second Reminder" : activePayload.reminderStage === "first" ? "First Reminder" : "Manual Reminder";
+    const stageLabel = activePayload.reminderStage
+      ? premiumReminderEmailStageLabel(activePayload.reminderStage)
+      : "手动提醒 / Manual Reminder";
     return {
       ...(activePayload.templateVars ?? {}),
       "Client Name": clientName,
@@ -568,7 +571,7 @@ export function EmailPreviewDialog({
     if (message.template !== "renewal" || !message.reminderStage) {
       return { subject: message.subject, body: message.body };
     }
-    const stageLabel = message.reminderStage === "second" ? "Second Reminder" : "First Reminder";
+    const stageLabel = premiumReminderEmailStageLabel(message.reminderStage);
     return {
       subject: message.subject.includes(stageLabel)
         ? message.subject
