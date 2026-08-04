@@ -49,8 +49,8 @@ const credentialBadges = `
   </tr>
 </table>`.trim();
 
-const LEGACY_TALL_TRITON_LOGO_PATTERN = /<img\b[^>]*\bsrc=(["'])[^"']*\/brand\/triton-logo-(?:signature|vertical)\.png(?:\?[^"']*)?\1[^>]*>/gi;
-const BIRTHDAY_CARD_IN_SIGNATURE_PATTERN = /<img\b[^>]*\bsrc=(["'])[^"']*\/email\/birthday-greeting\.png(?:\?[^"']*)?\1[^>]*>/gi;
+const LEGACY_TALL_TRITON_LOGO_PATTERN = /<img\b[^>]*\bsrc=(["'])[^"']*triton-logo-(?:signature|vertical)\.png(?:\?[^"']*)?\1[^>]*>/gi;
+const BIRTHDAY_CARD_IN_SIGNATURE_PATTERN = /<img\b[^>]*\bsrc=(["'])[^"']*birthday-greeting\.png(?:\?[^"']*)?\1[^>]*>/gi;
 
 function emailMarkImageHtml() {
   return `<img src="${TRITON_MARK_URL}" width="56" height="37" alt="Triton Wealth" style="display:block;width:56px;max-width:56px;height:auto;border:0;outline:none;text-decoration:none;" />`;
@@ -59,7 +59,7 @@ function emailMarkImageHtml() {
 /** True only for the CRM's prior generated signature assets, not user uploads. */
 export function isLegacySystemSignatureHtml(html?: string | null) {
   if (!html) return false;
-  return /\/brand\/triton-logo-(?:signature|vertical)\.png/i.test(html);
+  return /triton-logo-(?:signature|vertical)\.png/i.test(html);
 }
 
 /**
