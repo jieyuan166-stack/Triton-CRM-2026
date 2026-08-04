@@ -26,7 +26,7 @@ export function birthdayCardImageHtml(): string {
   return [
     '<table cellpadding="0" cellspacing="0" border="0" role="presentation" width="100%" style="width:100%;margin:18px 0 12px;border-collapse:collapse;">',
     '<tr><td align="center">',
-    `<img src="${BIRTHDAY_CARD_IMAGE_URL}" width="600" alt="Happy Birthday from Triton Wealth" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;border-radius:12px;" />`,
+    `<img src="${BIRTHDAY_CARD_IMAGE_URL}" width="100%" alt="Happy Birthday from Triton Wealth" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;border-radius:12px;" />`,
     "</td></tr></table>",
   ].join("");
 }
@@ -227,7 +227,7 @@ export function renderEmailHtml(
   return [
     '<table cellpadding="0" cellspacing="0" border="0" role="presentation" width="100%" style="width:100%;border-collapse:collapse;background-color:#FFFFFF;">',
     '<tr><td align="center" style="padding:0 16px;">',
-    '<table cellpadding="0" cellspacing="0" border="0" role="presentation" width="600" style="width:100%;max-width:600px;border-collapse:collapse;">',
+    '<table cellpadding="0" cellspacing="0" border="0" role="presentation" width="100%" style="width:100%;max-width:600px;border-collapse:collapse;">',
     '<tr><td style="font-family:Geist,-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#0F172A;word-break:normal;overflow-wrap:anywhere;">',
     content,
     "</td></tr></table></td></tr></table>",

@@ -261,7 +261,7 @@ export function EmailPreviewDialog({
       .map((file) => {
         const src = `data:${file.contentType};base64,${file.content}`;
         const filename = escapeHtmlAttr(file.filename);
-        return `<img data-inline-attachment="true" data-filename="${filename}" src="${src}" width="600" alt="${filename}" style="display:block;width:100%;max-width:600px;height:auto;border:0;border-radius:12px;margin:0 auto 14px auto;" />`;
+        return `<img data-inline-attachment="true" data-filename="${filename}" src="${src}" width="100%" alt="${filename}" style="display:block;width:100%;max-width:600px;height:auto;border:0;border-radius:12px;margin:0 auto 14px auto;" />`;
       })
       .join("");
     return `<div style="margin-top:18px;">${images}</div>`;
