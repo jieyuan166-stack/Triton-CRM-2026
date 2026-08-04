@@ -9,8 +9,10 @@
 import {
   SIGNATURE_TEMPLATES,
   htmlToPlainText,
+  prepareSignatureForEmail,
 } from "./signature-templates";
 import type { EmailSignature, EmailTemplate } from "./settings-types";
+import { sanitizeEmailHtml } from "./security/sanitize-html";
 
 export const BIRTHDAY_CARD_TOKEN = "[Birthday Card]";
 export const BIRTHDAY_CARD_IMAGE_URL = "https://crm.tritonwealth.ca/email/birthday-greeting.png";
@@ -22,9 +24,10 @@ export function shouldIncludeBirthdayCardForAdvisor(email?: string | null): bool
 
 export function birthdayCardImageHtml(): string {
   return [
-    '<div style="margin: 18px 0 12px;">',
-    `<img src="${BIRTHDAY_CARD_IMAGE_URL}" alt="Happy Birthday from Triton Wealth" style="display:block;width:100%;max-width:720px;height:auto;border:0;border-radius:12px;" />`,
-    "</div>",
+    '<table cellpadding="0" cellspacing="0" border="0" role="presentation" width="100%" style="width:100%;margin:18px 0 12px;border-collapse:collapse;">',
+    '<tr><td align="center">',
+    `<img src="${BIRTHDAY_CARD_IMAGE_URL}" width="600" alt="Happy Birthday from Triton Wealth" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;border-radius:12px;" />`,
+    "</td></tr></table>",
   ].join("");
 }
 
@@ -89,8 +92,8 @@ export const DEFAULT_TEMPLATES: EmailTemplate[] = [
 
 export const DEFAULT_SIGNATURE: EmailSignature = {
   enabled: true,
-  text: htmlToPlainText(SIGNATURE_TEMPLATES[0].html),
-  html: SIGNATURE_TEMPLATES[0].html,
+  text: htmlToPlainText(SIGNATURE_TEMPLATES[1].html),
+  html: SIGNATURE_TEMPLATES[1].html,
 };
 
 /**
@@ -194,12 +197,15 @@ export function renderEmailHtml(
     plainTextToEmailHtml(filled),
     options?.emphasizedTerms
   );
-  const signatureHtml =
+  const rawSignatureHtml =
     signature?.enabled && signature.html?.trim()
       ? signature.html
       : signature?.enabled && signature.text.trim()
       ? plainTextToEmailHtml(signature.text)
       : "";
+  const signatureHtml = rawSignatureHtml
+    ? prepareSignatureForEmail(sanitizeEmailHtml(rawSignatureHtml))
+    : "";
   const cardHtml =
     options?.template === "birthday" && options.birthdayCardEnabled !== false
       ? birthdayCardImageHtml()
@@ -207,15 +213,23 @@ export function renderEmailHtml(
   const inlineHtmlBeforeSignature = options?.inlineHtmlBeforeSignature?.trim() ?? "";
   const separator = (filled.trim() || cardHtml || inlineHtmlBeforeSignature) && signatureHtml ? "<br /><br />" : "";
 
-  return [
-    '<div style="font-family: Geist, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, sans-serif; font-size: 14px; line-height: 1.6; color: #0F172A;">',
+  const content = [
     bodyHtml,
-    cardHtml ? `<div style="margin-top: 18px;">${cardHtml}</div>` : "",
+    cardHtml,
     inlineHtmlBeforeSignature,
     separator,
-    signatureHtml
-      ? `<div style="margin-top: 2px;">${signatureHtml}</div>`
-      : "",
-    "</div>",
+    signatureHtml ? `<div style="margin-top:2px;">${signatureHtml}</div>` : "",
+  ].join("");
+
+  // Attribute widths plus nested presentation tables are intentionally used
+  // here: Gmail mobile is inconsistent about max-width on bare div/image
+  // markup, while this pattern keeps the message inside the device viewport.
+  return [
+    '<table cellpadding="0" cellspacing="0" border="0" role="presentation" width="100%" style="width:100%;border-collapse:collapse;background-color:#FFFFFF;">',
+    '<tr><td align="center" style="padding:0 16px;">',
+    '<table cellpadding="0" cellspacing="0" border="0" role="presentation" width="600" style="width:100%;max-width:600px;border-collapse:collapse;">',
+    '<tr><td style="font-family:Geist,-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#0F172A;word-break:normal;overflow-wrap:anywhere;">',
+    content,
+    "</td></tr></table></td></tr></table>",
   ].join("");
 }

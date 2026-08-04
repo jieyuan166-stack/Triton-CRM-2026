@@ -26,25 +26,65 @@ const MUTED = "#64748B";
 const BORDER = "#E2E8F0";
 const PUBLIC_ORIGIN = "https://crm.tritonwealth.ca";
 
-const TRITON_LOGO_URL = `${PUBLIC_ORIGIN}/brand/triton-logo-signature.png`;
+// Email clients are inconsistent with tall images in table cells, especially
+// Gmail on iOS/Android. Use an email-specific mark rather than the full
+// vertical brand lockup in signatures.
+const TRITON_MARK_URL = `${PUBLIC_ORIGIN}/brand/triton-mark-email.png`;
 const MDRT_BADGE_URL = `${PUBLIC_ORIGIN}/brand/signature/mdrt-tot-transparent.png`;
 const RRC_BADGE_URL = `${PUBLIC_ORIGIN}/brand/signature/rrc-logo.png`;
 const CSC_BADGE_URL = `${PUBLIC_ORIGIN}/brand/signature/csc.png`;
 
 const credentialBadges = `
-<table cellpadding="0" cellspacing="0" border="0" role="presentation" style="margin: 9px 0 8px;">
+<table cellpadding="0" cellspacing="0" border="0" role="presentation" style="margin: 7px 0 6px; border-collapse: collapse;">
   <tr>
-    <td style="vertical-align: middle; padding-right: 5px;">
-      <img src="${MDRT_BADGE_URL}" alt="MDRT Top of the Table Member" width="31" style="display: block; width: 31px; height: auto; border: 0;" />
+    <td style="vertical-align: middle; padding-right: 4px;">
+      <img src="${MDRT_BADGE_URL}" alt="MDRT Top of the Table Member" width="22" style="display:block;width:22px;max-width:22px;height:auto;border:0;outline:none;text-decoration:none;" />
     </td>
-    <td style="vertical-align: middle; padding-right: 5px;">
-      <img src="${RRC_BADGE_URL}" alt="Registered Retirement Consultant" width="76" style="display: block; width: 76px; height: auto; border: 0;" />
+    <td style="vertical-align: middle; padding-right: 4px;">
+      <img src="${RRC_BADGE_URL}" alt="Registered Retirement Consultant" width="54" style="display:block;width:54px;max-width:54px;height:auto;border:0;outline:none;text-decoration:none;" />
     </td>
     <td style="vertical-align: middle;">
-      <img src="${CSC_BADGE_URL}" alt="Canadian Securities Course Completed" width="27" style="display: block; width: 27px; height: auto; border: 0;" />
+      <img src="${CSC_BADGE_URL}" alt="Canadian Securities Course Completed" width="19" style="display:block;width:19px;max-width:19px;height:auto;border:0;outline:none;text-decoration:none;" />
     </td>
   </tr>
 </table>`.trim();
+
+const LEGACY_TALL_TRITON_LOGO_PATTERN = /<img\b[^>]*\bsrc=(["'])[^"']*\/brand\/triton-logo-(?:signature|vertical)\.png(?:\?[^"']*)?\1[^>]*>/gi;
+const BIRTHDAY_CARD_IN_SIGNATURE_PATTERN = /<img\b[^>]*\bsrc=(["'])[^"']*\/email\/birthday-greeting\.png(?:\?[^"']*)?\1[^>]*>/gi;
+
+function emailMarkImageHtml() {
+  return `<img src="${TRITON_MARK_URL}" width="56" height="37" alt="Triton Wealth" style="display:block;width:56px;max-width:56px;height:auto;border:0;outline:none;text-decoration:none;" />`;
+}
+
+/** True only for the CRM's prior generated signature assets, not user uploads. */
+export function isLegacySystemSignatureHtml(html?: string | null) {
+  if (!html) return false;
+  return /\/brand\/triton-logo-(?:signature|vertical)\.png/i.test(html);
+}
+
+/**
+ * Keep the user-authored signature intact while making known legacy assets
+ * safe for mobile clients. Birthday cards belong in the email body, never in
+ * a signature, so that a birthday message can only render one card.
+ */
+export function prepareSignatureForEmail(html?: string | null) {
+  if (!html) return "";
+  const withoutBirthdayCard = html.replace(BIRTHDAY_CARD_IN_SIGNATURE_PATTERN, "");
+  const withCompactMark = withoutBirthdayCard.replace(
+    LEGACY_TALL_TRITON_LOGO_PATTERN,
+    emailMarkImageHtml()
+  );
+
+  return withCompactMark.replace(/<img\b[^>]*>/gi, (tag) => {
+    const safetyStyles = "max-width:100%;height:auto;border:0;outline:none;text-decoration:none;";
+    const style = /\sstyle=(["'])([\s\S]*?)\1/i.exec(tag);
+    if (style) {
+      return tag.replace(style[0], ` style="${style[2].trim()}${style[2].trim().endsWith(";") ? "" : ";"}${safetyStyles}"`);
+    }
+    const close = tag.endsWith("/>") ? "/>" : ">";
+    return `${tag.slice(0, -close.length)} style="${safetyStyles}"${close}`;
+  });
+}
 
 function escapeHtml(value: string) {
   return value
@@ -108,12 +148,12 @@ function minimalistTemplate(advisor?: SignatureTemplateAdvisor) {
 function corporateTemplate(advisor?: SignatureTemplateAdvisor) {
   const contact = advisorContact(advisor);
   return `
-<table cellpadding="0" cellspacing="0" border="0" role="presentation" style="font-family: Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif; font-size: 13px; line-height: 1.55; color: ${NAVY};">
+<table cellpadding="0" cellspacing="0" border="0" role="presentation" width="100%" style="width:100%;max-width:560px;border-collapse:collapse;font-family:Geist,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:13px;line-height:1.55;color:${NAVY};">
   <tr>
-    <td style="vertical-align: top; padding-right: 16px; border-right: 2px solid ${ACCENT};">
-      <img src="${TRITON_LOGO_URL}" width="80" alt="Triton Wealth Management" style="display: block; border-radius: 8px; border: 0;" />
+    <td width="68" style="width:68px;vertical-align:top;padding-right:12px;border-right:2px solid ${ACCENT};">
+      ${emailMarkImageHtml()}
     </td>
-    <td style="vertical-align: top; padding-left: 16px;">
+    <td style="vertical-align:top;padding-left:12px;">
       <div style="font-weight: 700; font-size: 15px; color: ${NAVY};">${contact.name}</div>
       <div style="color: ${MUTED}; font-size: 12px; margin-top: 2px;">Independent Broker</div>
       ${contact.showCredentialBadges ? credentialBadges : ""}

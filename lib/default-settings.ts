@@ -6,6 +6,7 @@ import type {
   EmailAutomationConfig,
 } from "@/lib/settings-types";
 import { DEFAULT_SIGNATURE, DEFAULT_TEMPLATES, LEGACY_DEFAULT_TEMPLATE_COPY } from "@/lib/templates";
+import { isLegacySystemSignatureHtml } from "@/lib/signature-templates";
 
 export type SettingsUser = {
   id: string;
@@ -204,6 +205,15 @@ function mergeSignature(input: unknown, defaults: AppSettings): AppSettings["sig
   // contact spans, which let mobile email clients split "Email:" and the
   // address onto separate lines. If the advisor has a clearly custom
   // signature, keep it untouched.
+  if (
+    typeof raw.html === "string" &&
+    isLegacySystemSignatureHtml(raw.html) &&
+    raw.html.includes("Triton") &&
+    raw.html.includes("jieyuan165@gmail.com")
+  ) {
+    return defaults.signature;
+  }
+
   if (
     typeof raw.html === "string" &&
     raw.html.includes("Jeffrey Yuan") &&

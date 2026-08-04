@@ -26,15 +26,11 @@ import { MANUAL_COMMUNICATION_TYPES } from "@/lib/communication-log";
 import type { EmailHistoryAttachment, EmailHistoryPolicyContext, Policy } from "@/lib/types";
 import {
   applyTemplate,
-  plainTextToEmailHtml,
   renderEmailBody,
   renderEmailHtml,
-  BIRTHDAY_CARD_IMAGE_URL,
-  BIRTHDAY_CARD_TOKEN,
   removeBirthdayCardToken,
   shouldIncludeBirthdayCardForAdvisor,
 } from "@/lib/templates";
-import { sanitizeEmailHtml } from "@/lib/security/sanitize-html";
 import { displayPolicyNumberWithHash } from "@/lib/policy-number";
 import { cn } from "@/lib/utils";
 
@@ -213,13 +209,6 @@ export function EmailPreviewDialog({
     : isBulk
     ? bcc.split(",").map((s) => s.trim()).filter(Boolean).length
     : 1;
-  const signatureHtml =
-    settings.signature.enabled && settings.signature.html?.trim()
-      ? sanitizeEmailHtml(settings.signature.html)
-      : settings.signature.enabled && settings.signature.text.trim()
-      ? plainTextToEmailHtml(settings.signature.text)
-      : "";
-
   const totalAttachmentBytes = attachments.reduce((sum, file) => sum + file.size, 0);
   const clientPolicies = activePayload.clientId
     ? policies.filter(
@@ -232,6 +221,12 @@ export function EmailPreviewDialog({
   const selectedPolicies = selectedPolicyIds
     .map((policyId) => getPolicy(policyId))
     .filter(Boolean) as Policy[];
+
+  const emailPreviewHtml = renderEmailHtml(body, {}, settings.signature, {
+    template: selectedTemplate,
+    birthdayCardEnabled,
+    inlineHtmlBeforeSignature: inlineImageAttachmentHtml(),
+  });
 
   function formatBytes(bytes: number) {
     if (bytes < 1024) return `${bytes} B`;
@@ -266,7 +261,7 @@ export function EmailPreviewDialog({
       .map((file) => {
         const src = `data:${file.contentType};base64,${file.content}`;
         const filename = escapeHtmlAttr(file.filename);
-        return `<img data-inline-attachment="true" data-filename="${filename}" src="${src}" alt="${filename}" style="display:block;width:100%;max-width:720px;height:auto;border:0;border-radius:12px;margin:0 auto 14px auto;" />`;
+        return `<img data-inline-attachment="true" data-filename="${filename}" src="${src}" width="600" alt="${filename}" style="display:block;width:100%;max-width:600px;height:auto;border:0;border-radius:12px;margin:0 auto 14px auto;" />`;
       })
       .join("");
     return `<div style="margin-top:18px;">${images}</div>`;
@@ -1124,50 +1119,19 @@ export function EmailPreviewDialog({
               value={body}
               onChange={(e) => setBody(e.target.value)}
             />
-            {(selectedTemplate === "birthday" || body.includes(BIRTHDAY_CARD_TOKEN)) && birthdayCardEnabled ? (
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                  Birthday card preview · sent above signature
+            <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+              <div className="border-b border-slate-200 px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                  Sent email preview
                 </p>
+              </div>
+              <div className="max-h-[360px] overflow-y-auto bg-white px-3 py-3">
                 <div
-                  role="img"
-                  aria-label="Happy Birthday from Triton Wealth"
-                  className="aspect-[4/5] w-full max-w-[720px] rounded-lg border border-slate-100 bg-cover bg-center"
-                  style={{ backgroundImage: `url("${BIRTHDAY_CARD_IMAGE_URL}")` }}
+                  className="mx-auto max-w-[600px] text-xs leading-relaxed text-slate-700 [&_img]:max-w-full [&_table]:max-w-full"
+                  dangerouslySetInnerHTML={{ __html: emailPreviewHtml }}
                 />
               </div>
-            ) : null}
-            {attachments.some(isImageAttachment) ? (
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                  Inline image preview · sent above signature
-                </p>
-                <div className="space-y-2">
-                  {attachments.filter(isImageAttachment).map((file) => (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      key={file.id}
-                      src={`data:${file.contentType};base64,${file.content}`}
-                      alt={file.filename}
-                      className="mx-auto block h-auto w-full max-w-[720px] rounded-lg border border-slate-100"
-                    />
-                  ))}
-                </div>
-              </div>
-            ) : null}
-            {signatureHtml ? (
-              <div className="rounded-lg border border-slate-200 bg-slate-50">
-                <div className="border-b border-slate-200 px-3 py-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                    Email Signature
-                  </p>
-                </div>
-                <div
-                  className="px-3 py-3 text-xs leading-relaxed text-slate-700 [&_a]:text-blue-600 [&_img]:max-h-20 [&_img]:max-w-full [&_img]:rounded-md"
-                  dangerouslySetInnerHTML={{ __html: signatureHtml }}
-                />
-              </div>
-            ) : null}
+            </div>
           </div>
 
           <div className="space-y-2">

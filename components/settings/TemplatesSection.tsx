@@ -17,13 +17,10 @@ import {
   htmlToPlainText,
 } from "@/lib/signature-templates";
 import {
-  birthdayCardImageHtml,
-  plainTextToEmailHtml,
-  removeBirthdayCardToken,
+  renderEmailHtml,
   shouldIncludeBirthdayCardForAdvisor,
 } from "@/lib/templates";
-import { sanitizeEmailHtml } from "@/lib/security/sanitize-html";
-import type { EmailTemplate, EmailTemplateAttachment, EmailTemplateId } from "@/lib/settings-types";
+import type { EmailSignature, EmailTemplate, EmailTemplateAttachment, EmailTemplateId } from "@/lib/settings-types";
 
 export function TemplatesSection() {
   const { settings, updateTemplate, resetTemplate, updateSignature } =
@@ -143,6 +140,7 @@ export function TemplatesSection() {
               <TemplateEditor
                 template={t}
                 birthdayCardEnabled={birthdayCardEnabled}
+                signature={signature}
                 onSave={(patch) => {
                   updateTemplate(t.id, patch);
                   toast.success(`${t.label} template saved`);
@@ -163,11 +161,13 @@ export function TemplatesSection() {
 function TemplateEditor({
   template,
   birthdayCardEnabled,
+  signature,
   onSave,
   onReset,
 }: {
   template: EmailTemplate;
   birthdayCardEnabled: boolean;
+  signature: EmailSignature;
   onSave: (patch: { subject: string; body: string; attachments?: EmailTemplateAttachment[] }) => void;
   onReset: () => void;
 }) {
@@ -188,6 +188,15 @@ function TemplateEditor({
     subject.trim() !== template.subject.trim() ||
     body !== template.body ||
     JSON.stringify(attachments) !== JSON.stringify(template.attachments ?? []);
+  const renderedPreviewHtml = renderEmailHtml(
+    previewBody(body),
+    {},
+    signature,
+    {
+      template: template.id,
+      birthdayCardEnabled,
+    }
+  );
 
   function arrayBufferToBase64(buffer: ArrayBuffer) {
     const bytes = new Uint8Array(buffer);
@@ -370,18 +379,12 @@ function TemplateEditor({
         </div>
         <div className="px-3 py-2.5 space-y-1.5 text-xs">
           <p className="font-semibold text-slate-700">{previewSubject(subject)}</p>
-          <div
-            className="text-slate-700 leading-relaxed [&_img]:mt-2 [&_img]:max-w-full [&_img]:rounded-lg [&_img]:border [&_img]:border-slate-100"
-            dangerouslySetInnerHTML={{
-              __html: sanitizeEmailHtml(
-                plainTextToEmailHtml(
-                  template.id === "birthday"
-                    ? removeBirthdayCardToken(previewBody(body))
-                    : previewBody(body)
-                ) + (template.id === "birthday" && birthdayCardEnabled ? birthdayCardImageHtml() : "")
-              ),
-            }}
-          />
+          <div className="max-h-[420px] overflow-y-auto rounded-md border border-slate-100 bg-white p-3">
+            <div
+              className="mx-auto max-w-[600px] text-slate-700 leading-relaxed [&_img]:max-w-full [&_table]:max-w-full"
+              dangerouslySetInnerHTML={{ __html: renderedPreviewHtml }}
+            />
+          </div>
         </div>
       </div>
     </div>
