@@ -15,7 +15,9 @@ import type { EmailSignature, EmailTemplate } from "./settings-types";
 import { sanitizeEmailHtml } from "./security/sanitize-html";
 
 export const BIRTHDAY_CARD_TOKEN = "[Birthday Card]";
-export const BIRTHDAY_CARD_IMAGE_URL = "https://crm.tritonwealth.ca/email/birthday-greeting.png";
+// Keep a versioned public URL for Gmail's image proxy. Replacing a file at a
+// stable path can leave Gmail mobile showing a stale, unrelated image.
+export const BIRTHDAY_CARD_IMAGE_URL = "https://crm.tritonwealth.ca/email/birthday-greeting-v4.png";
 const BIRTHDAY_CARD_ADVISOR_EMAILS = new Set(["jieyuan165@gmail.com"]);
 
 export function shouldIncludeBirthdayCardForAdvisor(email?: string | null): boolean {
@@ -23,12 +25,9 @@ export function shouldIncludeBirthdayCardForAdvisor(email?: string | null): bool
 }
 
 export function birthdayCardImageHtml(): string {
-  return [
-    '<table cellpadding="0" cellspacing="0" border="0" role="presentation" width="100%" style="width:100%;margin:18px 0 12px;border-collapse:collapse;">',
-    '<tr><td align="center">',
-    `<img src="${BIRTHDAY_CARD_IMAGE_URL}" width="100%" alt="Happy Birthday from Triton Wealth" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;border-radius:12px;" />`,
-    "</td></tr></table>",
-  ].join("");
+  // A numeric width attribute is required for Gmail mobile. Percentage width
+  // attributes on images are inconsistently interpreted by its image proxy.
+  return `<img src="${BIRTHDAY_CARD_IMAGE_URL}" width="600" alt="Happy Birthday from Triton Wealth" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;border-radius:12px;" />`;
 }
 
 export const LEGACY_DEFAULT_TEMPLATE_COPY: Record<string, { subject: string; body: string }> = {
@@ -141,8 +140,7 @@ export function escapeHtml(text: string): string {
 }
 
 export function plainTextToEmailHtml(text: string): string {
-  return escapeHtml(text)
-    .replace(new RegExp(escapeRegExp(BIRTHDAY_CARD_TOKEN), "g"), birthdayCardImageHtml())
+  return escapeHtml(removeBirthdayCardToken(text))
     .replace(/&lt;sub&gt;/gi, '<sub style="font-size: 11px; color: #64748B;">')
     .replace(/&lt;\/sub&gt;/gi, "</sub>")
     .replace(/\r\n/g, "\n")
@@ -211,25 +209,31 @@ export function renderEmailHtml(
       ? birthdayCardImageHtml()
       : "";
   const inlineHtmlBeforeSignature = options?.inlineHtmlBeforeSignature?.trim() ?? "";
-  const separator = (filled.trim() || cardHtml || inlineHtmlBeforeSignature) && signatureHtml ? "<br /><br />" : "";
+  const rows = [
+    bodyHtml
+      ? `<tr><td style="font-family:Geist,-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#0F172A;word-break:normal;overflow-wrap:anywhere;">${bodyHtml}</td></tr>`
+      : "",
+    cardHtml
+      ? `<tr><td align="center" style="padding:18px 0 12px;">${cardHtml}</td></tr>`
+      : "",
+    inlineHtmlBeforeSignature
+      ? `<tr><td style="padding-top:12px;">${inlineHtmlBeforeSignature}</td></tr>`
+      : "",
+    signatureHtml
+      ? `<tr><td style="padding-top:${bodyHtml || cardHtml || inlineHtmlBeforeSignature ? "20px" : "0"};">${signatureHtml}</td></tr>`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("");
 
-  const content = [
-    bodyHtml,
-    cardHtml,
-    inlineHtmlBeforeSignature,
-    separator,
-    signatureHtml ? `<div style="margin-top:2px;">${signatureHtml}</div>` : "",
-  ].join("");
-
-  // Attribute widths plus nested presentation tables are intentionally used
-  // here: Gmail mobile is inconsistent about max-width on bare div/image
-  // markup, while this pattern keeps the message inside the device viewport.
+  // Each section is a sibling row. Gmail mobile can misplace nested tables
+  // embedded directly after text, which previously allowed a signature image
+  // to appear where the birthday card should have been.
   return [
     '<table cellpadding="0" cellspacing="0" border="0" role="presentation" width="100%" style="width:100%;border-collapse:collapse;background-color:#FFFFFF;">',
     '<tr><td align="center" style="padding:0 16px;">',
-    '<table cellpadding="0" cellspacing="0" border="0" role="presentation" width="100%" style="width:100%;max-width:600px;border-collapse:collapse;">',
-    '<tr><td style="font-family:Geist,-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#0F172A;word-break:normal;overflow-wrap:anywhere;">',
-    content,
-    "</td></tr></table></td></tr></table>",
+    '<table cellpadding="0" cellspacing="0" border="0" role="presentation" width="600" style="width:100%;max-width:600px;border-collapse:collapse;">',
+    rows,
+    "</table></td></tr></table>",
   ].join("");
 }

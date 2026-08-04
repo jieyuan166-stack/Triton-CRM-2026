@@ -26,10 +26,9 @@ const MUTED = "#64748B";
 const BORDER = "#E2E8F0";
 const PUBLIC_ORIGIN = "https://crm.tritonwealth.ca";
 
-// Email clients are inconsistent with tall images in table cells, especially
-// Gmail on iOS/Android. Use an email-specific mark rather than the full
-// vertical brand lockup in signatures.
-const TRITON_MARK_URL = `${PUBLIC_ORIGIN}/brand/triton-mark-email.png`;
+// Keep the complete Triton lockup, including the wordmark beneath the gold
+// mark, but use a dedicated email asset at a controlled display size.
+const TRITON_LOCKUP_URL = `${PUBLIC_ORIGIN}/brand/triton-lockup-email.png`;
 const MDRT_BADGE_URL = `${PUBLIC_ORIGIN}/brand/signature/mdrt-tot-transparent.png`;
 const RRC_BADGE_URL = `${PUBLIC_ORIGIN}/brand/signature/rrc-logo.png`;
 const CSC_BADGE_URL = `${PUBLIC_ORIGIN}/brand/signature/csc.png`;
@@ -50,10 +49,10 @@ const credentialBadges = `
 </table>`.trim();
 
 const LEGACY_TALL_TRITON_LOGO_PATTERN = /<img\b[^>]*\bsrc=(["'])[^"']*triton-logo-(?:signature|vertical)\.png(?:\?[^"']*)?\1[^>]*>/gi;
-const BIRTHDAY_CARD_IN_SIGNATURE_PATTERN = /<img\b[^>]*\bsrc=(["'])[^"']*birthday-greeting\.png(?:\?[^"']*)?\1[^>]*>/gi;
+const BIRTHDAY_CARD_IN_SIGNATURE_PATTERN = /<img\b[^>]*\bsrc=(["'])[^"']*birthday-greeting(?:-[a-z0-9._-]+)?\.(?:png|jpe?g)(?:\?[^"']*)?\1[^>]*>/gi;
 
-function emailMarkImageHtml() {
-  return `<img src="${TRITON_MARK_URL}" width="56" height="37" alt="Triton Wealth" style="display:block;width:56px;max-width:56px;height:auto;border:0;outline:none;text-decoration:none;" />`;
+function emailLockupImageHtml() {
+  return `<img src="${TRITON_LOCKUP_URL}" width="120" height="121" alt="Triton Wealth Management Corporation" style="display:block;width:120px;max-width:120px;height:auto;border:0;outline:none;text-decoration:none;" />`;
 }
 
 /** True only for the CRM's prior generated signature assets, not user uploads. */
@@ -70,12 +69,12 @@ export function isLegacySystemSignatureHtml(html?: string | null) {
 export function prepareSignatureForEmail(html?: string | null) {
   if (!html) return "";
   const withoutBirthdayCard = html.replace(BIRTHDAY_CARD_IN_SIGNATURE_PATTERN, "");
-  const withCompactMark = withoutBirthdayCard.replace(
+  const withEmailLockup = withoutBirthdayCard.replace(
     LEGACY_TALL_TRITON_LOGO_PATTERN,
-    emailMarkImageHtml()
+    emailLockupImageHtml()
   );
 
-  return withCompactMark.replace(/<img\b[^>]*>/gi, (tag) => {
+  return withEmailLockup.replace(/<img\b[^>]*>/gi, (tag) => {
     const safetyStyles = "max-width:100%;height:auto;border:0;outline:none;text-decoration:none;";
     const style = /\sstyle=(["'])([\s\S]*?)\1/i.exec(tag);
     if (style) {
@@ -144,14 +143,14 @@ function minimalistTemplate(advisor?: SignatureTemplateAdvisor) {
 </div>`.trim();
 }
 
-// Corporate: Two-column layout with Triton logo + full contact info.
+// Corporate: Two-column layout with the complete Triton lockup + contact info.
 function corporateTemplate(advisor?: SignatureTemplateAdvisor) {
   const contact = advisorContact(advisor);
   return `
 <table cellpadding="0" cellspacing="0" border="0" role="presentation" width="100%" style="width:100%;max-width:560px;border-collapse:collapse;font-family:Geist,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;font-size:13px;line-height:1.55;color:${NAVY};">
   <tr>
-    <td width="68" style="width:68px;vertical-align:top;padding-right:12px;border-right:2px solid ${ACCENT};">
-      ${emailMarkImageHtml()}
+    <td width="132" style="width:132px;vertical-align:top;padding-right:12px;border-right:2px solid ${ACCENT};">
+      ${emailLockupImageHtml()}
     </td>
     <td style="vertical-align:top;padding-left:12px;">
       <div style="font-weight: 700; font-size: 15px; color: ${NAVY};">${contact.name}</div>
