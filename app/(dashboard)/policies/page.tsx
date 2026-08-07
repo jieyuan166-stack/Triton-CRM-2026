@@ -51,6 +51,12 @@ function parseCategory(value: string | null): PolicyCategory | null {
   return value === "Insurance" || value === "Investment" ? value : null;
 }
 
+function parseStatus(value: string | null): Policy["status"] | "all" | null {
+  return value === "active" || value === "pending" || value === "lapsed" || value === "all"
+    ? value
+    : null;
+}
+
 function parseNewMoneyYear(value: string | null): number | null {
   if (!value) return null;
   const year = Number(value);
@@ -78,10 +84,16 @@ function PoliciesContent() {
   const carrierFromUrl = parseCarrier(searchParams.get("carrier"));
   const viewFromUrl = parseView(searchParams.get("view"));
   const categoryFromUrl = parseCategory(searchParams.get("category"));
+  const statusFromUrl = parseStatus(searchParams.get("status"));
   const newMoneyYear = parseNewMoneyYear(searchParams.get("newMoneyYear"));
+  const isScopedDrillDown =
+    carrierFromUrl !== "all" || categoryFromUrl !== null || newMoneyYear !== null;
+  const defaultStatusFilter = statusFromUrl ?? (isScopedDrillDown ? "all" : "pending");
   const [view, setView] = useState<"cards" | "table" | "client">(viewFromUrl);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<Policy["status"] | "all">("all");
+  const [statusFilter, setStatusFilter] = useState<Policy["status"] | "all">(
+    defaultStatusFilter,
+  );
   const [carrierFilter, setCarrierFilter] = useState<Carrier | "all">(carrierFromUrl);
 
   useEffect(() => {
@@ -91,6 +103,10 @@ function PoliciesContent() {
   useEffect(() => {
     setView(viewFromUrl);
   }, [viewFromUrl]);
+
+  useEffect(() => {
+    setStatusFilter(defaultStatusFilter);
+  }, [defaultStatusFilter]);
 
   const visiblePolicies = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -198,7 +214,9 @@ function PoliciesContent() {
           newMoneyYear && categoryFromUrl && carrierFilter !== "all"
             ? `${newMoneyYear} YTD ${categoryFromUrl === "Investment" ? "new assets" : "first year premium"} · ${carrierFilter}`
             : carrierFilter === "all"
-            ? "All policies across your book"
+            ? statusFilter === "pending"
+              ? "Pending policies requiring review"
+              : "All policies across your book"
             : `Showing ${carrierFilter} policies`
         }
         action={
