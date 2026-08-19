@@ -9,8 +9,14 @@ import {
   renderToBuffer,
 } from "@react-pdf/renderer";
 
-import type { Carrier, Client, EmailHistoryEntry, Policy } from "@/lib/types";
-import { formatDate as formatCalendarDate } from "@/lib/date-utils";
+import {
+  PAYMENT_FREQUENCY_LABELS,
+  type Carrier,
+  type Client,
+  type EmailHistoryEntry,
+  type Policy,
+} from "@/lib/types";
+import { formatDate as formatCalendarDate, formatMonthDay } from "@/lib/date-utils";
 import { formatCurrency as formatMoney } from "@/lib/format";
 import { calculatePortfolioMetrics } from "@/lib/portfolio-metrics";
 import { displayPolicyNumber } from "@/lib/policy-number";
@@ -247,6 +253,12 @@ const styles = StyleSheet.create({
     marginTop: 2,
     lineHeight: 1.25,
   },
+  policyDetail: {
+    color: "#475569",
+    fontSize: 7.25,
+    marginTop: 2,
+    lineHeight: 1.3,
+  },
   disclosure: {
     color: "#334155",
     fontSize: 10,
@@ -372,14 +384,31 @@ type ReportFamily = {
 };
 
 const columns = [
-  { key: "carrier", width: "14%" },
-  { key: "category", width: "12%" },
-  { key: "product", width: "22%" },
-  { key: "policy", width: "15%" },
-  { key: "face", width: "14%" },
-  { key: "premium", width: "12%" },
+  { key: "carrier", width: "12%" },
+  { key: "category", width: "9%" },
+  { key: "product", width: "18%" },
+  { key: "policy", width: "11%" },
+  { key: "amount", width: "12%" },
+  { key: "premium", width: "10%" },
+  { key: "paymentOrAccount", width: "17%" },
   { key: "status", width: "11%" },
 ];
+
+function policyPaymentOrAccountDetail(policy: ReportPolicy) {
+  if (policy.category === "Insurance") {
+    const frequency = PAYMENT_FREQUENCY_LABELS[policy.paymentFrequency] ?? policy.paymentFrequency;
+    const paymentDate = policy.premiumDate
+      ? formatMonthDay(policy.premiumDate)
+      : "Not provided";
+    return `Payment: ${frequency}\nPayment date: ${paymentDate}`;
+  }
+
+  const accountType = policy.productType || "Not provided";
+  const effectiveDate = policy.effectiveDate
+    ? formatDate(policy.effectiveDate)
+    : "Not provided";
+  return `Investment account: ${accountType}\nEffective date: ${effectiveDate}`;
+}
 
 function ReportHeader({
   logoDataUri,
@@ -437,7 +466,16 @@ function ProductTable({
       </View>
       <View style={styles.sectionBody}>
         <View style={styles.tableHeader}>
-          {["Carrier", "Category", "Product", "Policy #", "Total Coverage", "Premium", "Status"].map((label, index) => (
+          {[
+            "Carrier",
+            "Category",
+            "Product",
+            "Policy #",
+            "Coverage / AUM",
+            "Premium",
+            "Payment / Investment Account",
+            "Status",
+          ].map((label, index) => (
             <Text key={label} style={[styles.th, { width: columns[index].width }]}>{label}</Text>
           ))}
         </View>
@@ -475,7 +513,10 @@ function ProductTable({
               <Text style={[styles.td, { width: columns[5].width }]}>
                 {formatCurrency(policy.premium)}
               </Text>
-              <Text style={[styles.td, { width: columns[6].width }]}>{policy.status || "active"}</Text>
+              <Text style={[styles.policyDetail, { width: columns[6].width }]}>
+                {policyPaymentOrAccountDetail(policy)}
+              </Text>
+              <Text style={[styles.td, { width: columns[7].width }]}>{policy.status || "active"}</Text>
             </View>
           ))
         )}
