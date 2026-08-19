@@ -385,29 +385,23 @@ type ReportFamily = {
 
 const columns = [
   { key: "carrier", width: "12%" },
-  { key: "category", width: "9%" },
-  { key: "product", width: "18%" },
-  { key: "policy", width: "11%" },
-  { key: "amount", width: "12%" },
-  { key: "premium", width: "10%" },
-  { key: "paymentOrAccount", width: "17%" },
-  { key: "status", width: "11%" },
+  { key: "category", width: "10%" },
+  { key: "product", width: "29%" },
+  { key: "policy", width: "12%" },
+  { key: "amount", width: "14%" },
+  { key: "premium", width: "11%" },
+  { key: "status", width: "12%" },
 ];
 
-function policyPaymentOrAccountDetail(policy: ReportPolicy) {
+function productDetail(policy: ReportPolicy) {
+  const frequency = PAYMENT_FREQUENCY_LABELS[policy.paymentFrequency] ?? policy.paymentFrequency;
   if (policy.category === "Insurance") {
-    const frequency = PAYMENT_FREQUENCY_LABELS[policy.paymentFrequency] ?? policy.paymentFrequency;
-    const paymentDate = policy.premiumDate
-      ? formatMonthDay(policy.premiumDate)
-      : "Not provided";
-    return `Payment: ${frequency}\nPayment date: ${paymentDate}`;
+    const paymentDate = policy.premiumDate ? formatMonthDay(policy.premiumDate) : "Not provided";
+    return `Payment date: ${paymentDate} · ${frequency}`;
   }
 
-  const accountType = policy.productType || "Not provided";
-  const effectiveDate = policy.effectiveDate
-    ? formatDate(policy.effectiveDate)
-    : "Not provided";
-  return `Investment account: ${accountType}\nEffective date: ${effectiveDate}`;
+  const effectiveDate = policy.effectiveDate ? formatDate(policy.effectiveDate) : "Not provided";
+  return `Investment account: ${policy.productType || "Not provided"} · Effective date: ${effectiveDate}`;
 }
 
 function ReportHeader({
@@ -469,11 +463,10 @@ function ProductTable({
           {[
             "Carrier",
             "Category",
-            "Product",
+            "Product / Account / Payment",
             "Policy #",
             "Coverage / AUM",
             "Premium",
-            "Payment / Investment Account",
             "Status",
           ].map((label, index) => (
             <Text key={label} style={[styles.th, { width: columns[index].width }]}>{label}</Text>
@@ -500,6 +493,7 @@ function ProductTable({
               <Text style={[styles.td, { width: columns[1].width }]}>{policy.category}</Text>
               <View style={{ width: columns[2].width }}>
                 <Text style={styles.td}>{policy.productName || policy.productType}</Text>
+                <Text style={styles.policyDetail}>{productDetail(policy)}</Text>
                 {policyPartySummary(policy) ? (
                   <Text style={styles.partyLine}>{policyPartySummary(policy)}</Text>
                 ) : null}
@@ -513,10 +507,7 @@ function ProductTable({
               <Text style={[styles.td, { width: columns[5].width }]}>
                 {formatCurrency(policy.premium)}
               </Text>
-              <Text style={[styles.policyDetail, { width: columns[6].width }]}>
-                {policyPaymentOrAccountDetail(policy)}
-              </Text>
-              <Text style={[styles.td, { width: columns[7].width }]}>{policy.status || "active"}</Text>
+              <Text style={[styles.td, { width: columns[6].width }]}>{policy.status || "active"}</Text>
             </View>
           ))
         )}
