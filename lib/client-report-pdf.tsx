@@ -259,6 +259,10 @@ const styles = StyleSheet.create({
     marginTop: 2,
     lineHeight: 1.3,
   },
+  policyDetailLabel: {
+    color: "#0F172A",
+    fontWeight: 700,
+  },
   disclosure: {
     color: "#334155",
     fontSize: 10,
@@ -393,15 +397,31 @@ const columns = [
   { key: "status", width: "12%" },
 ];
 
+const INVESTMENT_ACCOUNT_COLORS: Record<string, string> = {
+  "Non-Registered": "#334155",
+  TFSA: "#0369A1",
+  RRSP: "#4338CA",
+  "Spousal RRSP": "#3730A3",
+  LIRA: "#6D28D9",
+  RRIF: "#7E22CE",
+  RESP: "#047857",
+  FHSA: "#0F766E",
+  "Segregated Fund": "#BE123C",
+};
+
 function productDetail(policy: ReportPolicy) {
   const frequency = PAYMENT_FREQUENCY_LABELS[policy.paymentFrequency] ?? policy.paymentFrequency;
   if (policy.category === "Insurance") {
     const paymentDate = policy.premiumDate ? formatMonthDay(policy.premiumDate) : "Not provided";
-    return `Payment date: ${paymentDate} · ${frequency}`;
+    return { kind: "insurance" as const, paymentDate, frequency };
   }
 
   const effectiveDate = policy.effectiveDate ? formatDate(policy.effectiveDate) : "Not provided";
-  return `Investment account: ${policy.productType || "Not provided"} · Effective date: ${effectiveDate}`;
+  return {
+    kind: "investment" as const,
+    accountType: policy.productType || "Not provided",
+    effectiveDate,
+  };
 }
 
 function ReportHeader({
@@ -477,8 +497,11 @@ function ProductTable({
             {emptyMessage}
           </Text>
         ) : (
-          policies.map((policy) => (
-            <View key={policy.id} style={styles.tableRow} wrap={false}>
+          policies.map((policy) => {
+            const detail = productDetail(policy);
+
+            return (
+              <View key={policy.id} style={styles.tableRow} wrap={false}>
               <View style={[styles.carrierCell, { width: columns[0].width }]}>
                 {carrierLogoDataUris?.[policy.carrier] ? (
                   <View style={styles.carrierLogoFrame}>
@@ -493,7 +516,25 @@ function ProductTable({
               <Text style={[styles.td, { width: columns[1].width }]}>{policy.category}</Text>
               <View style={{ width: columns[2].width }}>
                 <Text style={styles.td}>{policy.productName || policy.productType}</Text>
-                <Text style={styles.policyDetail}>{productDetail(policy)}</Text>
+                {detail.kind === "insurance" ? (
+                  <Text style={styles.policyDetail}>
+                    <Text style={styles.policyDetailLabel}>Payment date: </Text>
+                    {`${detail.paymentDate} · ${detail.frequency}`}
+                  </Text>
+                ) : (
+                  <Text style={styles.policyDetail}>
+                    <Text style={styles.policyDetailLabel}>Investment account: </Text>
+                    <Text
+                      style={[
+                        styles.policyDetailLabel,
+                        { color: INVESTMENT_ACCOUNT_COLORS[detail.accountType] ?? "#334155" },
+                      ]}
+                    >
+                      {detail.accountType}
+                    </Text>
+                    {` · Effective date: ${detail.effectiveDate}`}
+                  </Text>
+                )}
                 {policyPartySummary(policy) ? (
                   <Text style={styles.partyLine}>{policyPartySummary(policy)}</Text>
                 ) : null}
@@ -508,8 +549,9 @@ function ProductTable({
                 {formatCurrency(policy.premium)}
               </Text>
               <Text style={[styles.td, { width: columns[6].width }]}>{policy.status || "active"}</Text>
-            </View>
-          ))
+              </View>
+            );
+          })
         )}
       </View>
     </View>
