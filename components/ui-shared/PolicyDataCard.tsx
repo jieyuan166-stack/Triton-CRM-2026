@@ -29,6 +29,7 @@ export interface PolicyDataCardProps {
   className?: string;
   ownerBadgeClassName?: string;
   currentViewClientId?: string;
+  emphasizeDistinctParties?: boolean;
 }
 
 function buildPolicyBadges(policy: Policy, extraBadges?: ReactNode) {
@@ -72,6 +73,15 @@ function ongoingInvestmentHelper(policy: Policy): string | undefined {
   const count = getOngoingInvestmentContributionCount(policy);
   const frequency = ongoingFrequencyLabel(policy);
   return `${formatCurrency(policy.ongoingInvestmentAmount)} / ${frequency.toLowerCase()} · ${count} contribution${count === 1 ? "" : "s"} · ${ongoingDateRange(policy)}`;
+}
+
+function normalizedPartySet(value: string) {
+  return value
+    .split("/")
+    .map((party) => party.trim().toLocaleLowerCase())
+    .filter(Boolean)
+    .sort()
+    .join("/");
 }
 
 function buildPolicyMetrics(policy: Policy): UniversalDataMetric[] {
@@ -150,6 +160,7 @@ export function PolicyDataCard({
   className,
   ownerBadgeClassName,
   currentViewClientId,
+  emphasizeDistinctParties = false,
 }: PolicyDataCardProps) {
   const { getClient } = useData();
   const policyOwner = getClient(policy.clientId);
@@ -182,6 +193,12 @@ export function PolicyDataCard({
           .filter(Boolean)
           .join(" / ")
       : "";
+  const hasDistinctOwnerAndInsured =
+    emphasizeDistinctParties &&
+    policy.category === "Insurance" &&
+    Boolean(ownerDisplay) &&
+    Boolean(insuredDisplay) &&
+    normalizedPartySet(ownerDisplay) !== normalizedPartySet(insuredDisplay);
   const ownerBadge = owner ? (
     <span
       className={cn(
@@ -235,11 +252,19 @@ export function PolicyDataCard({
             </span>
           ) : null}
           {ownerDisplay || insuredDisplay ? (
-            <span className="mt-1 block text-[11px] text-slate-500">
-              {ownerDisplay ? `Owner: ${ownerDisplay}` : ""}
-              {ownerDisplay && insuredDisplay ? " · " : ""}
-              {insuredDisplay ? `Insured: ${insuredDisplay}` : ""}
-            </span>
+            hasDistinctOwnerAndInsured ? (
+              <span className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[11px] leading-relaxed">
+                <span className="font-semibold text-navy">Owner: {ownerDisplay}</span>
+                <span aria-hidden="true" className="text-slate-300">·</span>
+                <span className="font-semibold text-cyan-700">Insured: {insuredDisplay}</span>
+              </span>
+            ) : (
+              <span className="mt-1 block text-[11px] text-slate-500">
+                {ownerDisplay ? `Owner: ${ownerDisplay}` : ""}
+                {ownerDisplay && insuredDisplay ? " · " : ""}
+                {insuredDisplay ? `Insured: ${insuredDisplay}` : ""}
+              </span>
+            )
           ) : null}
         </>
       }

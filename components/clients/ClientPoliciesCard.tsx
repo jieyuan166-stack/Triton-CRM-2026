@@ -430,6 +430,7 @@ function CompactPolicyRow({
             policy={policy}
             href={`/policies/${policy.id}`}
             currentViewClientId={currentViewClientId}
+            emphasizeDistinctParties
             actions={
               <button
                 type="button"
