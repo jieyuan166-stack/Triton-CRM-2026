@@ -139,6 +139,11 @@ export function getPolicyPortfolioAmount(policy: Policy, today = new Date()): nu
   return policy.sumAssured || 0;
 }
 
+/** Only active contracts contribute to live portfolio totals and distributions. */
+export function isPortfolioActivePolicy(policy: Pick<Policy, "status">): boolean {
+  return policy.status === "active";
+}
+
 export function policyDedupeKey(policy: Policy): string {
   return (policy.policyNumber || policy.id).trim().toLowerCase();
 }

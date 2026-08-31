@@ -10,6 +10,7 @@ import { formatCurrencyShort } from "@/lib/format";
 import {
   dedupePolicies,
   getPolicyPortfolioAmount,
+  isPortfolioActivePolicy,
 } from "@/lib/portfolio-metrics";
 import { CARRIERS, type Carrier } from "@/lib/types";
 
@@ -21,7 +22,7 @@ interface CarrierLedgerRow {
 }
 
 function buildCarrierRows(policies: ReturnType<typeof useData>["policies"]) {
-  const visible = dedupePolicies(policies);
+  const visible = dedupePolicies(policies).filter(isPortfolioActivePolicy);
 
   const rowsByCarrier = new Map<Carrier, CarrierLedgerRow>(
     CARRIERS.map((carrier) => [

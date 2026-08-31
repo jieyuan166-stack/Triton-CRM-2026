@@ -25,7 +25,7 @@ import { clientPath } from "@/lib/client-slug";
 import { CARRIERS, type Carrier, type Policy, type PolicyCategory } from "@/lib/types";
 import { formatDate, formatMonthDay } from "@/lib/date-utils";
 import { formatCurrencyShort } from "@/lib/format";
-import { getPolicyPortfolioAmount } from "@/lib/portfolio-metrics";
+import { getPolicyPortfolioAmount, isPortfolioActivePolicy } from "@/lib/portfolio-metrics";
 import { displayPolicyNumberWithHash } from "@/lib/policy-number";
 import { cn } from "@/lib/utils";
 
@@ -191,6 +191,10 @@ function PoliciesContent() {
         investment: 0,
       };
       group.policies.push(policy);
+      if (!isPortfolioActivePolicy(policy)) {
+        groups.set(policy.clientId, group);
+        continue;
+      }
       if (policy.category === "Investment") {
         group.investment += getPolicyPortfolioAmount(policy);
       } else {
