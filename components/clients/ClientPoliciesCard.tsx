@@ -262,6 +262,7 @@ function CompactPolicyRow({
   onToggle: () => void;
   onOpenNotes: () => void;
 }) {
+  const isLapsed = policy.status === "lapsed";
   const primaryAmountLabel =
     policy.category === "Investment" ? "Initial Amount" : "Total Coverage";
   const effectiveDateValue = policy.effectiveDate ? formatDate(policy.effectiveDate) : "—";
@@ -311,7 +312,12 @@ function CompactPolicyRow({
         : "—";
 
   return (
-    <div className={cn("transition-colors", className)}>
+    <div
+      className={cn(
+        "transition-colors",
+        isLapsed ? "bg-slate-50 hover:bg-slate-100" : className
+      )}
+    >
       <div className="grid grid-cols-1 gap-3 px-5 py-3 lg:grid-cols-[minmax(0,1fr)_9.5rem_9.5rem_8rem_4.75rem] lg:items-center lg:gap-4 md:px-6">
         <div className="flex min-w-0 gap-2 text-left">
           <button
@@ -334,11 +340,14 @@ function CompactPolicyRow({
           </button>
           <div className="min-w-0 flex-1 select-text">
             <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-              <CarrierLogoBadge carrier={policy.carrier} size="sm" />
-              <span className="text-sm font-medium text-slate-900">
+              <span className={cn(isLapsed ? "grayscale opacity-70" : "")}>
+                <CarrierLogoBadge carrier={policy.carrier} size="sm" />
+              </span>
+              <span className={cn("text-sm font-medium", isLapsed ? "text-slate-500" : "text-slate-900")}>
                 {policy.productName || policy.productType}
               </span>
               <span className="text-xs text-slate-400">{displayPolicyNumberWithHash(policy.policyNumber)}</span>
+              {isLapsed ? <StatusBadge kind="lapsed" /> : null}
               {policy.isJoint ? <StatusBadge kind="joint" /> : null}
               {policy.category === "Investment" && policy.isInvestmentLoan ? (
                 <StatusBadge kind="loan" lender={policy.lender} />
@@ -346,19 +355,21 @@ function CompactPolicyRow({
                 <StatusBadge kind={policy.category === "Investment" ? "investment" : "insurance"} />
               )}
             </div>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className={cn("mt-1 text-xs", isLapsed ? "text-slate-400" : "text-slate-500")}>
               {policy.carrier} ·{" "}
               <span
                 className={cn(
                   "font-bold",
-                  policy.category === "Investment"
+                  isLapsed
+                    ? "text-slate-500"
+                    : policy.category === "Investment"
                     ? investmentProductTone(policy.productType)
                     : insuranceProductTone(policy.productType)
                 )}
               >
                 {policy.productType}
               </span>
-              {policy.status !== "active" ? ` · ${policy.status}` : ""}
+              {policy.status === "pending" ? " · pending" : ""}
             </p>
           </div>
         </div>
@@ -367,6 +378,7 @@ function CompactPolicyRow({
           label={primaryAmountLabel}
           value={formatCurrency(policy.sumAssured)}
           helper={policy.category === "Investment" ? `Effective Date: ${effectiveDateValue}` : undefined}
+          muted={isLapsed}
         />
         <div>
           {policy.category === "Investment" ? (
@@ -374,11 +386,13 @@ function CompactPolicyRow({
               label={secondaryInvestmentMetric.label}
               value={secondaryInvestmentMetric.value}
               helper={secondaryInvestmentMetric.helper}
+              muted={isLapsed}
             />
           ) : (
             <Metric
               label="Premium"
               value={`${formatCurrency(policy.premium)} /${PAYMENT_FREQUENCY_LABELS[policy.paymentFrequency].toLowerCase()}`}
+              muted={isLapsed}
             />
           )}
         </div>
@@ -387,9 +401,10 @@ function CompactPolicyRow({
             label={tertiaryInvestmentMetric.label}
             value={tertiaryInvestmentMetric.value}
             helper={tertiaryInvestmentMetric.helper}
+            muted={isLapsed}
           />
         ) : (
-          <Metric label="Due Date" value={insuranceDateValue} />
+          <Metric label="Due Date" value={insuranceDateValue} muted={isLapsed} />
         )}
         <div className="flex justify-start gap-1 lg:justify-end">
           <button
@@ -453,11 +468,26 @@ function CompactPolicyRow({
   );
 }
 
-function Metric({ label, value, helper }: { label: string; value: string; helper?: string }) {
+function Metric({
+  label,
+  value,
+  helper,
+  muted = false,
+}: {
+  label: string;
+  value: string;
+  helper?: string;
+  muted?: boolean;
+}) {
   return (
     <div className="min-w-0 lg:text-right">
       <p className="label-caps leading-none">{label}</p>
-      <p className="mt-1 whitespace-nowrap font-finance text-xs font-medium text-slate-800">
+      <p
+        className={cn(
+          "mt-1 whitespace-nowrap font-finance text-xs font-medium",
+          muted ? "text-slate-500" : "text-slate-800"
+        )}
+      >
         {value}
       </p>
       {helper ? (

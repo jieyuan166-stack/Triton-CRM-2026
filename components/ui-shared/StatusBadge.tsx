@@ -3,7 +3,14 @@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-export type StatusBadgeKind = "insurance" | "investment" | "corporate" | "loan" | "joint" | "custom";
+export type StatusBadgeKind =
+  | "insurance"
+  | "investment"
+  | "corporate"
+  | "loan"
+  | "joint"
+  | "lapsed"
+  | "custom";
 
 export interface StatusBadgeProps {
   kind: StatusBadgeKind;
@@ -36,6 +43,7 @@ function lenderTone(lender?: string | null) {
 
 function badgeTone(kind: StatusBadgeKind, lender?: string | null) {
   if (kind === "loan") return lenderTone(lender);
+  if (kind === "lapsed") return "bg-rose-50 text-rose-700 ring-rose-200";
   if (kind === "investment") return "bg-[#F7EDDA] text-[#8A641E] ring-[#E6D1A6]";
   if (kind === "insurance") return "bg-[#EEF4FA] text-[#0B3A64] ring-[#C8D8E8]";
   if (kind === "corporate") return "bg-[#F3EADC] text-slate-600 ring-[#E1D1B6]";
@@ -51,6 +59,8 @@ export function StatusBadge({ kind, label, lender, className }: StatusBadgeProps
       ? lenderName
         ? `LOAN · ${lenderName}`
         : "LOAN"
+      : kind === "lapsed"
+        ? "LAPSED"
       : kind.toUpperCase());
 
   return (

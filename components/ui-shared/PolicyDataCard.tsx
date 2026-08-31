@@ -42,6 +42,7 @@ function buildPolicyBadges(policy: Policy, extraBadges?: ReactNode) {
 
   return (
     <>
+      {policy.status === "lapsed" ? <StatusBadge kind="lapsed" /> : null}
       {primary}
       {policy.isCorporateInsurance && policy.businessName ? (
         <StatusBadge kind="corporate" label="CORPORATE" />
@@ -214,18 +215,24 @@ export function PolicyDataCard({
       />
     </span>
   ) : null;
+  const isLapsed = policy.status === "lapsed";
   const productTypeNode =
     policy.category === "Investment" ? (
       <span
         className={cn(
           "font-bold",
-          investmentProductTone(policy.productType)
+          isLapsed ? "text-slate-500" : investmentProductTone(policy.productType)
         )}
       >
         {policy.productType}
       </span>
     ) : (
-      <span className={cn("font-bold", insuranceProductTone(policy.productType))}>
+      <span
+        className={cn(
+          "font-bold",
+          isLapsed ? "text-slate-500" : insuranceProductTone(policy.productType)
+        )}
+      >
         {policy.productType}
       </span>
     );
@@ -233,30 +240,39 @@ export function PolicyDataCard({
   return (
     <UniversalDataCard
       href={href}
-      accentColor={CARRIER_COLORS[policy.carrier]}
+      accentColor={isLapsed ? "#94A3B8" : CARRIER_COLORS[policy.carrier]}
+      muted={isLapsed}
       title={policy.productName || policy.productType}
       subtitle={
         <>
           <span className="inline-flex flex-wrap items-center gap-x-1.5 gap-y-1">
             <span className="inline-flex items-center gap-1.5">
-              <CarrierLogoBadge carrier={policy.carrier} size="sm" />
-              <span className="font-semibold text-slate-700">{policy.carrier}</span>
+              <span className={cn(isLapsed ? "grayscale opacity-70" : "")}>
+                <CarrierLogoBadge carrier={policy.carrier} size="sm" />
+              </span>
+              <span className={cn("font-semibold", isLapsed ? "text-slate-500" : "text-slate-700")}>
+                {policy.carrier}
+              </span>
             </span>
             <span aria-hidden="true">·</span>
             {productTypeNode}
             <span>{`· ${displayPolicyNumberWithHash(policy.policyNumber)}`}</span>
           </span>
           {jointDisplayClient ? (
-            <span className="mt-1 block text-purple-600">
+            <span className={cn("mt-1 block", isLapsed ? "text-slate-500" : "text-purple-600")}>
               Joint with {jointDisplayClient.firstName} {jointDisplayClient.lastName}
             </span>
           ) : null}
           {ownerDisplay || insuredDisplay ? (
             hasDistinctOwnerAndInsured ? (
               <span className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[11px] leading-relaxed">
-                <span className="font-semibold text-navy">Owner: {ownerDisplay}</span>
+                <span className={cn("font-semibold", isLapsed ? "text-slate-500" : "text-navy")}>
+                  Owner: {ownerDisplay}
+                </span>
                 <span aria-hidden="true" className="text-slate-300">·</span>
-                <span className="font-semibold text-cyan-700">Insured: {insuredDisplay}</span>
+                <span className={cn("font-semibold", isLapsed ? "text-slate-500" : "text-cyan-700")}>
+                  Insured: {insuredDisplay}
+                </span>
               </span>
             ) : (
               <span className="mt-1 block text-[11px] text-slate-500">
@@ -283,7 +299,7 @@ export function PolicyDataCard({
             : "sm:grid-cols-2 lg:grid-cols-3"
           : "sm:grid-cols-3"
       }
-      className={className}
+      className={cn(className, isLapsed && "border-slate-200 bg-slate-50")}
     />
   );
 }

@@ -484,19 +484,38 @@ function PoliciesTable({
         <tbody className="divide-y divide-slate-100">
           {policies.map((policy) => {
             const client = getClient(policy.clientId);
+            const isLapsed = policy.status === "lapsed";
             return (
-              <tr key={policy.id} className="transition-colors hover:bg-slate-50">
+              <tr
+                key={policy.id}
+                className={cn(
+                  "transition-colors",
+                  isLapsed ? "bg-slate-50 hover:bg-slate-100" : "hover:bg-slate-50"
+                )}
+              >
                 <td className="px-5 py-3">
-                  <Link href={`/policies/${policy.id}`} className="font-medium text-slate-900 hover:text-[#8A641E]">
+                  <Link
+                    href={`/policies/${policy.id}`}
+                    className={cn(
+                      "font-medium",
+                      isLapsed ? "text-slate-500 hover:text-slate-700" : "text-slate-900 hover:text-[#8A641E]"
+                    )}
+                  >
                     {policy.productName || policy.productType}
                   </Link>
-                  <p className="mt-0.5 text-xs text-slate-500">
+                  <p className={cn("mt-0.5 text-xs", isLapsed ? "text-slate-400" : "text-slate-500")}>
                     {displayPolicyNumberWithHash(policy.policyNumber)} · {policy.productType}
                   </p>
                 </td>
                 <td className="px-4 py-3">
                   {client ? (
-                    <Link href={clientPath(client)} className="text-sm font-medium text-navy hover:underline">
+                    <Link
+                      href={clientPath(client)}
+                      className={cn(
+                        "text-sm font-medium hover:underline",
+                        isLapsed ? "text-slate-500" : "text-navy"
+                      )}
+                    >
                       {client.firstName} {client.lastName}
                     </Link>
                   ) : (
@@ -505,21 +524,30 @@ function PoliciesTable({
                 </td>
                 <td className="px-4 py-3">
                   <span className="inline-flex items-center gap-2">
-                    <CarrierLogoBadge carrier={policy.carrier} size="sm" />
-                    <span className="font-medium text-slate-700">{policy.carrier}</span>
+                    <span className={cn(isLapsed ? "grayscale opacity-70" : "")}>
+                      <CarrierLogoBadge carrier={policy.carrier} size="sm" />
+                    </span>
+                    <span className={cn("font-medium", isLapsed ? "text-slate-500" : "text-slate-700")}>
+                      {policy.carrier}
+                    </span>
                   </span>
                 </td>
                 <td className="px-4 py-3">
                   <StatusBadge
-                    kind="custom"
+                    kind={isLapsed ? "lapsed" : "custom"}
                     label={policy.status.toUpperCase()}
-                    className="bg-slate-50 text-slate-600 ring-slate-100"
+                    className={isLapsed ? undefined : "bg-slate-50 text-slate-600 ring-slate-100"}
                   />
                 </td>
-                <td className="px-4 py-3 text-right font-finance font-semibold text-slate-900">
+                <td
+                  className={cn(
+                    "px-4 py-3 text-right font-finance font-semibold",
+                    isLapsed ? "text-slate-500" : "text-slate-900"
+                  )}
+                >
                   {formatCurrencyShort(policyAmount(policy))}
                 </td>
-                <td className="px-4 py-3 text-sm text-slate-600">
+                <td className={cn("px-4 py-3 text-sm", isLapsed ? "text-slate-500" : "text-slate-600")}>
                   {policyDate(policy)}
                 </td>
               </tr>
@@ -587,17 +615,35 @@ function ClientGroupedPolicies({
                 <Link
                   key={policy.id}
                   href={`/policies/${policy.id}`}
-                  className="flex flex-col gap-2 rounded-lg border border-slate-100 bg-slate-50/40 px-3 py-2 transition-colors hover:bg-white md:flex-row md:items-center md:justify-between"
+                  className={cn(
+                    "flex flex-col gap-2 rounded-lg border px-3 py-2 transition-colors md:flex-row md:items-center md:justify-between",
+                    policy.status === "lapsed"
+                      ? "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100"
+                      : "border-slate-100 bg-slate-50/40 hover:bg-white"
+                  )}
                 >
                   <span className="min-w-0">
-                    <span className="block truncate text-sm font-medium text-slate-900">
-                      {policy.productName || policy.productType}
+                    <span className="flex min-w-0 flex-wrap items-center gap-2">
+                      <span
+                        className={cn(
+                          "block truncate text-sm font-medium",
+                          policy.status === "lapsed" ? "text-slate-500" : "text-slate-900"
+                        )}
+                      >
+                        {policy.productName || policy.productType}
+                      </span>
+                      {policy.status === "lapsed" ? <StatusBadge kind="lapsed" /> : null}
                     </span>
-                    <span className="text-xs text-slate-500">
+                    <span className={cn("text-xs", policy.status === "lapsed" ? "text-slate-400" : "text-slate-500")}>
                       {policy.carrier} · {displayPolicyNumberWithHash(policy.policyNumber)}
                     </span>
                   </span>
-                  <span className="font-finance text-sm font-semibold text-slate-900">
+                  <span
+                    className={cn(
+                      "font-finance text-sm font-semibold",
+                      policy.status === "lapsed" ? "text-slate-500" : "text-slate-900"
+                    )}
+                  >
                     {formatCurrencyShort(policyAmount(policy))}
                   </span>
                 </Link>

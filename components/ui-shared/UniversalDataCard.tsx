@@ -22,6 +22,7 @@ export interface UniversalDataCardProps {
   className?: string;
   contentClassName?: string;
   metricsClassName?: string;
+  muted?: boolean;
 }
 
 export function UniversalDataCard({
@@ -36,12 +37,19 @@ export function UniversalDataCard({
   className,
   contentClassName,
   metricsClassName,
+  muted = false,
 }: UniversalDataCardProps) {
   const content = (
     <div
       className={cn(
         "block border-l-[3px] p-5 transition-colors",
-        href ? "bg-card hover:bg-[#F8F0E2]" : "bg-card",
+        muted
+          ? href
+            ? "bg-slate-50 hover:bg-slate-100"
+            : "bg-slate-50"
+          : href
+            ? "bg-card hover:bg-[#F8F0E2]"
+            : "bg-card",
         className
       )}
       style={{ borderLeftColor: accentColor }}
@@ -49,11 +57,21 @@ export function UniversalDataCard({
       <div className={cn("min-w-0", contentClassName)}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
-            <div className="text-sm font-medium leading-snug text-navy">
+            <div
+              className={cn(
+                "text-sm font-medium leading-snug",
+                muted ? "text-slate-500" : "text-navy"
+              )}
+            >
               {title}
             </div>
             {subtitle ? (
-              <div className="mt-1 text-xs leading-snug text-slate-500">
+              <div
+                className={cn(
+                  "mt-1 text-xs leading-snug",
+                  muted ? "text-slate-400" : "text-slate-500"
+                )}
+              >
                 {subtitle}
               </div>
             ) : null}
@@ -78,7 +96,12 @@ export function UniversalDataCard({
                 <p className="label-caps leading-none">
                   {metric.label}
                 </p>
-                <p className="text-xs font-medium leading-tight text-navy">
+                <p
+                  className={cn(
+                    "text-xs font-medium leading-tight",
+                    muted ? "text-slate-500" : "text-navy"
+                  )}
+                >
                   {metric.value}
                 </p>
                 {metric.helper ? (
