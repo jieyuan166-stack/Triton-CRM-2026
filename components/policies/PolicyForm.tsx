@@ -23,7 +23,7 @@ import { ClientCombobox } from "@/components/ui-shared/ClientCombobox";
 import { CurrencyInput } from "@/components/ui-shared/CurrencyInput";
 import { MonthDayPicker } from "@/components/ui-shared/MonthDayPicker";
 import { PolicyPartyInput } from "@/components/ui-shared/PolicyPartyInput";
-import { formatMonthDay } from "@/lib/date-utils";
+import { formatDate, formatMonthDay } from "@/lib/date-utils";
 import { cn } from "@/lib/utils";
 import { clientFullName, sanitizeInsuredPersons } from "@/lib/policy-parties";
 import {
@@ -179,6 +179,7 @@ export interface PolicyFormProps {
    *  form displays a Client picker so the policy can still be attached. */
   defaultClientId?: string;
   submitLabel?: string;
+  lapsedAt?: string;
   onSubmit: (values: PolicyFormValues) => void;
   onCancel?: () => void;
 }
@@ -187,6 +188,7 @@ export function PolicyForm({
   initialValues,
   defaultClientId,
   submitLabel = "Save",
+  lapsedAt,
   onSubmit,
   onCancel,
 }: PolicyFormProps) {
@@ -694,6 +696,15 @@ export function PolicyForm({
               </SelectContent>
             </Select>
           </div>
+
+          {watch("status") === "lapsed" ? (
+            <div className="space-y-1.5">
+              <Label>Lapsed Date</Label>
+              <div className="flex h-10 items-center rounded-md border border-rose-200 bg-rose-50 px-3 text-sm font-medium text-rose-700">
+                {lapsedAt ? formatDate(lapsedAt) : "Recorded automatically when saved"}
+              </div>
+            </div>
+          ) : null}
 
           <div className="space-y-1.5 md:col-span-2">
             <Label htmlFor="policyOwnerName">Policy Owner 1</Label>

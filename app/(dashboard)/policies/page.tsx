@@ -538,6 +538,11 @@ function PoliciesTable({
                     label={policy.status.toUpperCase()}
                     className={isLapsed ? undefined : "bg-slate-50 text-slate-600 ring-slate-100"}
                   />
+                  {isLapsed ? (
+                    <p className="mt-1 text-[10px] font-medium text-slate-400">
+                      {policy.lapsedAt ? formatDate(policy.lapsedAt) : "—"}
+                    </p>
+                  ) : null}
                 </td>
                 <td
                   className={cn(
@@ -636,6 +641,9 @@ function ClientGroupedPolicies({
                     </span>
                     <span className={cn("text-xs", policy.status === "lapsed" ? "text-slate-400" : "text-slate-500")}>
                       {policy.carrier} · {displayPolicyNumberWithHash(policy.policyNumber)}
+                      {policy.status === "lapsed" && policy.lapsedAt
+                        ? ` · Lapsed ${formatDate(policy.lapsedAt)}`
+                        : ""}
                     </span>
                   </span>
                   <span

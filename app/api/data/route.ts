@@ -66,7 +66,10 @@ async function requireOwnedClient(clientId: string, userId: string) {
 }
 
 async function requireOwnedPolicy(policyId: string, userId: string) {
-  const policy = await db.policy.findFirst({ where: { id: policyId, userId }, select: { id: true, clientId: true } });
+  const policy = await db.policy.findFirst({
+    where: { id: policyId, userId },
+    select: { id: true, clientId: true, status: true, lapsedAt: true },
+  });
   if (!policy) throw new Error("Policy not found");
   return policy;
 }
@@ -323,6 +326,7 @@ function serializePolicy(
     premiumDate: p.premiumDate ?? undefined,
     maturityDate: dateOnly(p.maturityDate),
     status: p.status as Policy["status"],
+    lapsedAt: iso(p.lapsedAt),
     isCorporateInsurance: p.isCorporateInsurance,
     businessName: p.businessName ?? undefined,
     isInvestmentLoan: p.isInvestmentLoan,
@@ -541,6 +545,14 @@ function policyData(input: Partial<Policy>, partial = false, userId?: string) {
     premiumDate: nullableString(input.premiumDate, partial),
     maturityDate: input.maturityDate === undefined ? (partial ? undefined : null) : input.maturityDate ? toNullDate(input.maturityDate) : null,
     status: input.status === undefined ? (partial ? undefined : "active") : input.status || "active",
+    lapsedAt:
+      input.lapsedAt === undefined
+        ? partial
+          ? undefined
+          : null
+        : input.lapsedAt
+          ? toNullDate(input.lapsedAt)
+          : null,
     isCorporateInsurance: input.isCorporateInsurance === undefined ? (partial ? undefined : false) : !!input.isCorporateInsurance,
     businessName: nullableString(input.businessName, partial),
     isInvestmentLoan: input.isInvestmentLoan === undefined ? (partial ? undefined : false) : !!input.isInvestmentLoan,
@@ -906,7 +918,14 @@ export async function POST(request: Request) {
         await requireOwnedClient(policy.clientId, session.user.id);
         if (policy.jointWithClientId) await requireOwnedClient(policy.jointWithClientId, session.user.id);
         const sanitizedPolicy = await sanitizePolicyPartyReferences(policy, session.user.id);
-        const data = policyData(sanitizedPolicy, false, session.user.id);
+        const data = policyData(
+          {
+            ...sanitizedPolicy,
+            lapsedAt: sanitizedPolicy.status === "lapsed" ? new Date().toISOString() : undefined,
+          },
+          false,
+          session.user.id,
+        );
         await db.policy.create({
           data: {
             ...data,
@@ -925,14 +944,27 @@ export async function POST(request: Request) {
       }
       case "policy.update": {
         const id = String(payload.id);
-        await requireOwnedPolicy(id, session.user.id);
+        const currentPolicy = await requireOwnedPolicy(id, session.user.id);
         const rawPatch = payload.patch as Partial<Policy> & { beneficiaries?: Beneficiary[] };
         const patch = await sanitizePolicyPartyReferences(rawPatch, session.user.id);
         if (patch.clientId) await requireOwnedClient(patch.clientId, session.user.id);
         if (patch.jointWithClientId) await requireOwnedClient(patch.jointWithClientId, session.user.id);
         if (patch.policyOwnerClientId) await requireOwnedClient(patch.policyOwnerClientId, session.user.id);
         if (patch.policyOwner2ClientId) await requireOwnedClient(patch.policyOwner2ClientId, session.user.id);
-        await db.policy.update({ where: { id }, data: policyData(patch, true) as never });
+        const nextStatus = patch.status ?? (currentPolicy.status as Policy["status"]);
+        const lapsedAt =
+          nextStatus === "lapsed"
+            ? currentPolicy.status === "lapsed" && currentPolicy.lapsedAt
+              ? currentPolicy.lapsedAt
+              : new Date()
+            : null;
+        await db.policy.update({
+          where: { id },
+          data: policyData(
+            { ...patch, status: nextStatus, lapsedAt: lapsedAt?.toISOString() },
+            true,
+          ) as never,
+        });
         if (Array.isArray(patch.beneficiaries)) {
           await db.beneficiary.deleteMany({ where: { policyId: id } });
           await db.beneficiary.createMany({

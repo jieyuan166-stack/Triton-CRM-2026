@@ -332,6 +332,8 @@ export interface Policy {
   premiumDate?: string;        // next premium due (auto-calculated)
   maturityDate?: string;
   status: PolicyStatus;
+  /** ISO timestamp automatically recorded whenever the policy becomes Lapsed. */
+  lapsedAt?: string;
 
   // Corporate-insurance fields. Only meaningful when category === "Insurance".
   isCorporateInsurance?: boolean;

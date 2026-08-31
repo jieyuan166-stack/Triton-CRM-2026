@@ -226,6 +226,7 @@ export default function PolicyDetailPage() {
       <PolicyForm
         initialValues={initialValues}
         submitLabel="Save Changes"
+        lapsedAt={policy.lapsedAt}
         onSubmit={handleSubmit}
         onCancel={() =>
           router.push(client ? clientPath(client) : "/policies")

@@ -148,6 +148,13 @@ function buildPolicyMetrics(policy: Policy): UniversalDataMetric[] {
     });
   }
 
+  if (policy.status === "lapsed") {
+    metrics.push({
+      label: "Lapsed Date",
+      value: policy.lapsedAt ? formatDate(policy.lapsedAt) : "—",
+    });
+  }
+
   return metrics;
 }
 
@@ -293,7 +300,9 @@ export function PolicyDataCard({
       actions={actions}
       metrics={buildPolicyMetrics(policy)}
       metricsClassName={
-        policy.category === "Investment"
+        isLapsed
+          ? "sm:grid-cols-2 lg:grid-cols-4"
+          : policy.category === "Investment"
           ? policy.isInvestmentLoan
             ? "sm:grid-cols-2 lg:grid-cols-4"
             : "sm:grid-cols-2 lg:grid-cols-3"

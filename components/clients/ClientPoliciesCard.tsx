@@ -371,6 +371,11 @@ function CompactPolicyRow({
               </span>
               {policy.status === "pending" ? " · pending" : ""}
             </p>
+            {isLapsed ? (
+              <p className="mt-1 text-[11px] font-medium text-slate-400">
+                Lapsed Date: {policy.lapsedAt ? formatDate(policy.lapsedAt) : "—"}
+              </p>
+            ) : null}
           </div>
         </div>
 

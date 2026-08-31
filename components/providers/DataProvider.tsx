@@ -765,6 +765,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const next: Policy = {
       ...input,
       id: policyId,
+      lapsedAt: input.status === "lapsed" ? new Date().toISOString() : undefined,
       beneficiaries,
     };
     setPolicies((prev) => [...prev, next]);
@@ -777,7 +778,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const current = policies.find((p) => p.id === id);
       let updated: Policy | null = null;
       if (current) {
-        updated = { ...current, ...patch, id: current.id, beneficiaries: current.beneficiaries };
+        const nextStatus = patch.status ?? current.status;
+        const lapsedAt =
+          nextStatus === "lapsed"
+            ? current.status === "lapsed" && current.lapsedAt
+              ? current.lapsedAt
+              : new Date().toISOString()
+            : undefined;
+        updated = {
+          ...current,
+          ...patch,
+          id: current.id,
+          lapsedAt,
+          beneficiaries: current.beneficiaries,
+        };
         if (patch.beneficiaries) {
           updated.beneficiaries = patch.beneficiaries.map((b) => ({
             ...b,
