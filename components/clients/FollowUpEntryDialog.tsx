@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,7 +36,7 @@ interface FollowUpEntryDialogProps {
   onOpenChange: (open: boolean) => void;
   clientId: string;
   policies: Policy[];
-  onSave: (input: Omit<FollowUp, "id" | "createdAt">) => FollowUp | null | undefined;
+  onSave: (input: Omit<FollowUp, "id" | "createdAt">) => Promise<FollowUp | null | undefined>;
 }
 
 const NO_IMPORTANCE = "__none__";
@@ -56,6 +57,7 @@ export function FollowUpEntryDialog({
   const [type, setType] = useState<FollowUpType>("Phone");
   const [summary, setSummary] = useState("");
   const [details, setDetails] = useState("");
+  const [saving, setSaving] = useState(false);
   const [deadline, setDeadline] = useState("");
   const [importance, setImportance] = useState<FollowUpImportance | "">("");
   const [selectedPolicyId, setSelectedPolicyId] = useState(NO_POLICY);
@@ -72,12 +74,15 @@ export function FollowUpEntryDialog({
 
   const selectedPolicy = policies.find((policy) => policy.id === selectedPolicyId);
 
-  function handleSubmit(event: React.FormEvent) {
+  async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     const cleanSummary = summary.trim();
     if (!cleanSummary) return;
 
-    const saved = onSave({
+    if (saving) return;
+    setSaving(true);
+    try {
+    const saved = await onSave({
       clientId,
       type,
       date: todayDate(),
@@ -96,10 +101,13 @@ export function FollowUpEntryDialog({
     });
     if (saved === null) return;
     onOpenChange(false);
+    } catch (error) {
+      toast.error("Follow-up not saved", { description: error instanceof Error ? error.message : "Please try again." });
+    } finally { setSaving(false); }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(value) => !saving && onOpenChange(value)}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Add Follow-up</DialogTitle>
@@ -231,15 +239,15 @@ export function FollowUpEntryDialog({
           </div>
 
           <DialogFooter className="-mx-4">
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="ghost" disabled={saving} onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button
               type="submit"
               className="bg-navy text-white hover:bg-navy/90"
-              disabled={!summary.trim()}
+              disabled={saving || !summary.trim()}
             >
-              Save Follow-up
+              {saving ? "Saving..." : "Save Follow-up"}
             </Button>
           </DialogFooter>
         </form>

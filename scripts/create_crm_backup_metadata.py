@@ -80,7 +80,7 @@ def main() -> None:
             "downloadUrl": args.download_url or previous.get("email", {}).get("downloadUrl", ""),
         },
         "counts": manifest.get("counts", {}),
-        "uploads": manifest.get("uploads", {}),
+        "uploads": {key: manifest.get("uploads", {}).get(key, 0) for key in ("count", "bytes")},
         "validation": manifest.get("validation", {}),
         "application": manifest.get("application", {}),
     }

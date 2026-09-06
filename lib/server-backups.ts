@@ -54,7 +54,10 @@ export class BackupAccessError extends Error {
 }
 
 export function getBackupDir() {
-  return process.env.BACKUP_DIR || path.join(/*turbopackIgnore: true*/ process.cwd(), "backups");
+  // Backups are a mounted runtime volume, never a source-tree directory.
+  // Keeping the fallback absolute also prevents Next's file tracer from
+  // pulling the entire repository into the production standalone image.
+  return process.env.BACKUP_DIR || "/app/backups";
 }
 
 export function isSafeBackupFilename(filename: string) {
@@ -380,7 +383,10 @@ function sqliteDatabasePath() {
     throw new Error("DATABASE_URL must be a file: SQLite URL for file backups");
   }
   const raw = url.slice("file:".length);
-  return path.isAbsolute(raw) ? raw : path.resolve(/*turbopackIgnore: true*/ process.cwd(), raw);
+  if (!path.isAbsolute(raw)) {
+    throw new Error("DATABASE_URL must use an absolute SQLite path for file backups");
+  }
+  return raw;
 }
 
 export async function listBackupFiles(user: BackupAccessUser): Promise<BackupRecord[]> {

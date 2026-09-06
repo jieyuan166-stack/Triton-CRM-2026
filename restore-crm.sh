@@ -112,31 +112,4 @@ python3 "$PROJECT_DIR/scripts/verify_crm_backup.py" "$stage/manifest.json" "$sta
 db_dir="$(docker inspect "$CRM_CONTAINER" --format '{{range .Mounts}}{{if eq .Destination "/app/prisma/data"}}{{.Source}}{{end}}{{end}}')"
 [ -n "$db_dir" ] || { echo "Could not resolve the CRM database volume." >&2; exit 1; }
 
-(cd "$COMPOSE_DIR" && docker compose --env-file "$PROJECT_DIR/.env.production" stop "$CRM_CONTAINER")
-timestamp="$(TZ=America/Vancouver date +%Y-%m-%d-%H%M%S)"
-if [ -f "$db_dir/triton.db" ]; then
-  mv "$db_dir/triton.db" "$db_dir/triton.db.before-restore-$timestamp"
-fi
-cp "$stage/data/triton.db" "$db_dir/.triton.db.restore"
-mv "$db_dir/.triton.db.restore" "$db_dir/triton.db"
-
-uploads_previous="$DR_ROOT/uploads.before-restore-$timestamp"
-if [ -d "$CRM_UPLOADS_DIR" ]; then
-  mv "$CRM_UPLOADS_DIR" "$uploads_previous"
-fi
-mkdir -p "$CRM_UPLOADS_DIR"
-cp -a "$stage/uploads/." "$CRM_UPLOADS_DIR/" 2>/dev/null || true
-chmod 700 "$CRM_UPLOADS_DIR" 2>/dev/null || true
-
-(cd "$COMPOSE_DIR" && docker compose --env-file "$PROJECT_DIR/.env.production" up -d "$CRM_CONTAINER")
-
-attempt=0
-while [ "$attempt" -lt 24 ]; do
-  if curl -fsS "$CRM_URL/api/ready" >/dev/null 2>&1; then break; fi
-  attempt=$((attempt + 1))
-  sleep 5
-done
-curl -fsS "$CRM_URL/api/ready" >/dev/null || { echo "CRM did not become ready after restore." >&2; exit 1; }
-
-python3 "$PROJECT_DIR/scripts/verify_crm_backup.py" "$stage/manifest.json" "$db_dir/triton.db" "$CRM_UPLOADS_DIR"
-echo "CRM restore completed successfully."
+sh "$PROJECT_DIR/scripts/restore-crm-install.sh" "$stage" "$db_dir" "$CRM_UPLOADS_DIR" "$CRM_CONTAINER" "$COMPOSE_DIR" "$CRM_URL" "$PROJECT_DIR"

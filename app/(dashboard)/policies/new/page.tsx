@@ -28,7 +28,7 @@ function NewPolicyContent() {
       ? `/clients/${presetClient}`
       : "/policies";
 
-  function handleSubmit(values: PolicyFormValues) {
+  async function handleSubmit(values: PolicyFormValues) {
     // The Client field is no longer in the form — capture it from the URL
     // (`?clientId=…`) and merge it into the payload here. We override
     // `values.clientId` defensively in case the form's default got out of
@@ -61,7 +61,7 @@ function NewPolicyContent() {
         : undefined;
 
     try {
-      createPolicy({
+      await createPolicy({
         clientId,
         carrier: values.carrier as never,
         category: values.category,

@@ -30,7 +30,7 @@ export default function ClientDetailPage() {
     resolveClientParam,
     getPoliciesByClient,
     getFollowUpsByClient,
-    updateClient,
+    updateClientAsync,
     deleteClient,
     clients,
     policies: allPolicies,
@@ -57,17 +57,17 @@ export default function ClientDetailPage() {
     if (!resolvedClient) return;
     const nextSlug = resolvedClient.slug ?? buildClientSlug(resolvedClient);
     if (!resolvedClient.slug) {
-      updateClient(resolvedClient.id, { slug: nextSlug });
+      void updateClientAsync(resolvedClient.id, { slug: nextSlug });
       return;
     }
     if (slug !== nextSlug) {
       router.replace(clientPath({ id: resolvedClient.id, slug: nextSlug }));
     }
-  }, [resolvedClient, router, slug, updateClient]);
+  }, [resolvedClient, router, slug, updateClientAsync]);
 
-  function handleDeleteClient() {
+  async function handleDeleteClient() {
     if (!client) return;
-    const ok = deleteClient(client.id);
+    const ok = await deleteClient(client.id);
     if (!ok) {
       toast.error("Could not delete client");
       return;

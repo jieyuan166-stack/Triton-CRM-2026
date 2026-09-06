@@ -20,7 +20,11 @@ import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { z } from "zod";
 import { emailDefaults } from "@/lib/env.server";
-import { auditLog, requireSession, unauthorized } from "@/lib/api-security";
+import { requireSession, unauthorized } from "@/lib/api-security";
+import { db } from "@/lib/db";
+import { buildDefaultSettingsForUser, mergeAppSettings } from "@/lib/default-settings";
+import { deliverOnce } from "@/lib/email-delivery";
+import { resolveEmailContext, sendContextSchema } from "@/lib/email-send-context";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 import { sanitizeEmailHtml } from "@/lib/security/sanitize-html";
 import { attachInlineImages } from "@/lib/email-inline-images";
@@ -29,11 +33,12 @@ import { resolveSmtpAccount } from "@/lib/smtp-account";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Spec payload: { to, subject, body, clientId? }. clientId is optional and
-// passed through for round-trip identification by the client; the server
-// doesn't persist it (the in-memory Communication Log is updated on the
-// client side after this route returns ok).
+// clientId/context are resolved again on the server. Successful sends and
+// their business log are committed together; the browser never supplies
+// trusted ownership or SMTP account information.
 const sendSchema = z.object({
+  requestId: z.string().uuid(),
+  context: sendContextSchema.optional(),
   to: z.union([z.string().email(), z.array(z.string().email())]),
   cc: z.union([z.string().email(), z.array(z.string().email())]).optional(),
   bcc: z.union([z.string().email(), z.array(z.string().email())]).optional(),
@@ -111,17 +116,28 @@ export async function POST(request: Request) {
   }
   const data = parsed.data;
 
-  const fromName = data.fromName ?? emailDefaults.fromName;
-  const fromEmail =
-    data.fromEmail ?? emailDefaults.fromEmail ?? emailDefaults.user;
-  const from = fromName ? `${fromName} <${fromEmail}>` : fromEmail;
+  const user = await db.user.findUniqueOrThrow({ where: { id: session.user.id } });
+  const defaults = buildDefaultSettingsForUser(user);
+  const settingsRow = await db.settings.findUnique({ where: { userId: user.id } });
+  const settings = settingsRow ? mergeAppSettings(JSON.parse(settingsRow.data), defaults) : defaults;
+  const fromEmail = settings.email.fromEmail || user.email;
+  const from = { name: settings.email.fromName || user.name, address: fromEmail };
+  const context = data.context;
+  let resolved;
+  try {
+    resolved = await resolveEmailContext(user.id, data.clientId, context ?? sendContextSchema.parse({ body: data.body, saveToActivity: false }));
+  } catch { return NextResponse.json({ ok: false, error: "Email context not found" }, { status: 404 }); }
+  const reminder = resolved.reminder;
+  if (reminder && !context?.resend && await db.emailReminderSend.findUnique({ where: { dedupeKey: reminder.dedupeKey } })) {
+    return NextResponse.json({ ok: false, error: "This reminder is already completed. Use Re-send from Completed to send another copy." }, { status: 409 });
+  }
 
   // Fetch the App Password lazily so a missing config surfaces as a clean
   // 503 rather than a stack trace at module load.
   let smtpAccount: ReturnType<typeof resolveSmtpAccount>;
   try {
     smtpAccount = resolveSmtpAccount({
-      user: emailDefaults.user,
+      user: settings.email.user || user.email,
       fromEmail,
     });
   } catch {
@@ -129,16 +145,17 @@ export async function POST(request: Request) {
       {
         ok: false,
         error:
-          "SMTP password is not configured on the server. Add SMTP_PASSWORD or CLAIRE_SMTP_PASSWORD to .env.local.",
+          "SMTP is not configured for this account. Check Email settings.",
       },
       { status: 503 }
     );
   }
 
   const transporter = nodemailer.createTransport({
-    host: emailDefaults.host,
-    port: emailDefaults.port,
-    secure: emailDefaults.secure, // 465 → implicit TLS
+    host: settings.email.host || emailDefaults.host,
+    port: settings.email.port || emailDefaults.port,
+    secure: settings.email.secure ?? emailDefaults.secure,
+    connectionTimeout: 30_000, greetingTimeout: 30_000, socketTimeout: 60_000,
     auth: {
       user: smtpAccount.user,
       pass: smtpAccount.password,
@@ -173,7 +190,11 @@ export async function POST(request: Request) {
       );
     }
     const allAttachments = [...attachments, ...userAttachments];
-    const info = await transporter.sendMail({
+    const result = await deliverOnce({
+      userId: user.id, clientId: data.clientId, policyId: reminder?.policyId,
+      dedupeKey: reminder && !context?.resend ? reminder.dedupeKey : `manual:${user.id}:${data.requestId}`,
+      type: reminder?.type ?? "manual-email", cycleKey: reminder?.cycleKey ?? data.requestId, stage: reminder?.stage,
+    }, () => transporter.sendMail({
       from,
       to: data.to,
       cc: data.cc,
@@ -182,22 +203,41 @@ export async function POST(request: Request) {
       text: data.body,
       html: htmlWithCids,
       attachments: allAttachments.length > 0 ? allAttachments : undefined,
+    }), async (tx, messageId) => {
+      if (context && data.clientId && context.saveToActivity && context.template !== "festival") {
+        const label = context.template === "renewal" ? `Renewal Reminder${reminder?.stage ? ` · ${reminder.stage === "first" ? "First" : "Second"} Reminder` : ""}`
+          : context.template === "birthday" ? "Birthday Greeting" : context.communicationType || "External Email";
+        await tx.emailHistory.create({ data: { userId: user.id, clientId: data.clientId, subject: data.subject, body: context.body,
+          templateLabel: label, communicationType: label, ...resolved.contexts[0],
+          policyContexts: JSON.stringify(resolved.contexts), attachments: JSON.stringify(context.attachments) } });
+        await tx.client.update({ where: { id: data.clientId }, data: { lastContactedAt: new Date() } });
+      }
+      // A manual re-send is a new delivery event, not a replacement for the
+      // original completed reminder. Keep the canonical stage timestamp and
+      // message id intact so Completed remains an auditable first send.
+      if (reminder && !context?.resend) {
+        const { dedupeKey, ...fields } = reminder;
+        await tx.emailReminderSend.upsert({ where: { dedupeKey }, create: { dedupeKey, ...fields, source: "manual", messageId },
+          update: { source: "manual", sentAt: new Date(), seenAt: null, messageId } });
+        if (reminder.policyId) await tx.policy.update({ where: { id: reminder.policyId }, data: { lastRenewalEmailAt: new Date() } });
+        if (reminder.type === "birthday") await tx.client.update({ where: { id: reminder.clientId }, data: { lastBirthdayEmailAt: new Date() } });
+      }
+      if (context?.draftEntryId) await tx.emailHistory.deleteMany({ where: { id: context.draftEntryId, client: { userId: user.id }, templateLabel: { startsWith: "Email Draft" } } });
+      await tx.auditLog.create({ data: { userId: user.id, action: "send_email", entityType: "client", entityId: data.clientId,
+        metadata: JSON.stringify({ messageId, manualResend: context?.resend ?? false }) } });
     });
-    await auditLog({
-      action: "send_email",
-      entityType: data.clientId ? "client" : undefined,
-      entityId: data.clientId,
-      metadata: { subject: data.subject },
-    });
+    if (result.status !== "sent" && !(result.status === "skipped" && result.messageId)) {
+      return NextResponse.json({ ok: false, error: result.reason || "Delivery needs review; check your mailbox Sent folder before retrying.", status: result.status }, { status: result.status === "failed" ? 502 : 409 });
+    }
     return NextResponse.json({
       ok: true,
-      messageId: info.messageId,
+      messageId: result.messageId,
       clientId: data.clientId ?? null,
     });
   } catch (e) {
     const error = e instanceof Error ? e.message : "Send failed";
      
     console.error("[send-email] transport error:", error);
-    return NextResponse.json({ ok: false, error }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "Email could not be confirmed. Check Sent before retrying." }, { status: 500 });
   }
 }

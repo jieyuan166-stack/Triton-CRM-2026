@@ -7,6 +7,7 @@ import { isAuthorizedCronRequest } from "@/lib/cron-auth";
 import { db } from "@/lib/db";
 import { createSnapshotBackup } from "@/lib/server-backups";
 import { buildUserSnapshot } from "@/lib/user-backup-snapshots";
+import { runForAdvisor } from "@/lib/email-delivery";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,10 +38,12 @@ export async function POST(request: Request) {
   let failed = 0;
 
   for (const user of users) {
+    await runForAdvisor(user.id, "user-backup", async (recordResult) => {
     try {
       const snapshot = await buildUserSnapshot(user.id);
       const record = await createSnapshotBackup(snapshot, user, { source: "auto" });
       created += 1;
+      recordResult({ status: "sent" });
       results.push({
         userId: user.id,
         email: user.email,
@@ -54,6 +57,7 @@ export async function POST(request: Request) {
         metadata: { userId: user.id, email: user.email, kind: record.kind },
       });
     } catch (error) {
+      recordResult({ status: "failed", reason: "Backup creation failed" });
       failed += 1;
       console.error("[automation:user-backups] failed", {
         userId: user.id,
@@ -67,6 +71,7 @@ export async function POST(request: Request) {
         error: error instanceof Error ? error.message : "failed",
       });
     }
+    });
   }
 
   return NextResponse.json({

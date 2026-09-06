@@ -24,6 +24,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useData } from "@/components/providers/DataProvider";
+import { InvestmentAmountDetails } from "@/components/ui-shared/InvestmentAmountDetails";
 import { ClientAvatar } from "@/components/ui-shared/ClientAvatar";
 import { ClientNameDisplay } from "@/components/ui-shared/ClientNameDisplay";
 import { ClientReportButton } from "@/components/clients/ClientReportButton";
@@ -50,12 +51,13 @@ export function ClientHeader({
   onEdit,
   onDelete,
 }: ClientHeaderProps) {
-  const { policies, getPoliciesByClient, updateClient } = useData();
+  const { policies, getPoliciesByClient, updateClientAsync } = useData();
   const [composeOpen, setComposeOpen] = useState(false);
   const [composePayload, setComposePayload] =
     useState<EmailPreviewPayload | null>(null);
   const [tagEditorOpen, setTagEditorOpen] = useState(false);
   const [draftTags, setDraftTags] = useState<TagValue[]>([]);
+  const [savingTags, setSavingTags] = useState(false);
 
   const autoTags = useMemo(
     () => calculateAutoClientTags(client, policies),
@@ -102,7 +104,7 @@ export function ClientHeader({
     });
   }
 
-  function saveTags() {
+  async function saveTags() {
     const manualTags = TAG_VALUES.filter(
       (tag) => draftTags.includes(tag) && !autoTags.includes(tag)
     );
@@ -110,9 +112,14 @@ export function ClientHeader({
       (tag) => autoTags.includes(tag) && !draftTags.includes(tag)
     );
 
-    updateClient(client.id, { manualTags, hiddenTags });
-    setTagEditorOpen(false);
-    toast.success("Client tags updated.");
+    setSavingTags(true);
+    try {
+      await updateClientAsync(client.id, { manualTags, hiddenTags });
+      setTagEditorOpen(false);
+      toast.success("Client tags updated.");
+    } catch (error) {
+      toast.error("Could not save tags", { description: error instanceof Error ? error.message : "Try again." });
+    } finally { setSavingTags(false); }
   }
 
   return (
@@ -223,7 +230,7 @@ export function ClientHeader({
                 Investment AUM
               </p>
               <p className="mt-1 font-finance text-xl font-semibold leading-none tracking-tight text-navy md:text-2xl">
-                {formatCurrency(clientMetrics.investmentAum)}
+                <InvestmentAmountDetails policies={getPoliciesByClient(client.id)}>{formatCurrency(clientMetrics.investmentAum)}</InvestmentAmountDetails>
               </p>
               <p className="mt-1 text-xs text-slate-500">
                 {clientMetrics.activeInvestmentCount} active
@@ -302,11 +309,11 @@ export function ClientHeader({
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setTagEditorOpen(false)}>
+            <Button variant="outline" disabled={savingTags} onClick={() => setTagEditorOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={saveTags} className="bg-navy text-white hover:bg-navy/90">
-              Save Tags
+            <Button disabled={savingTags} onClick={saveTags} className="bg-navy text-white hover:bg-navy/90">
+              {savingTags ? "Saving..." : "Save Tags"}
             </Button>
           </DialogFooter>
         </DialogContent>

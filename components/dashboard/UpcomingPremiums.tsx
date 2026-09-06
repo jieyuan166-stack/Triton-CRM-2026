@@ -101,7 +101,9 @@ export function UpcomingPremiums() {
   useEffect(() => {
     if (activeTab !== "completed" || unseenCompletedIds.length === 0) return;
     const timer = window.setTimeout(() => {
-      markEmailReminderSendsSeen(unseenCompletedIds);
+      void markEmailReminderSendsSeen(unseenCompletedIds).catch(() => {
+        // Keep the NEW highlight in place when the server did not confirm it.
+      });
     }, 2200);
     return () => window.clearTimeout(timer);
   }, [activeTab, markEmailReminderSendsSeen, unseenCompletedIds]);
@@ -157,6 +159,7 @@ export function UpcomingPremiums() {
       attachments: renewalTpl.attachments ?? [],
       emphasizedTerms: [p.policyNumber ?? "", premiumAmount, totalCoverage, dueDate],
       clientId: client.id, template: "renewal", policyId: p.id, reminderStage: row.stage, reminderCycleKey: row.cycleKey, reminderDedupeKey: row.dedupeKey,
+      resend: activeTab === "completed",
     });
     setDialogOpen(true);
   }
@@ -225,9 +228,9 @@ export function UpcomingPremiums() {
     ? clients.find((client) => client.id === dismissingReminder.clientId)
     : null;
 
-  function handleDismissReminder() {
+  async function handleDismissReminder() {
     if (!dismissingReminder) return;
-    const saved = recordEmailReminderSend({
+    const saved = await recordEmailReminderSend({
       dedupeKey: dismissingReminder.dedupeKey,
       policyId: dismissingReminder.policy.id,
       clientId: dismissingReminder.clientId,
@@ -251,11 +254,11 @@ export function UpcomingPremiums() {
     });
   }
 
-  function handleBulkRemove() {
+  async function handleBulkRemove() {
     if (selectedRows.length === 0) return;
     let removed = 0;
     for (const row of selectedRows) {
-      const saved = recordEmailReminderSend({
+      const saved = await recordEmailReminderSend({
         dedupeKey: row.dedupeKey,
         policyId: row.policy.id,
         clientId: row.clientId,

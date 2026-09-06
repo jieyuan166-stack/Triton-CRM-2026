@@ -22,10 +22,11 @@ import { EmailConfigSection } from "@/components/settings/EmailConfigSection";
 import { TemplatesSection } from "@/components/settings/TemplatesSection";
 import { BackupsSection } from "@/components/settings/BackupsSection";
 import { UsersSection } from "@/components/settings/UsersSection";
+import { AutomationStatusSection } from "@/components/settings/AutomationStatusSection";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { cn } from "@/lib/utils";
 
-type SectionId = "profile" | "email" | "templates" | "backups" | "users";
+type SectionId = "profile" | "email" | "templates" | "backups" | "users" | "automation";
 
 interface SectionDef {
   id: SectionId;
@@ -36,6 +37,7 @@ interface SectionDef {
 }
 
 const BASE_SECTIONS: SectionDef[] = [
+  { id: "automation", label: "Automation", icon: Mail, hint: "Schedule & delivery status" },
   {
     id: "profile",
     label: "Profile",
@@ -161,6 +163,7 @@ export default function SettingsPage() {
           {active === "email" ? <EmailConfigSection /> : null}
           {active === "templates" ? <TemplatesSection /> : null}
           {active === "backups" ? <BackupsSection /> : null}
+          {active === "automation" ? <AutomationStatusSection /> : null}
           {active === "users" && isAdmin ? <UsersSection /> : null}
         </section>
       </div>

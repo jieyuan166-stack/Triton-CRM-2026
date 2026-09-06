@@ -23,6 +23,7 @@
 
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -65,9 +66,11 @@ export function ConfirmDialog({
     try {
       setBusy(true);
       await onConfirm();
+      onOpenChange(false);
+    } catch (error) {
+      toast.error("Could not save change", { description: error instanceof Error ? error.message : "Please try again." });
     } finally {
       setBusy(false);
-      onOpenChange(false);
     }
   }
 

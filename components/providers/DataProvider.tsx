@@ -1,7 +1,6 @@
 // components/providers/DataProvider.tsx
 // Client-side facade over the Prisma-backed data API.
-// The public API stays synchronous for existing components; mutations update
-// local React state immediately, then persist the same generated IDs to /api/data.
+// Confirmed mutations only update local state after the NAS accepts the write.
 "use client";
 
 import {
@@ -13,7 +12,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { toast } from "sonner";
 import { calculateClientTags } from "@/lib/client-tags";
 import {
   buildClientSlug,
@@ -47,6 +45,7 @@ interface DataContextValue {
   emailReminderSends: EmailReminderSend[];
   dataStatus: "loading" | "ready" | "error";
   dataError?: string;
+  reloadData(): Promise<void>;
 
   // queries
   getClient(id: string): Client | undefined;
@@ -60,15 +59,15 @@ interface DataContextValue {
   getClientRelationships(clientId: string): ClientRelationship[];
 
   // mutations — clients
-  createClient(input: Omit<Client, "id" | "createdAt">): Client;
-  createClientAsync(input: Omit<Client, "id" | "createdAt">): Promise<Client>;
-  updateClient(id: string, patch: Partial<Omit<Client, "id">>): Client | null;
+  createClientAsync(
+    input: Omit<Client, "id" | "createdAt">,
+    relationships?: Array<{
+      toClientId: string;
+      relationship: ClientRelationship["relationship"];
+    }>
+  ): Promise<Client>;
   updateClientAsync(id: string, patch: Partial<Omit<Client, "id">>): Promise<Client | null>;
-  deleteClient(id: string): boolean;
-  replaceClientRelationships(
-    clientId: string,
-    input: Array<{ toClientId: string; relationship: ClientRelationship["relationship"] }>
-  ): ClientRelationship[];
+  deleteClient(id: string): Promise<boolean>;
   replaceClientRelationshipsAsync(
     clientId: string,
     input: Array<{ toClientId: string; relationship: ClientRelationship["relationship"] }>
@@ -80,22 +79,22 @@ interface DataContextValue {
     input: Omit<Policy, "id" | "beneficiaries"> & {
       beneficiaries: Omit<Beneficiary, "id" | "policyId">[];
     }
-  ): Policy;
+  ): Promise<Policy>;
   updatePolicy(
     id: string,
     patch: Partial<Omit<Policy, "id" | "beneficiaries">> & {
       beneficiaries?: Omit<Beneficiary, "id" | "policyId">[];
     }
-  ): Policy | null;
-  deletePolicy(id: string): boolean;
+  ): Promise<Policy | null>;
+  deletePolicy(id: string): Promise<boolean>;
 
   // mutations — follow-ups
-  createFollowUp(input: Omit<FollowUp, "id" | "createdAt">): FollowUp;
-  completeFollowUp(id: string, completedAt?: string): boolean;
-  deleteFollowUp(id: string): boolean;
+  createFollowUp(input: Omit<FollowUp, "id" | "createdAt">): Promise<FollowUp>;
+  completeFollowUp(id: string, completedAt?: string): Promise<boolean>;
+  deleteFollowUp(id: string): Promise<boolean>;
 
-  recordEmailReminderSend(input: Omit<EmailReminderSend, "id" | "createdAt"> & Partial<Pick<EmailReminderSend, "id" | "createdAt">>): EmailReminderSend | null;
-  markEmailReminderSendsSeen(ids: string[], seenAt?: string): void;
+  recordEmailReminderSend(input: Omit<EmailReminderSend, "id" | "createdAt"> & Partial<Pick<EmailReminderSend, "id" | "createdAt">>): Promise<EmailReminderSend | null>;
+  markEmailReminderSendsSeen(ids: string[], seenAt?: string): Promise<void>;
 
   // mutations — communication log
   /** Append a sent-email record to the given client's history. Generates
@@ -105,7 +104,7 @@ interface DataContextValue {
     clientId: string,
     entry: Omit<EmailHistoryEntry, "id" | "date"> &
       Partial<Pick<EmailHistoryEntry, "id" | "date">>
-  ): EmailHistoryEntry | null;
+  ): Promise<EmailHistoryEntry | null>;
   updateEmailHistory(
     clientId: string,
     entryId: string,
@@ -116,24 +115,10 @@ interface DataContextValue {
       policyContexts?: EmailHistoryEntry["policyContexts"] | null;
       attachments?: EmailHistoryEntry["attachments"] | null;
     }
-  ): EmailHistoryEntry | null;
+  ): Promise<EmailHistoryEntry | null>;
   /** Delete one or more sent-email history entries for a client. Returns
    *  the number removed from local state. */
-  deleteEmailHistory(clientId: string, entryIds: string[]): number;
-
-  /** Stamp `lastRenewalEmailAt` on a policy so the Upcoming Premiums
-   *  widget hides it for the suppression window. ISO timestamp; defaults
-   *  to now if the caller doesn't supply one. */
-  markRenewalEmailSent(policyId: string, at?: string): void;
-
-  /** Stamp `lastBirthdayEmailAt` on a client — same suppression purpose
-   *  but for the Upcoming Birthdays widget. */
-  markBirthdayEmailSent(clientId: string, at?: string): void;
-
-  /** Prepend a free-text auto-log block to `client.notes`. Keeps the
-   *  existing notes intact below a separator so manual notes are never
-   *  destroyed. */
-  prependClientNote(clientId: string, block: string): void;
+  deleteEmailHistory(clientId: string, entryIds: string[]): Promise<number>;
 
   // bulk — used by backup/restore
   /** Read-only snapshot of the current data layer. Used by the Backups
@@ -318,27 +303,10 @@ async function persistAction(action: string, payload: Record<string, unknown>) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action, payload }),
   });
-  if (!res.ok) {
-    const json = (await res.json().catch(() => ({}))) as { error?: string };
+  const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+  if (!res.ok || json.ok !== true) {
     throw new Error(json.error || `Persist failed (${res.status})`);
   }
-}
-
-function persistInBackground(
-  action: string,
-  payload: Record<string, unknown>,
-  options: { silent?: boolean } = {}
-) {
-  void persistAction(action, payload).catch((error) => {
-    console.error(`[DataProvider] ${action} failed`, error);
-    if (options.silent) return;
-    toast.error("Could not save change", {
-      description:
-        error instanceof Error
-          ? `${action}: ${error.message}`
-          : "Please refresh and try again.",
-    });
-  });
 }
 
 function buildClientUpdate(
@@ -411,6 +379,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [dataStatus, setDataStatus] =
     useState<DataContextValue["dataStatus"]>("loading");
   const [dataError, setDataError] = useState<string | undefined>(undefined);
+
+  const reloadData = useCallback(async () => {
+    const response = await fetch("/api/data", { cache: "no-store" });
+    if (!response.ok) throw new Error("Could not refresh data");
+    const next = sanitizeSnapshot(await response.json());
+    setClients(next.clients);
+    setPolicies(next.policies);
+    setFollowUps(next.followUps);
+    setRelationships(next.relationships);
+    setEmailReminderSends(next.emailReminderSends);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -523,36 +502,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   // === Mutations: clients ===
-  const createClient: DataContextValue["createClient"] = useCallback(
-    (input) => {
-      const id = uid("cli");
-      const normalizedInput = {
-        ...input,
-        firstName: toTitleCaseName(input.firstName),
-        lastName: toTitleCaseName(input.lastName),
-      };
-      const next: Client = {
-        ...normalizedInput,
-        id,
-        slug: buildUniqueClientSlug(
-          {
-            id,
-            firstName: normalizedInput.firstName,
-            lastName: normalizedInput.lastName,
-          },
-          clients
-        ),
-        createdAt: new Date().toISOString(),
-      };
-      setClients((prev) => [...prev, next]);
-      persistInBackground("client.create", { client: next });
-      return next;
-    },
-    [clients]
-  );
-
   const createClientAsync: DataContextValue["createClientAsync"] = useCallback(
-    async (input) => {
+    async (input, relationshipInput = []) => {
       const id = uid("cli");
       const normalizedInput = {
         ...input,
@@ -573,36 +524,36 @@ export function DataProvider({ children }: { children: ReactNode }) {
         createdAt: new Date().toISOString(),
       };
 
-      setClients((prev) => [...prev, next]);
-      try {
-        await persistAction("client.create", { client: next });
-        return next;
-      } catch (error) {
-        setClients((prev) => prev.filter((client) => client.id !== id));
-        throw error;
-      }
-    },
-    [clients]
-  );
+      const liveClientIds = new Set(clients.map((client) => client.id));
+      const seen = new Set<string>();
+      const nextRelationships = relationshipInput.flatMap((item) => {
+        if (
+          !item.toClientId ||
+          item.toClientId === id ||
+          !liveClientIds.has(item.toClientId) ||
+          seen.has(item.toClientId)
+        ) {
+          return [];
+        }
+        seen.add(item.toClientId);
+        return [{
+          id: uid("rel"),
+          fromClientId: id,
+          toClientId: item.toClientId,
+          relationship: item.relationship,
+          createdAt: new Date().toISOString(),
+        }];
+      });
 
-  const updateClient: DataContextValue["updateClient"] = useCallback(
-    (id, patch) => {
-      const prepared = buildClientUpdate(id, patch, clients);
-      const updated = prepared?.updated ?? null;
-      setClients((prev) =>
-        prev.map((c) => (c.id === id && updated ? updated : c))
-      );
-      if (prepared) {
-        persistInBackground(
-          "client.update",
-          {
-            id,
-            patch: prepared.patch,
-          },
-          { silent: Object.keys(patch).length === 1 && patch.slug !== undefined }
-        );
+      await persistAction("client.create", {
+        client: next,
+        relationships: nextRelationships,
+      });
+      setClients((prev) => [...prev, next]);
+      if (nextRelationships.length > 0) {
+        setRelationships((prev) => [...prev, ...nextRelationships]);
       }
-      return updated;
+      return next;
     },
     [clients]
   );
@@ -611,17 +562,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     async (id, patch) => {
       const prepared = buildClientUpdate(id, patch, clients);
       if (!prepared) return null;
-      const previous = clients;
-      setClients((prev) =>
-        prev.map((c) => (c.id === id ? prepared.updated : c))
-      );
-      try {
-        await persistAction("client.update", { id, patch: prepared.patch });
-        return prepared.updated;
-      } catch (error) {
-        setClients(previous);
-        throw error;
-      }
+      await persistAction("client.update", { id, patch: prepared.patch });
+      setClients((prev) => prev.map((c) => (c.id === id ? prepared.updated : c)));
+      return prepared.updated;
     },
     [clients]
   );
@@ -640,8 +583,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // and we read existence from the current `clients` snapshot held in the
   // closure of the useCallback rather than from inside an updater.
   const deleteClient: DataContextValue["deleteClient"] = useCallback(
-    (id) => {
+    async (id) => {
       const existed = clients.some((c) => c.id === id);
+      if (!existed) return false;
+      await persistAction("client.delete", { id });
       setClients((prev) => prev.filter((c) => c.id !== id));
       setPolicies((prev) =>
         prev
@@ -659,54 +604,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
             relationship.fromClientId !== id && relationship.toClientId !== id
         )
       );
-      if (existed) {
-        persistInBackground("client.delete", { id });
-      }
       return existed;
     },
     [clients]
   );
-
-  const replaceClientRelationships: DataContextValue["replaceClientRelationships"] =
-    useCallback(
-      (clientId, input) => {
-        const liveClientIds = new Set(clients.map((client) => client.id));
-        const seen = new Set<string>();
-        const nextRows: ClientRelationship[] = input.flatMap((item) => {
-          if (
-            !item.toClientId ||
-            item.toClientId === clientId ||
-            !liveClientIds.has(item.toClientId) ||
-            seen.has(item.toClientId)
-          ) {
-            return [];
-          }
-          seen.add(item.toClientId);
-          return [{
-            id: uid("rel"),
-            fromClientId: clientId,
-            toClientId: item.toClientId,
-            relationship: item.relationship,
-            createdAt: new Date().toISOString(),
-          }];
-        });
-
-        setRelationships((prev) => [
-          ...prev.filter(
-            (relationship) =>
-              relationship.fromClientId !== clientId &&
-              relationship.toClientId !== clientId
-          ),
-          ...nextRows,
-        ]);
-        persistInBackground("clientRelationships.replace", {
-          clientId,
-          relationships: nextRows,
-        });
-        return nextRows;
-      },
-      [clients]
-    );
 
   const replaceClientRelationshipsAsync: DataContextValue["replaceClientRelationshipsAsync"] =
     useCallback(
@@ -731,31 +632,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
             createdAt: new Date().toISOString(),
           }];
         });
-        const previous = relationships;
+        await persistAction("clientRelationships.replace", { clientId, relationships: nextRows });
         setRelationships((prev) => [
-          ...prev.filter(
-            (relationship) =>
-              relationship.fromClientId !== clientId &&
-              relationship.toClientId !== clientId
-          ),
+          ...prev.filter((relationship) => relationship.fromClientId !== clientId && relationship.toClientId !== clientId),
           ...nextRows,
         ]);
-        try {
-          await persistAction("clientRelationships.replace", {
-            clientId,
-            relationships: nextRows,
-          });
-          return nextRows;
-        } catch (error) {
-          setRelationships(previous);
-          throw error;
-        }
+        return nextRows;
       },
-      [clients, relationships]
+      [clients]
     );
 
   // === Mutations: policies ===
-  const createPolicy: DataContextValue["createPolicy"] = useCallback((input) => {
+  const createPolicy: DataContextValue["createPolicy"] = useCallback(async (input) => {
     const policyId = uid("pol");
     const beneficiaries: Beneficiary[] = input.beneficiaries.map((b) => ({
       ...b,
@@ -768,13 +656,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
       lapsedAt: input.status === "lapsed" ? new Date().toISOString() : undefined,
       beneficiaries,
     };
+    await persistAction("policy.create", { policy: next });
     setPolicies((prev) => [...prev, next]);
-    persistInBackground("policy.create", { policy: next });
     return next;
   }, []);
 
   const updatePolicy: DataContextValue["updatePolicy"] = useCallback(
-    (id, patch) => {
+    async (id, patch) => {
       const current = policies.find((p) => p.id === id);
       let updated: Policy | null = null;
       if (current) {
@@ -800,57 +688,54 @@ export function DataProvider({ children }: { children: ReactNode }) {
           }));
         }
       }
-      setPolicies((prev) => prev.map((p) => (p.id === id && updated ? updated : p)));
       if (updated) {
-        persistInBackground("policy.update", { id, patch: updated });
+        await persistAction("policy.update", { id, patch: updated });
+        setPolicies((prev) => prev.map((p) => (p.id === id && updated ? updated : p)));
       }
       return updated;
     },
     [policies]
   );
 
-  const deletePolicy: DataContextValue["deletePolicy"] = useCallback((id) => {
+  const deletePolicy: DataContextValue["deletePolicy"] = useCallback(async (id) => {
     const deleted = policies.some((p) => p.id === id);
-    setPolicies((prev) => prev.filter((p) => p.id !== id));
     if (deleted) {
-      persistInBackground("policy.delete", { id });
+      await persistAction("policy.delete", { id });
+      setPolicies((prev) => prev.filter((p) => p.id !== id));
     }
     return deleted;
   }, [policies]);
 
   // === Mutations: follow-ups ===
-  const createFollowUp: DataContextValue["createFollowUp"] = useCallback((input) => {
+  const createFollowUp: DataContextValue["createFollowUp"] = useCallback(async (input) => {
     const next: FollowUp = {
       ...input,
       id: uid("fup"),
       createdAt: new Date().toISOString(),
     };
+    await persistAction("followup.create", { followUp: next });
     setFollowUps((prev) => [...prev, next]);
-    persistInBackground("followup.create", { followUp: next });
     return next;
   }, []);
 
-  const completeFollowUp: DataContextValue["completeFollowUp"] = useCallback((id, completedAt) => {
+  const completeFollowUp: DataContextValue["completeFollowUp"] = useCallback(async (id, completedAt) => {
     const doneAt = completedAt ?? new Date().toISOString();
-    let updated = false;
+    if (!followUps.some((item) => item.id === id)) return false;
+    await persistAction("followup.complete", { id, completedAt: doneAt });
     setFollowUps((prev) =>
       prev.map((followUp) => {
         if (followUp.id !== id) return followUp;
-        updated = true;
         return { ...followUp, completedAt: doneAt };
       })
     );
-    if (updated) {
-      persistInBackground("followup.complete", { id, completedAt: doneAt });
-    }
-    return updated;
-  }, []);
+    return true;
+  }, [followUps]);
 
-  const deleteFollowUp: DataContextValue["deleteFollowUp"] = useCallback((id) => {
+  const deleteFollowUp: DataContextValue["deleteFollowUp"] = useCallback(async (id) => {
     const deleted = followUps.some((f) => f.id === id);
-    setFollowUps((prev) => prev.filter((f) => f.id !== id));
     if (deleted) {
-      persistInBackground("followup.delete", { id });
+      await persistAction("followup.delete", { id });
+      setFollowUps((prev) => prev.filter((f) => f.id !== id));
     }
     return deleted;
   }, [followUps]);
@@ -863,7 +748,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // step adds a global "Outbox" view, this will want to be lifted to its
   // own array — but for now keeping the data co-located minimises plumbing.
   const appendEmailHistory: DataContextValue["appendEmailHistory"] =
-    useCallback((clientId, entry) => {
+    useCallback(async (clientId, entry) => {
       if (!clients.some((c) => c.id === clientId)) return null;
       const saved: EmailHistoryEntry = {
         id: entry.id ?? uid("eml"),
@@ -878,6 +763,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         communicationType: entry.communicationType,
         attachments: entry.attachments,
       };
+      await persistAction("emailHistory.append", { clientId, entry: saved });
       setClients((prev) =>
         prev.map((c) => {
           if (c.id !== clientId) return c;
@@ -891,22 +777,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
           };
         })
       );
-      persistInBackground("emailHistory.append", { clientId, entry: saved });
       return saved;
     }, [clients]);
 
   const deleteEmailHistory: DataContextValue["deleteEmailHistory"] =
-    useCallback((clientId, entryIds) => {
+    useCallback(async (clientId, entryIds) => {
       const ids = Array.from(new Set(entryIds.filter(Boolean)));
       if (ids.length === 0) return 0;
-      let removed = 0;
+      const removed = (clients.find((client) => client.id === clientId)?.emailHistory ?? [])
+        .filter((entry) => ids.includes(entry.id)).length;
+      await persistAction("emailHistory.delete", { clientId, entryIds: ids });
       setClients((prev) =>
         prev.map((c) => {
           if (c.id !== clientId) return c;
           const before = c.emailHistory ?? [];
           const removedEntries = before.filter((entry) => ids.includes(entry.id));
           const nextHistory = before.filter((entry) => !ids.includes(entry.id));
-          removed = before.length - nextHistory.length;
           return {
             ...c,
             emailHistory: nextHistory,
@@ -914,13 +800,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
           };
         })
       );
-      persistInBackground("emailHistory.delete", { clientId, entryIds: ids });
       return removed;
-    }, []);
+    }, [clients]);
 
   const updateEmailHistory: DataContextValue["updateEmailHistory"] =
-    useCallback((clientId, entryId, patch) => {
-      let updated: EmailHistoryEntry | null = null;
+    useCallback(async (clientId, entryId, patch) => {
+      const original = clients.find((client) => client.id === clientId)?.emailHistory?.find((entry) => entry.id === entryId);
+      if (!original) return null;
+      await persistAction("emailHistory.update", { clientId, entryId, patch });
       setClients((prev) =>
         prev.map((c) => {
           if (c.id !== clientId) return c;
@@ -959,20 +846,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
                   ? patch.attachments ?? undefined
                   : entry.attachments,
             };
-            updated = nextEntry;
             return nextEntry;
           });
           return { ...c, emailHistory: nextHistory };
         })
       );
-      if (updated) {
-        persistInBackground("emailHistory.update", { clientId, entryId, patch });
-      }
-      return updated;
-    }, []);
+      return { ...original, subject: patch.subject ?? original.subject, body: patch.body ?? original.body };
+    }, [clients]);
 
   const recordEmailReminderSend: DataContextValue["recordEmailReminderSend"] =
-    useCallback((input) => {
+    useCallback(async (input) => {
       if (!clients.some((client) => client.id === input.clientId)) return null;
       if (emailReminderSends.some((send) => send.dedupeKey === input.dedupeKey)) {
         return null;
@@ -991,16 +874,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
         sentAt: input.sentAt,
         createdAt: input.createdAt ?? new Date().toISOString(),
       };
+      await persistAction("emailReminderSend.record", { reminderSend: saved });
       setEmailReminderSends((prev) => [...prev, saved]);
-      persistInBackground("emailReminderSend.record", { reminderSend: saved });
       return saved;
     }, [clients, emailReminderSends]);
 
   const markEmailReminderSendsSeen: DataContextValue["markEmailReminderSendsSeen"] =
-    useCallback((ids, seenAt) => {
+    useCallback(async (ids, seenAt) => {
       const uniqueIds = Array.from(new Set(ids)).filter(Boolean);
       if (uniqueIds.length === 0) return;
       const stamp = seenAt ?? new Date().toISOString();
+      await persistAction("emailReminderSend.markSeen", { ids: uniqueIds, seenAt: stamp });
       setEmailReminderSends((prev) =>
         prev.map((send) =>
           uniqueIds.includes(send.id) && !send.seenAt
@@ -1008,48 +892,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             : send
         )
       );
-      persistInBackground("emailReminderSend.markSeen", { ids: uniqueIds, seenAt: stamp });
     }, []);
-
-  const markRenewalEmailSent: DataContextValue["markRenewalEmailSent"] =
-    useCallback((policyId, at) => {
-      const stamp = at ?? new Date().toISOString();
-      setPolicies((prev) =>
-        prev.map((p) =>
-          p.id === policyId ? { ...p, lastRenewalEmailAt: stamp } : p
-        )
-      );
-      persistInBackground("policy.markRenewalEmailSent", { policyId, at: stamp });
-    }, []);
-
-  const markBirthdayEmailSent: DataContextValue["markBirthdayEmailSent"] =
-    useCallback((clientId, at) => {
-      const stamp = at ?? new Date().toISOString();
-      setClients((prev) =>
-        prev.map((c) =>
-          c.id === clientId ? { ...c, lastBirthdayEmailAt: stamp } : c
-        )
-      );
-      persistInBackground("client.markBirthdayEmailSent", { clientId, at: stamp });
-    }, []);
-
-  const prependClientNote: DataContextValue["prependClientNote"] = useCallback(
-    (clientId, block) => {
-      setClients((prev) =>
-        prev.map((c) => {
-          if (c.id !== clientId) return c;
-          // Separator keeps prior notes legible; em-dashes render cleanly
-          // inside the existing whitespace-pre-wrap UI without needing
-          // markup.
-          const existing = (c.notes ?? "").trim();
-          const next = existing ? `${block}\n———\n${existing}` : block;
-          return { ...c, notes: next };
-        })
-      );
-      persistInBackground("client.prependNote", { clientId, block });
-    },
-    []
-  );
 
   // === Bulk: snapshot / replaceAll for backup-restore ===
 
@@ -1137,6 +980,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         followUps: nextFollowUps,
         relationships: nextRelationships,
         emailReminderSends: nextEmailReminderSends,
+        emailDeliveryTasks: snapshot.emailDeliveryTasks,
       };
 
       try {
@@ -1169,6 +1013,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       emailReminderSends,
       dataStatus,
       dataError,
+      reloadData,
       getClient,
       getClientBySlug,
       resolveClientParam,
@@ -1178,12 +1023,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       getPoliciesByClient,
       getFollowUpsByClient,
       getClientRelationships,
-      createClient,
       createClientAsync,
-      updateClient,
       updateClientAsync,
       deleteClient,
-      replaceClientRelationships,
       replaceClientRelationshipsAsync,
       createPolicy,
       updatePolicy,
@@ -1196,9 +1038,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       deleteEmailHistory,
       recordEmailReminderSend,
       markEmailReminderSendsSeen,
-      markRenewalEmailSent,
-      markBirthdayEmailSent,
-      prependClientNote,
       getSnapshot,
       replaceAll,
     }),
@@ -1210,6 +1049,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       emailReminderSends,
       dataStatus,
       dataError,
+      reloadData,
       getClient,
       getClientBySlug,
       resolveClientParam,
@@ -1219,12 +1059,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       getPoliciesByClient,
       getFollowUpsByClient,
       getClientRelationships,
-      createClient,
       createClientAsync,
-      updateClient,
       updateClientAsync,
       deleteClient,
-      replaceClientRelationships,
       replaceClientRelationshipsAsync,
       createPolicy,
       updatePolicy,
@@ -1237,9 +1074,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       deleteEmailHistory,
       recordEmailReminderSend,
       markEmailReminderSendsSeen,
-      markRenewalEmailSent,
-      markBirthdayEmailSent,
-      prependClientNote,
       getSnapshot,
       replaceAll,
     ]

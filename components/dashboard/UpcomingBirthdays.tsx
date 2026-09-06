@@ -116,6 +116,7 @@ export function UpcomingBirthdays() {
       body: applyTemplate(birthdayTpl.body, vars),
       attachments: birthdayTpl.attachments ?? [],
       clientId: client.id, template: "birthday",
+      resend: activeTab === "sent",
     });
     setDialogOpen(true);
   }

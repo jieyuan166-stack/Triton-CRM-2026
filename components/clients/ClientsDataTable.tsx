@@ -161,11 +161,10 @@ export function ClientsDataTable() {
   const [deletingOne, setDeletingOne] = useState<Client | null>(null);
   const [deletingBulk, setDeletingBulk] = useState(false);
 
-  function handleConfirmDeleteOne() {
+  async function handleConfirmDeleteOne() {
     if (!deletingOne) return;
     const name = `${deletingOne.firstName} ${deletingOne.lastName}`;
-    const ok = deleteClient(deletingOne.id);
-    setDeletingOne(null);
+    const ok = await deleteClient(deletingOne.id);
     // Drop from selection in case it was checked too — keeps the bulk bar
     // count honest.
     setSelected((prev) => {
@@ -176,24 +175,27 @@ export function ClientsDataTable() {
     });
     if (ok) toast.success("Client deleted", { description: name });
     else toast.error("Could not delete client");
+    if (ok) setDeletingOne(null);
   }
 
-  function handleConfirmDeleteBulk() {
+  async function handleConfirmDeleteBulk() {
     const ids = Array.from(selected);
     let removed = 0;
+    let failure: unknown;
     for (const id of ids) {
-      if (deleteClient(id)) removed += 1;
+      try { if (await deleteClient(id)) removed += 1; }
+      catch (error) { failure = error; break; }
     }
-    setDeletingBulk(false);
-    setSelected(new Set());
+    setSelected((previous) => new Set([...previous].filter((id) => ids.slice(removed).includes(id))));
     if (removed > 0) {
       toast.success(
         `${removed} client${removed === 1 ? "" : "s"} deleted`,
         { description: "Associated policies and follow-ups were removed too." }
       );
     } else {
-      toast.error("Nothing was deleted");
+      toast.error("Nothing was deleted. Selection was kept so you can retry.");
     }
+    if (failure) throw failure;
   }
 
   const result = useMemo(

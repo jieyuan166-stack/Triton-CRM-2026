@@ -22,7 +22,6 @@ import {
   buildCsvTemplate,
   parseImportedRows,
   type ImportRowError,
-  type ParsedImportProduct,
   type ParsedImportRow,
 } from "@/lib/clients-csv";
 
@@ -57,7 +56,7 @@ function badgeTone(valid: boolean) {
 }
 
 export default function ClientsPage() {
-  const { clients, policies, createClient, createPolicy, updateClient } = useData();
+  const { clients, policies, createClientAsync, createPolicy, updateClientAsync } = useData();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewRows, setPreviewRows] = useState<ParsedImportRow[]>([]);
@@ -115,7 +114,7 @@ export default function ClientsPage() {
     });
   };
 
-  const handleImportValidRows = () => {
+  const handleImportValidRows = async () => {
     if (validRows.length === 0) {
       toast.error("There are no valid rows to import.");
       return;
@@ -127,17 +126,17 @@ export default function ClientsPage() {
       let createdClients = 0;
       let createdPolicies = 0;
 
-      validRows.forEach((row) => {
+      for (const row of validRows) {
         const { createdAt, ...clientInput } = row.mappedClient;
-        const createdClient = createClient(clientInput);
+        const createdClient = await createClientAsync(clientInput);
         createdClients += 1;
 
         if (createdAt) {
-          updateClient(createdClient.id, { createdAt });
+          await updateClientAsync(createdClient.id, { createdAt });
         }
 
-        row.products.forEach((product: ParsedImportProduct) => {
-          createPolicy({
+        for (const product of row.products) {
+          await createPolicy({
             clientId: createdClient.id,
             carrier: product.carrier,
             category: product.category,
@@ -158,8 +157,8 @@ export default function ClientsPage() {
             beneficiaries: [],
           });
           createdPolicies += 1;
-        });
-      });
+        }
+      }
 
       const skipped = previewRows.length - validRows.length;
       setPreviewOpen(false);

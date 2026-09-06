@@ -34,17 +34,13 @@ import {
 import { displayPolicyNumberWithHash } from "@/lib/policy-number";
 import { premiumReminderEmailStageLabel } from "@/lib/premium-reminders";
 import { cn } from "@/lib/utils";
+import { PROVINCE_TIMEZONES } from "@/lib/automation-calendar";
 
 const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
 const INLINE_IMAGE_MAX_WIDTH = 1200;
 const INLINE_IMAGE_JPEG_QUALITY = 0.82;
 const INLINE_IMAGE_RECOMPRESS_THRESHOLD = 900 * 1024;
 
-const PROVINCE_TIMEZONES: Record<string, string> = {
-  BC: "America/Vancouver",
-  AB: "America/Edmonton",
-  ON: "America/Toronto",
-};
 
 const CUSTOM_EMAIL_SUMMARY_TEMPLATES = [
   "Confirmation of Segregated Fund Switch Instructions",
@@ -96,6 +92,7 @@ export interface EmailPreviewPayload {
   reminderStage?: "first" | "second";
   reminderCycleKey?: string;
   reminderDedupeKey?: string;
+  resend?: boolean;
   emphasizedTerms?: string[];
   attachments?: EmailTemplateAttachment[];
   templateVars?: Record<string, string | undefined>;
@@ -149,10 +146,7 @@ export function EmailPreviewDialog({
   const {
     appendEmailHistory,
     updateEmailHistory,
-    deleteEmailHistory,
-    markRenewalEmailSent,
-    markBirthdayEmailSent,
-    recordEmailReminderSend,
+    reloadData,
     getPolicy,
     clients,
     policies,
@@ -175,9 +169,12 @@ export function EmailPreviewDialog({
   const [birthdayWarning, setBirthdayWarning] = useState("");
   const birthdayCardEnabled = shouldIncludeBirthdayCardForAdvisor(settings.profile.email);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const sendRequestIds = useRef(new Map<string, string>());
+  const [savingDraft, setSavingDraft] = useState(false);
 
   useEffect(() => {
     if (open && payload) {
+      sendRequestIds.current.clear();
       setTo(payload.to);
       setBcc(payload.bcc ?? "");
       setSubject(payload.subject);
@@ -519,7 +516,7 @@ export function EmailPreviewDialog({
     return "Email Draft";
   }
 
-  function saveDraft() {
+  async function saveDraft() {
     if (isBatch || !activePayload.clientId) return;
     const trimmedSubject = subject.trim();
     const trimmedBody = body.trim();
@@ -548,9 +545,11 @@ export function EmailPreviewDialog({
       attachments: attachmentMetadata(),
     };
 
-    const saved = activePayload.draftEntryId
+    setSavingDraft(true);
+    try {
+    const saved = await (activePayload.draftEntryId
       ? updateEmailHistory(activePayload.clientId, activePayload.draftEntryId, draftPatch)
-      : appendEmailHistory(activePayload.clientId, draftPatch);
+      : appendEmailHistory(activePayload.clientId, draftPatch));
 
     if (!saved) {
       toast.error("Could not save email draft.");
@@ -560,6 +559,9 @@ export function EmailPreviewDialog({
       description: activePayload.contextLabel,
     });
     onOpenChange(false);
+    } catch (error) {
+      toast.error("Could not save draft", { description: error instanceof Error ? error.message : "Your text is still here. Try again." });
+    } finally { setSavingDraft(false); }
   }
 
   function applyReminderStageFallback(message: {
@@ -615,6 +617,8 @@ export function EmailPreviewDialog({
       bcc?: string[];
     }) {
       const prepared = applyReminderStageFallback(message);
+      const key = `${message.clientId ?? message.to}:${message.policyId ?? ""}`;
+      if (!sendRequestIds.current.has(key)) sendRequestIds.current.set(key, crypto.randomUUID());
       const bodyWithSignature = renderEmailBody(
         prepared.body,
         {},
@@ -635,6 +639,15 @@ export function EmailPreviewDialog({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          requestId: sendRequestIds.current.get(key),
+          context: {
+            template: message.template ?? "custom", body: prepared.body,
+            policyIds: message.policyContexts?.map((item) => item.policyId).filter(Boolean) ?? (message.policyId ? [message.policyId] : []),
+            communicationType: message.communicationType,
+            saveToActivity, resend: activePayload.resend ?? false,
+            reminderDedupeKey: message.reminderDedupeKey,
+            draftEntryId: activePayload.draftEntryId, attachments: attachmentMetadata(),
+          },
           to: message.to.trim(),
           bcc: message.bcc && message.bcc.length > 0 ? message.bcc : undefined,
           subject: prepared.subject,
@@ -662,73 +675,7 @@ export function EmailPreviewDialog({
         throw new Error(json.error ?? `Server responded ${res.status}`);
       }
 
-      const clientId = message.clientId;
-      const template = message.template ?? "custom";
-      const targetPolicy = message.policyId ? getPolicy(message.policyId) : undefined;
-      const contexts =
-        message.policyContexts ??
-        (targetPolicy ? [policyContext(targetPolicy)] : undefined);
-      const primaryContext = primaryPolicyContext(contexts);
-      const renewalPolicy =
-        template === "renewal" && message.policyId
-          ? getPolicy(message.policyId)
-          : undefined;
-      const customCommunicationType = message.communicationType || "External Email";
-      const templateLabel =
-        template === "renewal"
-          ? renewalPolicy
-            ? `Renewal Reminder · ${renewalPolicy.carrier} · #${renewalPolicy.policyNumber}`
-            : "Renewal Reminder"
-          : template === "birthday"
-          ? "Birthday Greeting"
-          : template === "festival"
-          ? "Festival Greeting"
-          : customCommunicationType;
-
-      const shouldWriteActivity = !!clientId && saveToActivity && template !== "festival";
-      if (shouldWriteActivity) {
-        appendEmailHistory(clientId, {
-          subject: prepared.subject,
-          body: prepared.body,
-          templateLabel,
-          policyId: primaryContext?.policyId,
-          policyNumber: primaryContext?.policyNumber,
-          policyLabel: primaryContext?.policyLabel,
-          policyContexts: contexts,
-          communicationType:
-            template === "renewal"
-              ? "Renewal Reminder"
-              : template === "birthday"
-                ? "Birthday Greeting"
-                : customCommunicationType,
-          attachments: attachmentMetadata(),
-        });
-
-      }
-
-      if (template === "renewal" && message.policyId) {
-        markRenewalEmailSent(message.policyId);
-        if (clientId && message.reminderStage && message.reminderCycleKey && message.reminderDedupeKey) {
-          recordEmailReminderSend({
-            dedupeKey: message.reminderDedupeKey,
-            policyId: message.policyId,
-            clientId,
-            type: "premium",
-            stage: message.reminderStage,
-            cycleKey: message.reminderCycleKey,
-            source: "manual",
-            sentAt: new Date().toISOString(),
-          });
-        }
-      }
-      if (template === "birthday" && clientId) {
-        markBirthdayEmailSent(clientId);
-      }
-      if (clientId && activePayload.draftEntryId) {
-        deleteEmailHistory(clientId, [activePayload.draftEntryId]);
-      }
-
-      return { clientId, template, subject: prepared.subject, body: prepared.body };
+      return { clientId: message.clientId, template: message.template, subject: prepared.subject, body: prepared.body };
     }
 
     try {
@@ -749,6 +696,10 @@ export function EmailPreviewDialog({
           });
           sent += 1;
         }
+
+        await reloadData().catch(() =>
+          toast.warning("Emails sent and logged. Refresh to see the latest activity.")
+        );
 
         toast.success("Emails sent successfully", {
           description: `${sent} individualized emails delivered.`,
@@ -789,6 +740,9 @@ export function EmailPreviewDialog({
         reminderDedupeKey: activePayload.reminderDedupeKey,
         emphasizedTerms: activePayload.emphasizedTerms,
       });
+      await reloadData().catch(() =>
+        toast.warning("Email sent and logged. Refresh to see the latest activity.")
+      );
 
       // === Post-success bookkeeping (runs in one render cycle) ===
       //
@@ -861,7 +815,7 @@ export function EmailPreviewDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(next) => { if (!sending && !savingDraft) onOpenChange(next); }}>
       <DialogContent className="flex max-h-[90dvh] grid-rows-none flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
         <DialogHeader className="shrink-0 border-b border-slate-100 px-4 py-4 pr-12">
           <DialogTitle>Compose Email</DialogTitle>
@@ -1213,17 +1167,17 @@ export function EmailPreviewDialog({
               variant="outline"
               className="min-w-[120px]"
               onClick={saveDraft}
-              disabled={sending || (!subject.trim() && !body.trim())}
+              disabled={sending || savingDraft || (!subject.trim() && !body.trim())}
               title="Save this email draft to the client activity timeline"
             >
               <Save className="h-3.5 w-3.5 mr-1.5" />
-              Save Draft
+              {savingDraft ? "Saving..." : "Save Draft"}
             </Button>
           ) : null}
           <Button
             className="bg-navy hover:bg-navy/90 text-white min-w-[140px]"
             onClick={handleSendClick}
-            disabled={
+            disabled={savingDraft ||
               sending ||
               (isBatch
                 ? batch.length === 0

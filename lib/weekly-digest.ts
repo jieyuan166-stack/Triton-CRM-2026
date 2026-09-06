@@ -8,6 +8,8 @@ import { daysUntil, formatDate, resolveRecurringDate } from "@/lib/date-utils";
 import { buildDefaultSettingsForUser, mergeAppSettings } from "@/lib/default-settings";
 import { resolveSmtpAccount } from "@/lib/smtp-account";
 import type { AppSettings } from "@/lib/settings-types";
+import { digestFollowUpGroups } from "@/lib/automation-calendar";
+import { deliverOnce } from "@/lib/email-delivery";
 
 type SettingsUser = { id: string; email: string | null; name: string | null };
 
@@ -19,6 +21,7 @@ export type WeeklyDigestSendResult = {
   messageId?: string;
   recipient?: string;
   deliveryRecipient?: string;
+  deliveryStatus?: "sent" | "skipped" | "failed" | "review";
 };
 
 export async function readWeeklyDigestSettings(userId: string): Promise<AppSettings> {
@@ -41,7 +44,7 @@ function escapeHtml(text: string) {
     .replace(/\"/g, "&quot;");
 }
 
-export async function buildWeeklyDigest(userId: string) {
+export async function buildWeeklyDigest(userId: string, now = new Date()) {
   const [clients, policies, followUps] = await Promise.all([
     db.client.findMany({ where: { userId }, orderBy: [{ lastName: "asc" }, { firstName: "asc" }] }),
     db.policy.findMany({ where: { userId, status: "active" }, orderBy: { premiumDate: "asc" } }),
@@ -55,29 +58,23 @@ export async function buildWeeklyDigest(userId: string) {
   const premiumRows = policies
     .filter((policy) => policy.category === "Insurance" && !!policy.premiumDate)
     .map((policy) => {
-      const dueDate = resolveRecurringDate(policy.premiumDate!);
-      return { policy, client: clientsById.get(policy.clientId), dueDate, days: daysUntil(dueDate) };
+      const dueDate = resolveRecurringDate(policy.premiumDate!, now);
+      return { policy, client: clientsById.get(policy.clientId), dueDate, days: daysUntil(dueDate, now) };
     })
     .filter((row) => row.days >= 0 && row.days <= 7)
-    .slice(0, 20);
+    .sort((a, b) => a.days - b.days);
 
   const birthdayRows = clients
     .filter((client) => !!client.birthday)
     .map((client) => ({
       client,
-      days: daysUntil(client.birthday!.toISOString().slice(5, 10)),
+      days: daysUntil(client.birthday!.toISOString().slice(5, 10), now),
     }))
     .filter((row) => row.days >= 0 && row.days <= 7)
-    .slice(0, 20);
+    .sort((a, b) => a.days - b.days);
 
-  const overdueFollowUps = followUps
-    .filter((followUp) => {
-      const target = (followUp.deadline ?? followUp.date).toISOString().slice(0, 10);
-      return daysUntil(target) < 0 || (!followUp.deadline && followUp.importance === "High");
-    })
-    .slice(0, 20);
-
-  return { premiumRows, birthdayRows, overdueFollowUps, clientsById };
+  const { overdue: overdueFollowUps, highPriority: highPriorityFollowUps } = digestFollowUpGroups(followUps, now);
+  return { premiumRows, birthdayRows, overdueFollowUps, highPriorityFollowUps, clientsById };
 }
 
 export function renderWeeklyDigestHtml(digest: Awaited<ReturnType<typeof buildWeeklyDigest>>) {
@@ -99,6 +96,11 @@ export function renderWeeklyDigestHtml(digest: Awaited<ReturnType<typeof buildWe
       return `<li><strong>${escapeHtml(name)}</strong> — ${escapeHtml(followUp.summary)} (${escapeHtml(meta)})</li>`;
     })
     .join("");
+  const highPriorityItems = digest.highPriorityFollowUps.map((followUp) => {
+    const client = digest.clientsById.get(followUp.clientId);
+    const name = client ? client.companyName || `${client.firstName} ${client.lastName}` : "Unknown client";
+    return `<li><strong>${escapeHtml(name)}</strong> — ${escapeHtml(followUp.summary)}${followUp.deadline ? ` (Due ${formatDate(followUp.deadline.toISOString().slice(0, 10))})` : ""}</li>`;
+  }).join("");
 
   return `<div style="font-family: Geist, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, sans-serif; font-size:14px; line-height:1.6; color:#0f172a;">
     <h2 style="margin:0 0 12px; color:#002147;">Triton CRM Weekly Advisor Digest</h2>
@@ -109,6 +111,9 @@ export function renderWeeklyDigestHtml(digest: Awaited<ReturnType<typeof buildWe
     <ul>${birthdayItems || "<li>No birthdays this week.</li>"}</ul>
     <h3 style="font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:#64748b;">Overdue follow-ups</h3>
     <ul>${followUpItems || "<li>No overdue follow-ups.</li>"}</ul>
+    <h3 style="font-size:12px;color:#64748b;">High priority (${digest.highPriorityFollowUps.length})</h3>
+    <ul>${highPriorityItems || "<li>No other high-priority follow-ups.</li>"}</ul>
+    <p><a href="https://crm.tritonwealth.ca/clients?followUpDue=true&amp;followUpSort=deadline">Review follow-ups in CRM</a></p>
   </div>`;
 }
 
@@ -220,7 +225,7 @@ export async function sendWeeklyDigestForUser(
     }
   }
 
-  const digest = await buildWeeklyDigest(user.id);
+  const digest = await buildWeeklyDigest(user.id, now);
   const fromName = settings.email.fromName || emailDefaults.fromName;
   const fromEmail = cleanEmail(settings.email.fromEmail || emailDefaults.fromEmail || emailDefaults.user);
   const smtpAccount = resolveSmtpAccount({
@@ -238,22 +243,29 @@ export async function sendWeeklyDigestForUser(
   if (!recipient) return { sent: false, skipped: "User sign-in email is not configured" };
   const deliveryRecipient = digestDeliveryRecipient(recipient, smtpAccount.user);
 
-  const info = await transporter.sendMail({
+  const send = () => transporter.sendMail({
     from: fromName ? `${fromName} <${fromEmail}>` : fromEmail,
     to: deliveryRecipient,
     subject: "Triton CRM Weekly Advisor Digest",
     html: renderWeeklyDigestHtml(digest),
   });
 
-  await db.auditLog.create({
-    data: {
+  const auditData = {
       userId: user.id,
       action: options.mode === "auto" ? "send_weekly_digest_auto" : "send_weekly_digest",
       entityType: "settings",
       entityId: user.id,
-      metadata: JSON.stringify({ recipient, deliveryRecipient, messageId: info.messageId, cycleKey }),
-    },
-  });
+  };
+  if (options.mode === "auto") {
+    const delivery = await deliverOnce({ userId: user.id, type: "weekly-digest", cycleKey,
+      dedupeKey: `weekly-digest:${user.id}:${cycleKey}` }, send, async (tx, messageId) => {
+        await tx.auditLog.create({ data: { ...auditData, metadata: JSON.stringify({ recipient, deliveryRecipient, messageId, cycleKey }) } });
+      });
+    return { sent: delivery.status === "sent", deliveryStatus: delivery.status, skipped: delivery.reason, messageId: delivery.messageId, recipient, deliveryRecipient };
+  }
+  const info = await send();
+  await db.auditLog.create({ data: { ...auditData,
+    metadata: JSON.stringify({ recipient, deliveryRecipient, messageId: info.messageId, cycleKey }) } });
 
   return { sent: true, messageId: info.messageId, recipient, deliveryRecipient };
 }

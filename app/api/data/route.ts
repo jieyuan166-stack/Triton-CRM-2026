@@ -38,7 +38,7 @@ type DataSnapshot = {
 const idSchema = z.string().min(1);
 const objectPayloadSchema = z.object({}).passthrough();
 const dataActionSchema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("client.create"), payload: z.object({ client: objectPayloadSchema.extend({ id: idSchema }) }) }),
+  z.object({ action: z.literal("client.create"), payload: z.object({ client: objectPayloadSchema.extend({ id: idSchema }), relationships: z.array(objectPayloadSchema).default([]) }) }),
   z.object({ action: z.literal("client.update"), payload: z.object({ id: idSchema, patch: objectPayloadSchema }) }),
   z.object({ action: z.literal("client.delete"), payload: z.object({ id: idSchema }) }),
   z.object({ action: z.literal("clientRelationships.replace"), payload: z.object({ clientId: idSchema, relationships: z.array(objectPayloadSchema).default([]) }) }),
@@ -53,9 +53,6 @@ const dataActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("emailHistory.delete"), payload: z.object({ clientId: idSchema, entryIds: z.array(idSchema).min(1) }) }),
   z.object({ action: z.literal("emailReminderSend.record"), payload: z.object({ reminderSend: objectPayloadSchema.extend({ dedupeKey: idSchema, clientId: idSchema, type: z.enum(["premium", "birthday"]), cycleKey: idSchema }) }) }),
   z.object({ action: z.literal("emailReminderSend.markSeen"), payload: z.object({ ids: z.array(idSchema).min(1), seenAt: z.string().optional() }) }),
-  z.object({ action: z.literal("policy.markRenewalEmailSent"), payload: z.object({ policyId: idSchema, at: z.string().optional() }) }),
-  z.object({ action: z.literal("client.markBirthdayEmailSent"), payload: z.object({ clientId: idSchema, at: z.string().optional() }) }),
-  z.object({ action: z.literal("client.prependNote"), payload: z.object({ clientId: idSchema, block: z.string() }) }),
   z.object({ action: z.literal("data.replaceAll"), payload: z.object({ snapshot: objectPayloadSchema }) }),
 ]);
 
@@ -624,6 +621,7 @@ async function replaceAll(snapshot: {
   followUps?: FollowUp[];
   relationships?: ClientRelationship[];
   emailReminderSends?: EmailReminderSend[];
+  emailDeliveryTasks?: unknown[];
 }, userId: string) {
   const clients = ensureUniqueClientSlugs(
     Array.isArray(snapshot.clients) ? snapshot.clients : []
@@ -773,6 +771,8 @@ async function replaceAll(snapshot: {
     }));
 
   await db.$transaction(async (tx) => {
+    const { restoreDeliveryGuards } = await import("@/lib/email-delivery");
+    await restoreDeliveryGuards(tx, snapshot.emailDeliveryTasks ?? [], userId);
     await tx.client.deleteMany({ where: { userId } });
 
     if (clientRows.length) {
@@ -844,7 +844,40 @@ export async function POST(request: Request) {
     switch (body.action) {
       case "client.create": {
         const client = payload.client as Client;
-        await db.client.create({ data: clientData(client, false, session.user.id) as never });
+        const rows = Array.isArray(payload.relationships)
+          ? (payload.relationships as ClientRelationship[])
+          : [];
+        const targetIds = Array.from(new Set(rows.map((row) => row.toClientId).filter(Boolean)));
+        const ownedTargets = await db.client.findMany({
+          where: { userId: session.user.id, id: { in: targetIds } },
+          select: { id: true },
+        });
+        const ownedTargetIds = new Set(ownedTargets.map((row) => row.id));
+        if (ownedTargetIds.size !== targetIds.length) throw new Error("Linked client not found");
+        await db.$transaction(async (tx) => {
+          await tx.client.create({ data: clientData(client, false, session.user.id) as never });
+          const seen = new Set<string>();
+          for (const relationship of rows) {
+            if (
+              relationship.fromClientId !== client.id ||
+              relationship.toClientId === client.id ||
+              !ownedTargetIds.has(relationship.toClientId) ||
+              seen.has(relationship.toClientId)
+            ) {
+              continue;
+            }
+            seen.add(relationship.toClientId);
+            await tx.clientRelationship.create({
+              data: {
+                id: relationship.id,
+                fromClientId: client.id,
+                toClientId: relationship.toClientId,
+                relationship: relationship.relationship,
+                createdAt: toDate(relationship.createdAt) ?? new Date(),
+              },
+            });
+          }
+        });
         await auditLog({ action: "create_client", entityType: "client", entityId: client.id });
         break;
       }
@@ -1239,37 +1272,6 @@ export async function POST(request: Request) {
           entityType: "email_reminder_send",
           metadata: { count: ids.length },
         });
-        break;
-      }
-      case "policy.markRenewalEmailSent": {
-        await requireOwnedPolicy(String(payload.policyId), session.user.id);
-        await db.policy.update({
-          where: { id: String(payload.policyId) },
-          data: { lastRenewalEmailAt: toDate(payload.at) ?? new Date() },
-        });
-        await auditLog({ action: "mark_renewal_email_sent", entityType: "policy", entityId: String(payload.policyId) });
-        break;
-      }
-      case "client.markBirthdayEmailSent": {
-        await requireOwnedClient(String(payload.clientId), session.user.id);
-        await db.client.update({
-          where: { id: String(payload.clientId) },
-          data: { lastBirthdayEmailAt: toDate(payload.at) ?? new Date() },
-        });
-        await auditLog({ action: "mark_birthday_email_sent", entityType: "client", entityId: String(payload.clientId) });
-        break;
-      }
-      case "client.prependNote": {
-        const id = String(payload.clientId);
-        await requireOwnedClient(id, session.user.id);
-        const block = String(payload.block ?? "");
-        const client = await db.client.findFirst({ where: { id, userId: session.user.id }, select: { notes: true } });
-        const existing = (client?.notes ?? "").trim();
-        await db.client.update({
-          where: { id },
-          data: { notes: existing ? `${block}\n---\n${existing}` : block },
-        });
-        await auditLog({ action: "append_client_note", entityType: "client", entityId: id });
         break;
       }
       case "data.replaceAll": {

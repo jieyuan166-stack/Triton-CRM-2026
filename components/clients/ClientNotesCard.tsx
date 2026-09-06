@@ -13,10 +13,11 @@ interface ClientNotesCardProps {
 }
 
 export function ClientNotesCard({ client }: ClientNotesCardProps) {
-  const { updateClient } = useData();
+  const { updateClientAsync } = useData();
   const initialNotes = removeAllCommunicationNoteBlocks(client.notes) ?? "";
   const [draft, setDraft] = useState(initialNotes);
-  const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [retry, setRetry] = useState(0);
   const lastSaved = useRef(initialNotes);
 
   useEffect(() => {
@@ -31,20 +32,21 @@ export function ClientNotesCard({ client }: ClientNotesCardProps) {
     if (nextNotes === lastSaved.current) return;
     setStatus("saving");
 
-    const timer = window.setTimeout(() => {
-      const saved = updateClient(client.id, { notes: nextNotes });
-      if (!saved) {
-        setStatus("idle");
-        toast.error("Unable to save client notes.");
-        return;
+    const timer = window.setTimeout(async () => {
+      try {
+        const saved = await updateClientAsync(client.id, { notes: nextNotes });
+        if (!saved) throw new Error("Client not found");
+        lastSaved.current = nextNotes;
+        if (draft !== nextNotes) setDraft(nextNotes);
+        setStatus("saved");
+      } catch (error) {
+        setStatus("error");
+        toast.error("Unable to save client notes.", { description: error instanceof Error ? error.message : "Your notes are still here. Retry." });
       }
-      lastSaved.current = nextNotes;
-      if (draft !== nextNotes) setDraft(nextNotes);
-      setStatus("saved");
     }, 700);
 
     return () => window.clearTimeout(timer);
-  }, [client.id, draft, updateClient]);
+  }, [client.id, draft, retry, updateClientAsync]);
 
   return (
     <UniversalDataCard
@@ -59,6 +61,8 @@ export function ClientNotesCard({ client }: ClientNotesCardProps) {
           <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Saving</span>
         ) : status === "saved" ? (
           <span className="text-[10px] font-medium uppercase tracking-wider text-purple-500">Saved</span>
+        ) : status === "error" ? (
+          <button type="button" className="text-[10px] font-semibold uppercase tracking-wider text-red-700 underline" onClick={() => setRetry((value) => value + 1)}>Retry save</button>
         ) : null
       }
       className="rounded-xl border border-slate-100 bg-white shadow-sm"
@@ -66,6 +70,7 @@ export function ClientNotesCard({ client }: ClientNotesCardProps) {
     >
       <Textarea
         value={draft}
+        disabled={status === "saving"}
         onChange={(event) => setDraft(event.target.value)}
         placeholder="Add persistent notes for this client..."
         className="min-h-28 resize-none border-0 bg-transparent p-0 text-sm leading-relaxed text-slate-600 shadow-none outline-none placeholder:text-slate-300 focus-visible:ring-0"

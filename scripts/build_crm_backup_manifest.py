@@ -9,6 +9,7 @@ import sqlite3
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from crm_uploads import inventory
 
 
 def scalar(conn: sqlite3.Connection, sql: str) -> int:
@@ -24,9 +25,9 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def upload_stats(directory: Path) -> dict[str, int]:
-    files = [path for path in directory.rglob("*") if path.is_file()] if directory.exists() else []
-    return {"count": len(files), "bytes": sum(path.stat().st_size for path in files)}
+def upload_stats(directory: Path) -> dict:
+    files = inventory(directory)
+    return {"count": len(files), "bytes": sum(item["bytes"] for item in files), "files": files}
 
 
 def main() -> None:
@@ -54,6 +55,8 @@ def main() -> None:
             "followUps": scalar(conn, "SELECT COUNT(*) FROM FollowUp"),
             "emailHistory": scalar(conn, "SELECT COUNT(*) FROM EmailHistory"),
             "emailReminders": scalar(conn, "SELECT COUNT(*) FROM EmailReminderSend"),
+            "emailDeliveryTasks": scalar(conn, "SELECT COUNT(*) FROM EmailDeliveryTask"),
+            "automationRuns": scalar(conn, "SELECT COUNT(*) FROM AutomationRun"),
             "users": scalar(conn, "SELECT COUNT(*) FROM User"),
             "settings": scalar(conn, "SELECT COUNT(*) FROM Settings"),
             "auditLogs": scalar(conn, "SELECT COUNT(*) FROM AuditLog"),
@@ -73,6 +76,8 @@ def main() -> None:
             "jointClientReferenceOrphans": scalar(conn, "SELECT COUNT(*) FROM Policy p LEFT JOIN Client c ON c.id = p.jointWithClientId WHERE p.jointWithClientId IS NOT NULL AND c.id IS NULL"),
             "ownerClientReferenceOrphans": scalar(conn, "SELECT COUNT(*) FROM Policy p LEFT JOIN Client a ON a.id = p.policyOwnerClientId LEFT JOIN Client b ON b.id = p.policyOwner2ClientId WHERE (p.policyOwnerClientId IS NOT NULL AND a.id IS NULL) OR (p.policyOwner2ClientId IS NOT NULL AND b.id IS NULL)"),
             "legacyLinkedClientOrphans": scalar(conn, "SELECT COUNT(*) FROM Client c LEFT JOIN Client l ON l.id = c.linkedToId WHERE c.linkedToId IS NOT NULL AND l.id IS NULL"),
+            "deliveryTaskUserOrphans": scalar(conn, "SELECT COUNT(*) FROM EmailDeliveryTask t LEFT JOIN User u ON u.id = t.userId WHERE u.id IS NULL"),
+            "automationRunUserOrphans": scalar(conn, "SELECT COUNT(*) FROM AutomationRun r LEFT JOIN User u ON u.id = r.userId WHERE u.id IS NULL"),
         }
         migrations = [path.name for path in migrations_dir.iterdir() if path.is_dir()] if migrations_dir.exists() else []
         applied_migrations = [row[0] for row in conn.execute("SELECT migration_name FROM _prisma_migrations WHERE finished_at IS NOT NULL ORDER BY finished_at")]
@@ -80,7 +85,7 @@ def main() -> None:
         conn.close()
 
     manifest = {
-        "formatVersion": 1,
+        "formatVersion": 2,
         "createdAt": datetime.now(timezone.utc).isoformat(),
         "reason": reason,
         "application": {"version": app_version, "schemaMigrations": sorted(migrations), "appliedMigrations": applied_migrations},

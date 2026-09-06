@@ -50,6 +50,7 @@ export interface BackupSnapshot {
   followUps: unknown[];
   relationships?: unknown[];
   emailReminderSends?: unknown[];
+  emailDeliveryTasks?: unknown[];
   settings?: AppSettings;
 }
 

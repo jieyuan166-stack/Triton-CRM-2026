@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -47,7 +48,7 @@ interface ActivityEntryDialogProps {
   defaultPolicyId?: string;
   defaultType?: string;
   title?: string;
-  onSave: (patch: ActivityEntryPatch) => boolean | void;
+  onSave: (patch: ActivityEntryPatch) => boolean | void | Promise<boolean | void>;
 }
 
 const NO_POLICY_VALUE = "__none__";
@@ -111,6 +112,7 @@ export function ActivityEntryDialog({
   const [customType, setCustomType] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  const [saving, setSaving] = useState(false);
   const [selectedPolicyId, setSelectedPolicyId] = useState(NO_POLICY_VALUE);
 
   useEffect(() => {
@@ -129,7 +131,7 @@ export function ActivityEntryDialog({
     [policies, selectedPolicyId]
   );
 
-  function handleSubmit(event: React.FormEvent) {
+  async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     const cleanSubject = subject.trim();
     if (!cleanSubject) return;
@@ -145,13 +147,18 @@ export function ActivityEntryDialog({
       policyNumber: selectedPolicy ? selectedPolicy.policyNumber : null,
       policyLabel: selectedPolicy ? policyLabel(selectedPolicy) : null,
     };
-    const ok = onSave(patch);
-    if (ok === false) return;
-    onOpenChange(false);
+    if (saving) return;
+    setSaving(true);
+    try {
+      const ok = await onSave(patch);
+      if (ok !== false) onOpenChange(false);
+    } catch (error) {
+      toast.error("Activity not saved", { description: error instanceof Error ? error.message : "Please try again." });
+    } finally { setSaving(false); }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(value) => !saving && onOpenChange(value)}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
@@ -262,11 +269,11 @@ export function ActivityEntryDialog({
           </div>
 
           <DialogFooter className="-mx-4">
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="ghost" disabled={saving} onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" className="bg-navy text-white hover:bg-navy/90" disabled={!subject.trim()}>
-              {mode === "edit" ? "Save Changes" : "Save Activity"}
+            <Button type="submit" className="bg-navy text-white hover:bg-navy/90" disabled={saving || !subject.trim()}>
+              {saving ? "Saving..." : mode === "edit" ? "Save Changes" : "Save Activity"}
             </Button>
           </DialogFooter>
         </form>

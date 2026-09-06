@@ -354,9 +354,9 @@ export function ActivityTimeline({
   const filteredItems =
     filter === "all" ? items : items.filter((item) => item.tab === filter);
 
-  function handleEntrySave(patch: ActivityEntryPatch) {
+  async function handleEntrySave(patch: ActivityEntryPatch) {
     if (entryDialog?.mode === "edit") {
-      const updated = updateEmailHistory(clientId, entryDialog.entry.id, patch);
+      const updated = await updateEmailHistory(clientId, entryDialog.entry.id, patch);
       if (!updated) {
         toast.error("Unable to update activity.");
         return false;
@@ -364,7 +364,7 @@ export function ActivityTimeline({
       toast.success("Activity updated");
       return true;
     }
-    const saved = appendEmailHistory(clientId, {
+    const saved = await appendEmailHistory(clientId, {
       subject: patch.subject ?? "",
       body: patch.body ?? "",
       templateLabel: patch.templateLabel,
@@ -381,10 +381,10 @@ export function ActivityTimeline({
     return true;
   }
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (!deleteTarget) return;
     if (deleteTarget.source === "followup") {
-      const ok = deleteFollowUp(deleteTarget.rawId);
+      const ok = await deleteFollowUp(deleteTarget.rawId);
       if (!ok) {
         toast.error("Could not delete follow-up.");
         return;
@@ -392,7 +392,7 @@ export function ActivityTimeline({
       toast.success("Follow-up deleted.");
       return;
     }
-    const removed = deleteEmailHistory(clientId, [deleteTarget.rawId]);
+    const removed = await deleteEmailHistory(clientId, [deleteTarget.rawId]);
     if (!removed) {
       toast.error("Could not delete activity.");
       return;
@@ -400,13 +400,17 @@ export function ActivityTimeline({
     toast.success("Activity deleted.");
   }
 
-  function handleMarkFollowUpDone(followUp: FollowUp) {
-    const ok = completeFollowUp(followUp.id);
+  async function handleMarkFollowUpDone(followUp: FollowUp) {
+    try {
+    const ok = await completeFollowUp(followUp.id);
     if (!ok) {
       toast.error("Could not complete follow-up.");
       return;
     }
     toast.success("Follow-up marked done", { description: followUp.summary });
+    } catch (error) {
+      toast.error("Follow-up not saved", { description: error instanceof Error ? error.message : "Please try again." });
+    }
   }
 
   return (
@@ -695,8 +699,8 @@ export function ActivityTimeline({
         onOpenChange={setFollowUpDialogOpen}
         clientId={clientId}
         policies={policies}
-        onSave={(input) => {
-          const saved = createFollowUp(input);
+        onSave={async (input) => {
+          const saved = await createFollowUp(input);
           toast.success("Follow-up added", { description: input.summary });
           return saved;
         }}

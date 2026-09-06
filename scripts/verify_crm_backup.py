@@ -8,6 +8,7 @@ import json
 import sqlite3
 import sys
 from pathlib import Path
+from crm_uploads import inventory
 
 
 def scalar(conn: sqlite3.Connection, sql: str) -> int:
@@ -24,8 +25,9 @@ def sha256(path: Path) -> str:
 
 
 def main() -> None:
-    if len(sys.argv) != 4:
-        raise SystemExit("usage: verify_crm_backup.py MANIFEST DB UPLOADS")
+    if len(sys.argv) not in (4, 5):
+        raise SystemExit("usage: verify_crm_backup.py MANIFEST DB UPLOADS [--live]")
+    live = len(sys.argv) == 5 and sys.argv[4] == "--live"
     manifest = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
     db_path = Path(sys.argv[2])
     uploads_dir = Path(sys.argv[3])
@@ -43,6 +45,8 @@ def main() -> None:
             "followUps": scalar(conn, "SELECT COUNT(*) FROM FollowUp"),
             "emailHistory": scalar(conn, "SELECT COUNT(*) FROM EmailHistory"),
             "emailReminders": scalar(conn, "SELECT COUNT(*) FROM EmailReminderSend"),
+            "emailDeliveryTasks": scalar(conn, "SELECT COUNT(*) FROM EmailDeliveryTask"),
+            "automationRuns": scalar(conn, "SELECT COUNT(*) FROM AutomationRun"),
             "users": scalar(conn, "SELECT COUNT(*) FROM User"),
             "settings": scalar(conn, "SELECT COUNT(*) FROM Settings"),
             "auditLogs": scalar(conn, "SELECT COUNT(*) FROM AuditLog"),
@@ -60,26 +64,34 @@ def main() -> None:
             "jointClientReferenceOrphans": scalar(conn, "SELECT COUNT(*) FROM Policy p LEFT JOIN Client c ON c.id = p.jointWithClientId WHERE p.jointWithClientId IS NOT NULL AND c.id IS NULL"),
             "ownerClientReferenceOrphans": scalar(conn, "SELECT COUNT(*) FROM Policy p LEFT JOIN Client a ON a.id = p.policyOwnerClientId LEFT JOIN Client b ON b.id = p.policyOwner2ClientId WHERE (p.policyOwnerClientId IS NOT NULL AND a.id IS NULL) OR (p.policyOwner2ClientId IS NOT NULL AND b.id IS NULL)"),
             "legacyLinkedClientOrphans": scalar(conn, "SELECT COUNT(*) FROM Client c LEFT JOIN Client l ON l.id = c.linkedToId WHERE c.linkedToId IS NOT NULL AND l.id IS NULL"),
+            "deliveryTaskUserOrphans": scalar(conn, "SELECT COUNT(*) FROM EmailDeliveryTask t LEFT JOIN User u ON u.id = t.userId WHERE u.id IS NULL"),
+            "automationRunUserOrphans": scalar(conn, "SELECT COUNT(*) FROM AutomationRun r LEFT JOIN User u ON u.id = r.userId WHERE u.id IS NULL"),
         }
     finally:
         conn.close()
 
-    upload_files = [path for path in uploads_dir.rglob("*") if path.is_file()] if uploads_dir.exists() else []
+    upload_files = inventory(uploads_dir)
     expected_counts = manifest.get("counts", {})
     mismatches = {name: {"expected": expected_counts.get(name), "actual": value} for name, value in actual.items() if expected_counts.get(name) != value}
     expected_uploads = manifest.get("uploads", {}).get("count", 0)
     if expected_uploads != len(upload_files):
         mismatches["uploadedFiles"] = {"expected": expected_uploads, "actual": len(upload_files)}
+    if manifest.get("uploads", {}).get("bytes", 0) != sum(item["bytes"] for item in upload_files):
+        mismatches["uploadedBytes"] = {"actual": "mismatch"}
+    expected_files = manifest.get("uploads", {}).get("files")
+    if expected_files is not None and expected_files != upload_files:
+        mismatches["uploadedHashes"] = {"actual": "mismatch"}
     expected_db_hash = manifest.get("database", {}).get("sha256")
     database_hash_matches = isinstance(expected_db_hash, str) and expected_db_hash == sha256(db_path)
-    if not database_hash_matches:
+    # Exact bytes are verified before startup. SQLite/migrations can change pages at startup.
+    if not database_hash_matches and not live:
         mismatches["databaseSha256"] = {"expected": expected_db_hash, "actual": "mismatch"}
     broken = len(fk_errors) + sum(manual_orphans.values())
     report = {
         "ok": integrity == "ok" and not mismatches and broken == 0,
         "integrityCheck": integrity,
         "counts": actual,
-        "uploads": {"count": len(upload_files), "bytes": sum(path.stat().st_size for path in upload_files)},
+        "uploads": {"count": len(upload_files), "bytes": sum(item["bytes"] for item in upload_files), "fileHashesVerified": expected_files is not None},
         "foreignKeyErrors": len(fk_errors),
         "databaseHashMatches": database_hash_matches,
         "manualRelationshipErrors": manual_orphans,

@@ -15,7 +15,7 @@ const ACCENT_BG: Record<AccentColor, string> = {
 
 export interface KPICardProps {
   label: string;
-  value: string | number;
+  value: React.ReactNode;
   /** Optional secondary line under the value (e.g. "across 24 clients") */
   subValue?: string;
   /** Percentage change vs prior period; positive = up, negative = down */

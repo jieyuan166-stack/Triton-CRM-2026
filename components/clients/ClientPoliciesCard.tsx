@@ -142,8 +142,8 @@ export function ClientPoliciesCard({ clientId, policies }: ClientPoliciesCardPro
     setNotesPolicyId(null);
   }
 
-  function handlePolicyNoteSave(policy: Policy, note: string) {
-    const saved = updatePolicy(policy.id, { notes: note.trim() });
+  async function handlePolicyNoteSave(policy: Policy, note: string) {
+    const saved = await updatePolicy(policy.id, { notes: note.trim() });
     if (!saved) {
       toast.error("Could not save policy note.");
       return false;
@@ -513,9 +513,10 @@ function PolicyNotesDialog({
   open: boolean;
   policy: Policy | undefined;
   onOpenChange: (open: boolean) => void;
-  onSave: (policy: Policy, note: string) => boolean;
+  onSave: (policy: Policy, note: string) => Promise<boolean>;
 }) {
   const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
   const currentNote = policy?.notes ?? "";
 
   useEffect(() => {
@@ -523,16 +524,20 @@ function PolicyNotesDialog({
   }, [currentNote, open]);
 
   function handleOpenChange(nextOpen: boolean) {
-    onOpenChange(nextOpen);
+    if (!saving) onOpenChange(nextOpen);
   }
 
-  function handleSubmit(event: React.FormEvent) {
+  async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!policy) return;
-    const ok = onSave(policy, note);
+    if (!policy || saving) return;
+    setSaving(true);
+    try {
+    const ok = await onSave(policy, note);
     if (!ok) return;
     setNote("");
     onOpenChange(false);
+    } catch { toast.error("Could not save notes. Your text is still here; try again."); }
+    finally { setSaving(false); }
   }
 
   return (
@@ -566,9 +571,9 @@ function PolicyNotesDialog({
             <Button
               type="submit"
               className="bg-navy text-white hover:bg-navy/90"
-              disabled={!policy || note.trim() === currentNote.trim()}
+              disabled={saving || !policy || note.trim() === currentNote.trim()}
             >
-              Save Notes
+              {saving ? "Saving..." : "Save Notes"}
             </Button>
           </DialogFooter>
         </form>

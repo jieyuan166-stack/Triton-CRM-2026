@@ -89,6 +89,7 @@ export class SmtpEmailService implements EmailService {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          requestId: crypto.randomUUID(),
           to: req.to,
           cc: req.cc,
           bcc: req.bcc,

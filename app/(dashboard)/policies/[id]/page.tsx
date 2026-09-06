@@ -4,6 +4,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 import { ArrowLeft, FileX, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useData } from "@/components/providers/DataProvider";
@@ -90,7 +91,7 @@ export default function PolicyDetailPage() {
     insuredPersons: policy.insuredPersons ?? [],
   };
 
-  function handleSubmit(values: PolicyFormValues) {
+  async function handleSubmit(values: PolicyFormValues) {
     const isInv = values.category === "Investment";
     const isInvestmentLoan = isInv && !!values.isInvestmentLoan;
     const isCorporateInsurance = !isInv && !!values.isCorporateInsurance;
@@ -107,7 +108,8 @@ export default function PolicyDetailPage() {
         ? values.premiumDate
         : undefined;
 
-    updatePolicy(id, {
+    try {
+      await updatePolicy(id, {
       clientId: values.clientId,
       category: values.category,
       carrier: values.carrier as never,
@@ -143,12 +145,17 @@ export default function PolicyDetailPage() {
     });
     if (client) router.push(clientPath(client));
     else router.push("/policies");
+    } catch (error) {
+      toast.error("Could not save policy", { description: error instanceof Error ? error.message : "Your changes are still here. Try again." });
+    }
   }
 
-  function handleDelete() {
-    deletePolicy(id);
-    if (client) router.push(clientPath(client));
-    else router.push("/policies");
+  async function handleDelete() {
+    try {
+      await deletePolicy(id);
+      if (client) router.push(clientPath(client));
+      else router.push("/policies");
+    } catch { toast.error("Could not delete policy. Try again."); }
   }
 
   return (

@@ -79,10 +79,10 @@ export function FollowUpTimeline({
     setOpen(false);
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!summary.trim()) return;
-    createFollowUp({
+    await createFollowUp({
       clientId,
       type,
       date,

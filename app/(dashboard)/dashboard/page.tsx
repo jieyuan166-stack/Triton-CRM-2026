@@ -5,6 +5,7 @@ import { DollarSign, ShieldCheck, TrendingUp, Users } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useData } from "@/components/providers/DataProvider";
 import { KPICard } from "@/components/ui-shared/KPICard";
+import { InvestmentAmountDetails } from "@/components/ui-shared/InvestmentAmountDetails";
 import { UpcomingPremiums } from "@/components/dashboard/UpcomingPremiums";
 import { UpcomingBirthdays } from "@/components/dashboard/UpcomingBirthdays";
 import { CarrierDistribution } from "@/components/dashboard/CarrierDistribution";
@@ -56,7 +57,7 @@ export default function DashboardPage() {
         />
         <KPICard
           label="Investment AUM"
-          value={formatCurrencyShort(metrics.investmentAum)}
+          value={<InvestmentAmountDetails policies={policies}>{formatCurrencyShort(metrics.investmentAum)}</InvestmentAmountDetails>}
           subValue={`${metrics.activeInvestmentCount} active investment ${
             metrics.activeInvestmentCount === 1 ? "policy" : "policies"
           }`}

@@ -180,7 +180,7 @@ export interface PolicyFormProps {
   defaultClientId?: string;
   submitLabel?: string;
   lapsedAt?: string;
-  onSubmit: (values: PolicyFormValues) => void;
+  onSubmit: (values: PolicyFormValues) => void | Promise<void>;
   onCancel?: () => void;
 }
 
@@ -459,7 +459,7 @@ export function PolicyForm({
   // future field that goes through register() instead of CurrencyInput) would
   // otherwise leave "$1,500,000" in the payload. Strip "$"/","/spaces here so
   // the parent's onSubmit always receives clean numbers.
-  const onValid: SubmitHandler<PolicyFormValues> = (values) => {
+  const onValid: SubmitHandler<PolicyFormValues> = async (values) => {
     const ownedClientIds = new Set(clients.map((client) => client.id));
     const ownedClientId = (clientId?: string) =>
       clientId && ownedClientIds.has(clientId) ? clientId : undefined;
@@ -502,7 +502,7 @@ export function PolicyForm({
               clientId: ownedClientId(person.clientId),
             })),
     } as PolicyFormValues;
-    onSubmit(cleaned);
+    await onSubmit(cleaned);
   };
 
   // Flatten the errors map so we can render a one-shot banner when submit is
@@ -1191,7 +1191,7 @@ export function PolicyForm({
           disabled={isSubmitting}
           className="bg-navy hover:bg-navy/90 text-white"
         >
-          {submitLabel}
+          {isSubmitting ? "Saving..." : submitLabel}
         </Button>
       </div>
     </form>

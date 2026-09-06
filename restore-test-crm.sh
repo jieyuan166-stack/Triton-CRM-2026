@@ -91,7 +91,7 @@ python3 "$PROJECT_DIR/scripts/verify_crm_backup.py" "$stage/manifest.json" "$sta
 
 docker volume create "$test_volume" >/dev/null
 docker run --rm -v "$test_volume:/data" -v "$stage:/restore:ro" alpine:3.20 sh -c 'cp /restore/data/triton.db /data/triton.db && chown 1001:1001 /data/triton.db && chmod 660 /data/triton.db'
-cp -a "$stage/uploads/." "$test_root/uploads/" 2>/dev/null || true
+python3 "$PROJECT_DIR/scripts/crm_uploads.py" "$stage/uploads" "$test_root/uploads"
 
 test_password="$(openssl rand -hex 18)"
 docker compose -p "$test_project" -f "$PROJECT_DIR/docker/docker-compose.restore-test.yml" --env-file "$PROJECT_DIR/.env.production" up -d --build
@@ -115,7 +115,7 @@ docker run --rm \
   -v "$stage:/restore" \
   alpine:3.20 \
   sh -c 'cp /data/triton.db /restore/restored-triton.db && chown "$HOST_UID:$HOST_GID" /restore/restored-triton.db && chmod 600 /restore/restored-triton.db'
-python3 "$PROJECT_DIR/scripts/verify_crm_backup.py" "$stage/manifest.json" "$restored_db" "$test_root/uploads" > "$test_root/restore-test-report.json"
+python3 "$PROJECT_DIR/scripts/verify_crm_backup.py" "$stage/manifest.json" "$restored_db" "$test_root/uploads" --live > "$test_root/restore-test-report.json"
 
 # Change one user only inside the disposable volume, so a real browser/session
 # flow can prove the restored application can authenticate and fetch CRM data.

@@ -85,9 +85,7 @@ docker exec "$CRM_CONTAINER" sh -lc "sqlite3 /app/prisma/data/triton.db '.backup
 docker cp "$CRM_CONTAINER:$db_temp" "$stage/data/triton.db"
 docker exec "$CRM_CONTAINER" rm -f "$db_temp"
 
-if [ -d "$CRM_UPLOADS_DIR" ]; then
-  cp -a "$CRM_UPLOADS_DIR/." "$stage/uploads/" 2>/dev/null || true
-fi
+python3 "$PROJECT_DIR/scripts/crm_uploads.py" "$CRM_UPLOADS_DIR" "$stage/uploads"
 cp "$PROJECT_DIR/prisma/schema.prisma" "$stage/recovery/schema.prisma"
 cp -R "$PROJECT_DIR/prisma/migrations" "$stage/recovery/migrations"
 cp "$PROJECT_DIR/docker/docker-compose.yml" "$stage/recovery/docker-compose.yml"

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { isAuthorizedCronRequest } from "@/lib/cron-auth";
 import { db } from "@/lib/db";
 import { sendWeeklyDigestForUser } from "@/lib/weekly-digest";
+import { runForAdvisor } from "@/lib/email-delivery";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,10 +31,14 @@ export async function POST(request: Request) {
   let failed = 0;
 
   for (const user of users) {
+    await runForAdvisor(user.id, "weekly-digest", async (record) => {
     try {
       const result = await sendWeeklyDigestForUser(user, { mode: "auto", now });
+      record({ status: result.deliveryStatus ?? (result.sent ? "sent" : "skipped"), reason: result.skipped });
       if (result.sent) {
         sent += 1;
+      } else if (result.deliveryStatus === "failed" || result.deliveryStatus === "review") {
+        failed += 1;
       } else {
         skipped += 1;
       }
@@ -46,15 +51,17 @@ export async function POST(request: Request) {
         recipient: result.recipient,
         deliveryRecipient: result.deliveryRecipient,
       });
-    } catch (error) {
+    } catch {
+      record({ status: "failed", reason: "Advisor configuration or digest failed" });
       failed += 1;
       results.push({
         userId: user.id,
         email: user.email,
         sent: false,
-        error: error instanceof Error ? error.message : "failed",
+        error: "Advisor digest failed",
       });
     }
+    });
   }
 
   return NextResponse.json({

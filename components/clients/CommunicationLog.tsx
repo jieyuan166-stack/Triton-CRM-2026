@@ -140,7 +140,7 @@ export function CommunicationLog({ clientId, history }: CommunicationLogProps) {
 
   async function confirmDelete() {
     if (deletingIds.length === 0) return;
-    const removed = deleteEmailHistory(clientId, deletingIds);
+    const removed = await deleteEmailHistory(clientId, deletingIds);
     setSelected((prev) => {
       const next = new Set(prev);
       deletingIds.forEach((id) => next.delete(id));
@@ -159,11 +159,11 @@ export function CommunicationLog({ clientId, history }: CommunicationLogProps) {
     setManualDetails("");
   }
 
-  function handleManualSubmit(event: React.FormEvent) {
+  async function handleManualSubmit(event: React.FormEvent) {
     event.preventDefault();
     const summary = manualSummary.trim();
     if (!summary) return;
-    const saved = appendEmailHistory(clientId, {
+    const saved = await appendEmailHistory(clientId, {
       subject: summary,
       body: manualDetails.trim(),
       templateLabel: manualType,

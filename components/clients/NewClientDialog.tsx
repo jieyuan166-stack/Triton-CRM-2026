@@ -76,7 +76,7 @@ interface NewClientDialogProps {
   onOpenChange: (open: boolean) => void;
   /** Pass an existing Client to switch the dialog into Edit mode. The form
    *  hydrates from this record, the title becomes "Edit Client", and submit
-   *  routes to updateClient() instead of createClient(). */
+   *  routes to the confirmed update mutation instead of creating a duplicate. */
   client?: Client;
   /** Called after a successful create OR update. */
   onCreated?: (client: { id: string }) => void;
@@ -388,10 +388,7 @@ export function NewClientDialog({
 
     let created: Client;
     try {
-      created = await createClientAsync(patch);
-      if (nextRelationships.length > 0) {
-        await replaceClientRelationshipsAsync(created.id, nextRelationships);
-      }
+      created = await createClientAsync(patch, nextRelationships);
     } catch (error) {
       toast.error("Could not create client", {
         description:

@@ -5,11 +5,11 @@ COPY package.json pnpm-lock.yaml ./
 RUN corepack enable && corepack prepare pnpm@10.33.4 --activate && pnpm install --frozen-lockfile
 
 FROM node:22-alpine AS builder
-RUN apk add --no-cache openssl
+RUN apk add --no-cache openssl python3
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN corepack enable && corepack prepare pnpm@10.33.4 --activate && pnpm prisma generate && pnpm build && pnpm prune --prod
+RUN corepack enable && corepack prepare pnpm@10.33.4 --activate && pnpm prisma generate && pnpm test && pnpm build && pnpm prune --prod
 
 FROM node:22-alpine AS runner
 WORKDIR /app

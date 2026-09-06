@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import type { BackupSnapshot } from "@/lib/settings-types";
 
 export async function buildUserSnapshot(userId: string): Promise<BackupSnapshot> {
-  const [clients, policies, followUps, relationships, emailReminderSends, settings] =
+  const [clients, policies, followUps, relationships, emailReminderSends, settings, emailDeliveryTasks] =
     await Promise.all([
       db.client.findMany({
         where: { userId },
@@ -32,6 +32,7 @@ export async function buildUserSnapshot(userId: string): Promise<BackupSnapshot>
         orderBy: { sentAt: "asc" },
       }),
       db.settings.findUnique({ where: { userId } }),
+      db.emailDeliveryTask.findMany({ where: { userId } }),
     ]);
 
   return {
@@ -44,6 +45,7 @@ export async function buildUserSnapshot(userId: string): Promise<BackupSnapshot>
     followUps,
     relationships,
     emailReminderSends,
+    emailDeliveryTasks,
     settings: settings ? JSON.parse(settings.data) : undefined,
   };
 }
