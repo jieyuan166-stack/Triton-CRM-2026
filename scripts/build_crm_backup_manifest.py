@@ -13,6 +13,12 @@ from crm_uploads import inventory
 
 
 def scalar(conn: sqlite3.Connection, sql: str) -> int:
+    # Pre-deploy backups run before the delivery-task migration is applied.
+    for table in ("EmailDeliveryTask", "AutomationRun"):
+        if table in sql and not conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)
+        ).fetchone():
+            return 0
     row = conn.execute(sql).fetchone()
     return int(row[0] if row else 0)
 
