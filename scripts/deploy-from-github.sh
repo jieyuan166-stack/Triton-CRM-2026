@@ -15,6 +15,12 @@ case "$REF" in
   *[!A-Za-z0-9._/-]*|*".."*|"" ) echo "Invalid GitHub ref." >&2; exit 2 ;;
 esac
 
+# Preserve NAS edits before replacing source from GitHub.
+SOURCE_SYNC="/volume1/docker/triton-crm-source-sync/sync.sh"
+if [ -r "$SOURCE_SYNC" ]; then
+  sh "$SOURCE_SYNC" crm
+fi
+
 mkdir -p "$WORK_DIR"
 stage="$(mktemp -d "$WORK_DIR/source.XXXXXX")"
 cleanup() { rm -rf "$stage"; }
