@@ -13,9 +13,140 @@ import { getPremiumReminderStage, premiumReminderCycleKey, premiumReminderDedupe
 import { daysUntil, formatDate } from "@/lib/date-utils";
 import { birthdayCycle } from "@/lib/automation-calendar";
 import { deliverOnce, runForAdvisor } from "@/lib/email-delivery";
+import { followUpReminderDedupeKey, followUpReminderDue } from "@/lib/follow-up-reminders";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+type ReminderUser = { id: string; email: string; name: string };
+
+async function runAdvisorFollowUpReminders(user: ReminderUser, now: Date) {
+  return runForAdvisor(user.id, "follow-up-reminder", async (record) => {
+    const defaults = buildDefaultSettingsForUser(user);
+    const row = await db.settings.findUnique({ where: { userId: user.id } });
+    const settings = row ? mergeAppSettings(JSON.parse(row.data), defaults) : defaults;
+    if (!canSendToEmail(user.email)) {
+      record({ status: "skipped", reason: "Advisor sign-in email is not deliverable" });
+      return;
+    }
+
+    const followUps = await db.followUp.findMany({
+      where: {
+        client: { userId: user.id },
+        completedAt: null,
+        deadline: { not: null },
+        reminderLeadDays: { not: null },
+      },
+      include: {
+        client: {
+          select: { id: true, slug: true, firstName: true, lastName: true, companyName: true },
+        },
+      },
+    });
+    const due = followUps.filter((followUp) =>
+      followUp.deadline && followUp.reminderLeadDays
+        ? followUpReminderDue(
+            followUp.deadline.toISOString().slice(0, 10),
+            followUp.reminderLeadDays,
+            now,
+          )
+        : false
+    );
+    if (due.length === 0) {
+      record({ status: "skipped", reason: "No advisor follow-up reminders due" });
+      return;
+    }
+
+    const fromEmail = settings.email.fromEmail || user.email;
+    const smtp = resolveSmtpAccount({ user: settings.email.user || user.email, fromEmail });
+    const transporter = nodemailer.createTransport({
+      host: settings.email.host || emailDefaults.host,
+      port: settings.email.port || emailDefaults.port,
+      secure: settings.email.secure ?? emailDefaults.secure,
+      auth: { user: smtp.user, pass: smtp.password },
+      connectionTimeout: 30_000,
+      greetingTimeout: 30_000,
+      socketTimeout: 60_000,
+    });
+    const from = { name: settings.email.fromName || user.name, address: fromEmail };
+
+    for (const followUp of due) {
+      const deadline = followUp.deadline!.toISOString().slice(0, 10);
+      const leadDays = followUp.reminderLeadDays!;
+      const clientName =
+        followUp.client.companyName ||
+        `${followUp.client.firstName} ${followUp.client.lastName}`.trim() ||
+        "Client";
+      const policy = followUp.policyLabel
+        ? `${followUp.policyLabel}${followUp.policyNumber ? ` · #${followUp.policyNumber}` : ""}`
+        : followUp.policyNumber
+          ? `#${followUp.policyNumber}`
+          : "No policy selected";
+      const link = `https://crm.tritonwealth.ca/clients/${followUp.client.slug || followUp.client.id}#activity`;
+      const subject = `CRM 待办提醒 · ${clientName} · ${followUp.summary}`;
+      const body = [
+        `${user.name}，您好！`,
+        "",
+        "这是您设置的客户 Follow-up 提醒：",
+        `客户：${clientName}`,
+        `事项：${followUp.summary}`,
+        `产品：${policy}`,
+        `事项日期：${formatDate(deadline)}`,
+        `重要性：${followUp.importance || "未设置"}`,
+        "",
+        `打开 CRM：${link}`,
+        "",
+        "完成后请在 Activity Timeline 中手动点击 Mark Done；系统不会自动完成任务。",
+        "",
+        "This is your scheduled CRM follow-up reminder.",
+        `Client: ${clientName}`,
+        `Task: ${followUp.summary}`,
+        `Policy: ${policy}`,
+        `Event date: ${formatDate(deadline)}`,
+        "Please mark the task done manually in the Activity Timeline after completion.",
+      ].join("\n");
+      const dedupeKey = followUpReminderDedupeKey({
+        userId: user.id,
+        followUpId: followUp.id,
+        deadline,
+        leadDays,
+      });
+      record(await deliverOnce(
+        {
+          userId: user.id,
+          dedupeKey,
+          type: "follow-up-advisor",
+          clientId: followUp.clientId,
+          policyId: followUp.policyId ?? undefined,
+          cycleKey: deadline,
+          stage: `${leadDays}-day`,
+        },
+        () => transporter.sendMail({
+          from,
+          to: user.email,
+          subject,
+          text: renderEmailBody(body, {}, settings.signature),
+          html: renderEmailHtml(body, {}, settings.signature),
+        }),
+        async (tx, messageId) => {
+          await tx.followUp.update({
+            where: { id: followUp.id },
+            data: { advisorReminderSentAt: new Date() },
+          });
+          await tx.auditLog.create({
+            data: {
+              userId: user.id,
+              action: "send_advisor_followup_reminder",
+              entityType: "followup",
+              entityId: followUp.id,
+              metadata: JSON.stringify({ deadline, leadDays, messageId }),
+            },
+          });
+        },
+      ));
+    }
+  });
+}
 
 export async function POST(request: Request) {
   if (!isAuthorizedCronRequest(request)) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
@@ -23,6 +154,8 @@ export async function POST(request: Request) {
   const now = new Date();
   const total = { sent: 0, skipped: 0, failed: 0, review: 0 };
   for (const user of users) {
+    const followUpResult = await runAdvisorFollowUpReminders(user, now);
+    for (const key of ["sent", "skipped", "failed", "review"] as const) total[key] += followUpResult[key];
     const result = await runForAdvisor(user.id, "customer-email", async (record) => {
       const defaults = buildDefaultSettingsForUser(user);
       const row = await db.settings.findUnique({ where: { userId: user.id } });

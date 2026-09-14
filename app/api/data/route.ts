@@ -7,6 +7,7 @@ import { parseTagList } from "@/lib/client-tags";
 import { isTagValue, type TagValue } from "@/lib/constants";
 import { normalizeClientNotes, removeCommunicationNoteBlocks } from "@/lib/communication-notes";
 import { db } from "@/lib/db";
+import { nextAnnualDeadline } from "@/lib/follow-up-reminders";
 import {
   parseInsuredPersonsJson,
   serializeInsuredPersonsJson,
@@ -372,6 +373,10 @@ function serializeFollowUp(
     policyNumber: f.policyNumber ?? undefined,
     policyLabel: f.policyLabel ?? undefined,
     completedAt: f.completedAt?.toISOString(),
+    recurrence: f.recurrence === "yearly" ? "yearly" : undefined,
+    recurrenceSeriesId: f.recurrenceSeriesId ?? undefined,
+    reminderLeadDays: f.reminderLeadDays ?? undefined,
+    advisorReminderSentAt: f.advisorReminderSentAt?.toISOString(),
     createdById: f.createdById,
     createdByName: f.createdBy?.name,
     createdAt: f.createdAt.toISOString(),
@@ -767,6 +772,13 @@ async function replaceAll(snapshot: {
       policyNumber: f.policyNumber ?? null,
       policyLabel: f.policyLabel ?? null,
       completedAt: toDate(f.completedAt) ?? null,
+      recurrence: f.recurrence === "yearly" ? "yearly" : null,
+      recurrenceSeriesId: f.recurrence === "yearly" ? f.recurrenceSeriesId ?? f.id : null,
+      reminderLeadDays:
+        Number.isInteger(f.reminderLeadDays) && Number(f.reminderLeadDays) >= 1 && Number(f.reminderLeadDays) <= 365
+          ? Number(f.reminderLeadDays)
+          : null,
+      advisorReminderSentAt: toDate(f.advisorReminderSentAt) ?? null,
       createdAt: toDate(f.createdAt) ?? new Date(),
     }));
 
@@ -1023,6 +1035,15 @@ export async function POST(request: Request) {
         const f = payload.followUp as FollowUp;
         await requireOwnedClient(f.clientId, session.user.id);
         if (f.policyId) await requireOwnedPolicy(f.policyId, session.user.id);
+        const recurrence = f.recurrence === "yearly" ? "yearly" : null;
+        const reminderLeadDays =
+          Number.isInteger(f.reminderLeadDays) && Number(f.reminderLeadDays) >= 1 && Number(f.reminderLeadDays) <= 365
+            ? Number(f.reminderLeadDays)
+            : null;
+        const deadline = toNullDate(f.deadline);
+        if ((recurrence || reminderLeadDays) && !deadline) {
+          throw new Error("Recurring and email reminders require a deadline");
+        }
         await db.followUp.create({
           data: {
             id: f.id,
@@ -1032,12 +1053,16 @@ export async function POST(request: Request) {
             date: toDate(f.date) ?? new Date(),
             summary: f.summary,
             details: f.details ?? null,
-            deadline: toNullDate(f.deadline),
+            deadline,
             importance: f.importance ?? null,
             policyId: f.policyId ?? null,
             policyNumber: f.policyNumber ?? null,
             policyLabel: f.policyLabel ?? null,
             completedAt: toDate(f.completedAt) ?? null,
+            recurrence,
+            recurrenceSeriesId: recurrence ? f.recurrenceSeriesId ?? f.id : null,
+            reminderLeadDays,
+            advisorReminderSentAt: toDate(f.advisorReminderSentAt) ?? null,
             createdAt: toDate(f.createdAt) ?? new Date(),
           },
         });
@@ -1047,13 +1072,52 @@ export async function POST(request: Request) {
       case "followup.complete": {
         const followUp = await db.followUp.findFirst({
           where: { id: String(payload.id), client: { userId: session.user.id } },
-          select: { id: true },
+          select: {
+            id: true,
+            clientId: true,
+            createdById: true,
+            type: true,
+            summary: true,
+            details: true,
+            deadline: true,
+            importance: true,
+            policyId: true,
+            policyNumber: true,
+            policyLabel: true,
+            completedAt: true,
+            recurrence: true,
+            recurrenceSeriesId: true,
+            reminderLeadDays: true,
+          },
         });
         if (!followUp) throw new Error("Follow-up not found");
         const completedAt = toDate(payload.completedAt) ?? new Date();
-        await db.followUp.update({
-          where: { id: followUp.id },
-          data: { completedAt },
+        await db.$transaction(async (tx) => {
+          const completed = await tx.followUp.updateMany({
+            where: { id: followUp.id, completedAt: null },
+            data: { completedAt },
+          });
+          if (!completed.count || followUp.recurrence !== "yearly" || !followUp.deadline) return;
+          const nextDeadline = nextAnnualDeadline(followUp.deadline.toISOString().slice(0, 10));
+          if (!nextDeadline) return;
+          await tx.followUp.create({
+            data: {
+              clientId: followUp.clientId,
+              createdById: followUp.createdById,
+              type: followUp.type,
+              date: completedAt,
+              summary: followUp.summary,
+              details: followUp.details,
+              deadline: toDate(nextDeadline),
+              importance: followUp.importance,
+              policyId: followUp.policyId,
+              policyNumber: followUp.policyNumber,
+              policyLabel: followUp.policyLabel,
+              recurrence: "yearly",
+              recurrenceSeriesId: followUp.recurrenceSeriesId ?? followUp.id,
+              reminderLeadDays: followUp.reminderLeadDays,
+            },
+          });
         });
         await auditLog({ action: "complete_followup", entityType: "followup", entityId: followUp.id });
         break;

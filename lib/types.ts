@@ -387,6 +387,10 @@ export interface FollowUp {
   policyNumber?: string;
   policyLabel?: string;
   completedAt?: string;
+  recurrence?: "yearly";
+  recurrenceSeriesId?: string;
+  reminderLeadDays?: number;
+  advisorReminderSentAt?: string;
   createdById: string;
   createdByName?: string;
   createdAt: string;

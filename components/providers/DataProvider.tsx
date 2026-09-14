@@ -722,14 +722,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const doneAt = completedAt ?? new Date().toISOString();
     if (!followUps.some((item) => item.id === id)) return false;
     await persistAction("followup.complete", { id, completedAt: doneAt });
-    setFollowUps((prev) =>
-      prev.map((followUp) => {
-        if (followUp.id !== id) return followUp;
-        return { ...followUp, completedAt: doneAt };
-      })
-    );
+    try {
+      await reloadData();
+    } catch {
+      setFollowUps((prev) =>
+        prev.map((followUp) =>
+          followUp.id === id ? { ...followUp, completedAt: doneAt } : followUp
+        )
+      );
+    }
     return true;
-  }, [followUps]);
+  }, [followUps, reloadData]);
 
   const deleteFollowUp: DataContextValue["deleteFollowUp"] = useCallback(async (id) => {
     const deleted = followUps.some((f) => f.id === id);
