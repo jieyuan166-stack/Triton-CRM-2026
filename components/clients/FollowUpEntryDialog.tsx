@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { BellRing, Repeat2 } from "lucide-react";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -61,6 +63,9 @@ export function FollowUpEntryDialog({
   const [deadline, setDeadline] = useState("");
   const [importance, setImportance] = useState<FollowUpImportance | "">("");
   const [selectedPolicyId, setSelectedPolicyId] = useState(NO_POLICY);
+  const [repeatAnnually, setRepeatAnnually] = useState(false);
+  const [emailReminder, setEmailReminder] = useState(false);
+  const [deadlineError, setDeadlineError] = useState("");
 
   useEffect(() => {
     if (!open) return;
@@ -70,6 +75,9 @@ export function FollowUpEntryDialog({
     setDeadline("");
     setImportance("");
     setSelectedPolicyId(NO_POLICY);
+    setRepeatAnnually(false);
+    setEmailReminder(false);
+    setDeadlineError("");
   }, [open]);
 
   const selectedPolicy = policies.find((policy) => policy.id === selectedPolicyId);
@@ -78,6 +86,10 @@ export function FollowUpEntryDialog({
     event.preventDefault();
     const cleanSummary = summary.trim();
     if (!cleanSummary) return;
+    if ((repeatAnnually || emailReminder) && !deadline) {
+      setDeadlineError("Choose the annual event date to use repeating or email reminders.");
+      return;
+    }
 
     if (saving) return;
     setSaving(true);
@@ -95,6 +107,8 @@ export function FollowUpEntryDialog({
       policyLabel: selectedPolicy
         ? `${selectedPolicy.carrier} ${selectedPolicy.productName || selectedPolicy.productType}`.trim()
         : undefined,
+      recurrence: repeatAnnually ? "yearly" : undefined,
+      reminderLeadDays: emailReminder ? 30 : undefined,
       createdById: session?.user?.id ?? "user",
       createdByName:
         session?.user?.name ?? session?.user?.email ?? "Advisor",
@@ -175,11 +189,64 @@ export function FollowUpEntryDialog({
               id="followup-deadline"
               type="date"
               value={deadline}
-              onChange={(event) => setDeadline(event.target.value)}
+              onChange={(event) => {
+                setDeadline(event.target.value);
+                setDeadlineError("");
+              }}
+              aria-invalid={!!deadlineError}
+              aria-describedby={deadlineError ? "followup-deadline-error" : "followup-deadline-help"}
             />
-            <p className="text-[11px] text-slate-400">
+            <p id="followup-deadline-help" className="text-[11px] text-slate-400">
               Optional. Leave blank for a high-priority or general follow-up.
             </p>
+            {deadlineError ? (
+              <p id="followup-deadline-error" role="alert" className="text-xs font-medium text-rose-600">
+                {deadlineError}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+            <label className="flex cursor-pointer items-start gap-2.5 text-left">
+              <Checkbox
+                checked={repeatAnnually}
+                onCheckedChange={(checked) => {
+                  setRepeatAnnually(checked === true);
+                  setDeadlineError("");
+                }}
+                aria-label="Repeat annually"
+                className="mt-0.5"
+              />
+              <span className="min-w-0">
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+                  <Repeat2 className="h-3.5 w-3.5 text-[#9A7429]" />
+                  Repeat annually
+                </span>
+                <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-500">
+                  After you manually mark this year done, the same task is created for next year.
+                </span>
+              </span>
+            </label>
+            <label className="flex cursor-pointer items-start gap-2.5 border-t border-slate-200 pt-2">
+              <Checkbox
+                checked={emailReminder}
+                onCheckedChange={(checked) => {
+                  setEmailReminder(checked === true);
+                  setDeadlineError("");
+                }}
+                aria-label="Email me one month before"
+                className="mt-0.5"
+              />
+              <span className="min-w-0">
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+                  <BellRing className="h-3.5 w-3.5 text-[#9A7429]" />
+                  Email me one month before
+                </span>
+                <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-500">
+                  Sends once to your advisor sign-in email after 8:00 AM Vancouver time. It is never sent to the client.
+                </span>
+              </span>
+            </label>
           </div>
 
           <div className="space-y-1.5">

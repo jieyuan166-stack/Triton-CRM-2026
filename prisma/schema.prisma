@@ -197,6 +197,10 @@ model FollowUp {
   policyNumber  String?
   policyLabel   String?
   completedAt   DateTime?
+  recurrence    String?
+  recurrenceSeriesId String?
+  reminderLeadDays Int?
+  advisorReminderSentAt DateTime?
   createdAt     DateTime @default(now())
 
   @@index([clientId, date])
@@ -204,6 +208,8 @@ model FollowUp {
   @@index([deadline])
   @@index([importance])
   @@index([completedAt])
+  @@index([recurrenceSeriesId])
+  @@index([reminderLeadDays, deadline])
 }
 
 model EmailHistory {

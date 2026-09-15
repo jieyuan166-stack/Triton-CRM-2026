@@ -14,6 +14,8 @@ import {
   Pencil,
   Phone,
   Plus,
+  Repeat2,
+  BellRing,
   StickyNote,
   Trash2,
   Users,
@@ -649,6 +651,18 @@ export function ActivityTimeline({
                             )}
                           >
                             {item.rawFollowUp.importance}
+                          </span>
+                        ) : null}
+                        {item.rawFollowUp?.recurrence === "yearly" ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[#C99A3A]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#7A581B]">
+                            <Repeat2 className="h-3 w-3" />
+                            Annual
+                          </span>
+                        ) : null}
+                        {item.rawFollowUp?.reminderLeadDays ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-blue-700">
+                            <BellRing className="h-3 w-3" />
+                            Email {item.rawFollowUp.reminderLeadDays} days before
                           </span>
                         ) : null}
                         {item.rawFollowUp?.completedAt ? (

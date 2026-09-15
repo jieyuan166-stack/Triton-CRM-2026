@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 
 type Run = { kind: string; startedAt: string; lastSuccessAt: string | null; sent: number; skipped: number; failed: number; review: number; reasons: string };
 type State = { runs: Run[]; nextCheck: string; nextDigest: string | null; nextBackup: string | null;
-  premiumEnabled: boolean; birthdayEnabled: boolean; digestEnabled: boolean; backupEnabled: boolean;
+  premiumEnabled: boolean; birthdayEnabled: boolean; digestEnabled: boolean; followUpReminderCount: number; backupEnabled: boolean;
   tasks: { id: string; type: string; stage: string | null; status: string; startedAt: string; errorCode: string | null; clientName: string | null; clientHref: string | null }[] };
 const stamp = (value?: string | null) => value ? new Date(value).toLocaleString("en-CA", { timeZone: "America/Vancouver" }) : "Not recorded";
 const parseReasons = (value?: string) => {
@@ -45,6 +45,7 @@ export function AutomationStatusSection() {
     {data && <>
       <p className="text-xs text-slate-500">Schedule times: Vancouver. Birthdays: customer province time zone.</p>
       {[{ kind: "customer-email", title: "Customer reminders", enabled: data.premiumEnabled || data.birthdayEnabled, next: data.nextCheck },
+        { kind: "follow-up-reminder", title: "Advisor follow-up reminders", enabled: true, next: data.nextCheck },
         { kind: "weekly-digest", title: "Weekly advisor digest", enabled: data.digestEnabled, next: data.nextDigest },
         { kind: "user-backup", title: "Weekly customer backup", enabled: data.backupEnabled, next: data.nextBackup }].map((item) => {
           const run = data.runs.find((row) => row.kind === item.kind);
@@ -52,6 +53,7 @@ export function AutomationStatusSection() {
           return <section key={item.kind} className="border-b border-slate-200 pb-5 space-y-2">
             <h3 className="font-semibold text-sm">{item.title} <span className={item.enabled ? "text-emerald-700" : "text-slate-400"}>{item.enabled ? "Enabled" : "Disabled"}</span></h3>
             {item.kind === "customer-email" && <p className="text-xs text-slate-500">Premium: {data.premiumEnabled ? "On" : "Off"} · Birthday: {data.birthdayEnabled ? "On" : "Off"}</p>}
+            {item.kind === "follow-up-reminder" && <p className="text-xs text-slate-500">{data.followUpReminderCount} task{data.followUpReminderCount === 1 ? "" : "s"} scheduled for advisor email.</p>}
             <dl className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600">
               <div><dt>Next scheduled check</dt><dd>{item.enabled ? stamp(item.next) : "Disabled"}</dd></div>
               <div><dt>Last check</dt><dd>{stamp(run?.startedAt)}</dd></div>

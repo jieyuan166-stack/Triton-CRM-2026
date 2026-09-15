@@ -11,10 +11,18 @@ export async function GET() {
   if (!session) return unauthorized();
   try {
     const userId = session.user.id;
-    const [runs, tasks, settings] = await Promise.all([
+    const [runs, tasks, settings, followUpReminderCount] = await Promise.all([
       db.automationRun.findMany({ where: { userId } }),
       db.emailDeliveryTask.findMany({ where: { userId }, orderBy: { startedAt: "desc" }, take: 100 }),
       readWeeklyDigestSettings(userId),
+      db.followUp.count({
+        where: {
+          client: { userId },
+          completedAt: null,
+          deadline: { not: null },
+          reminderLeadDays: { not: null },
+        },
+      }),
     ]);
     const clients = await db.client.findMany({ where: { userId, id: { in: tasks.flatMap((task) => task.clientId ? [task.clientId] : []) } }, select: { id: true, slug: true, firstName: true, lastName: true, companyName: true } });
     const now = Date.now();
@@ -33,6 +41,7 @@ export async function GET() {
       premiumEnabled: settings.emailAutomation.premiumRemindersEnabled,
       birthdayEnabled: settings.emailAutomation.birthdayGreetingsEnabled,
       digestEnabled: settings.weeklyDigest.enabled,
+      followUpReminderCount,
       backupEnabled: session.user.role !== "admin",
       tasks: tasks.map((task) => {
         const client = clients.find((item) => item.id === task.clientId);

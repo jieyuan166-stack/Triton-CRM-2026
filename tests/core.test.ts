@@ -7,6 +7,11 @@ import { resolveEmailContext, sendContextSchema } from "../lib/email-send-contex
 import { buildUserSnapshot } from "../lib/user-backup-snapshots";
 import { getPremiumReminderStage, premiumReminderDedupeKey } from "../lib/premium-reminders";
 import { buildWeeklyDigest } from "../lib/weekly-digest";
+import {
+  followUpReminderDedupeKey,
+  followUpReminderDue,
+  nextAnnualDeadline,
+} from "../lib/follow-up-reminders";
 
 before(async () => {
   assert.match(process.env.DATABASE_URL ?? "", /triton-core-test-/);
@@ -72,6 +77,17 @@ test("weekly overdue requires a real deadline, keeps high priority separate", ()
   const groups = digestFollowUpGroups(items, new Date("2026-09-05T18:00:00Z"));
   assert.deepEqual(groups.overdue, [items[2]]);
   assert.deepEqual(groups.highPriority, [items[1]]);
+});
+test("annual follow-up reminders wait until 8 AM Vancouver and dedupe each occurrence", () => {
+  assert.equal(nextAnnualDeadline("2028-02-29"), "2029-02-28");
+  assert.equal(nextAnnualDeadline("2026-12-15"), "2027-12-15");
+  assert.equal(followUpReminderDue("2026-12-15", 30, new Date("2026-11-15T15:59:00Z")), false);
+  assert.equal(followUpReminderDue("2026-12-15", 30, new Date("2026-11-15T16:00:00Z")), true);
+  assert.equal(followUpReminderDue("2026-12-15", 30, new Date("2026-11-14T18:00:00Z")), false);
+  assert.notEqual(
+    followUpReminderDedupeKey({ userId: "u", followUpId: "f", deadline: "2026-12-15", leadDays: 30 }),
+    followUpReminderDedupeKey({ userId: "u", followUpId: "f2", deadline: "2027-12-15", leadDays: 30 }),
+  );
 });
 test("email contexts and backup snapshots cannot expose another advisor", async () => {
   const context = sendContextSchema.parse({ body: "text", policyIds: ["test-b-policy"] });
