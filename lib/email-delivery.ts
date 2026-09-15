@@ -1,4 +1,5 @@
 import "server-only";
+import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { isDefinitelyUnsent } from "@/lib/automation-calendar";
@@ -34,13 +35,15 @@ export async function deliverOnce(
   send: () => Promise<{ messageId: string }>,
   complete: (tx: Prisma.TransactionClient, messageId: string) => Promise<void>,
 ): Promise<DeliveryResult> {
-  let task;
-  try {
-    task = await db.emailDeliveryTask.create({ data: identity });
-  } catch (error) {
-    if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") throw error;
-    const previous = await db.emailDeliveryTask.findUnique({ where: { dedupeKey: identity.dedupeKey } });
-    if (!previous || previous.userId !== identity.userId) throw new Error("Invalid delivery owner");
+  const claimId = randomUUID();
+  let task = await db.emailDeliveryTask.upsert({
+    where: { dedupeKey: identity.dedupeKey },
+    create: { id: claimId, ...identity },
+    update: {},
+  });
+  if (task.id !== claimId) {
+    const previous = task;
+    if (previous.userId !== identity.userId) throw new Error("Invalid delivery owner");
     if (previous.status !== "failed" || Date.now() - previous.startedAt.getTime() < 15 * 60_000) {
       return { status: "skipped", messageId: previous.status === "sent" ? previous.messageId ?? undefined : undefined, reason: previous.status === "sent" ? "Already sent" : "Delivery reserved or needs review" };
     }
@@ -49,7 +52,7 @@ export async function deliverOnce(
       data: { status: "sending", startedAt: new Date(), finishedAt: null, errorCode: null, attempts: { increment: 1 } },
     });
     if (!claimed.count) return { status: "skipped", reason: "Delivery reserved" };
-    task = previous;
+    task = { ...previous, status: "sending", startedAt: new Date(), finishedAt: null, errorCode: null, attempts: previous.attempts + 1 };
   }
   let accepted = false;
   let messageId: string | undefined;
