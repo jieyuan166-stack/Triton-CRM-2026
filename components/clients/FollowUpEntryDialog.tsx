@@ -122,7 +122,7 @@ export function FollowUpEntryDialog({
 
   return (
     <Dialog open={open} onOpenChange={(value) => !saving && onOpenChange(value)}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Add Follow-up</DialogTitle>
           <p className="text-xs text-slate-500">
@@ -206,7 +206,10 @@ export function FollowUpEntryDialog({
             ) : null}
           </div>
 
-          <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+          <div className="space-y-2 rounded-lg border border-[#C99A3A]/35 bg-[#C99A3A]/5 p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-[#8A6828]">
+              Reminder Schedule
+            </p>
             <label className="flex cursor-pointer items-start gap-2.5 text-left">
               <Checkbox
                 checked={repeatAnnually}
@@ -214,33 +217,33 @@ export function FollowUpEntryDialog({
                   setRepeatAnnually(checked === true);
                   setDeadlineError("");
                 }}
-                aria-label="Repeat annually"
+                aria-label="Annual follow-up"
                 className="mt-0.5"
               />
               <span className="min-w-0">
                 <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
                   <Repeat2 className="h-3.5 w-3.5 text-[#9A7429]" />
-                  Repeat annually
+                  Annual follow-up
                 </span>
                 <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-500">
                   After you manually mark this year done, the same task is created for next year.
                 </span>
               </span>
             </label>
-            <label className="flex cursor-pointer items-start gap-2.5 border-t border-slate-200 pt-2">
+            <label className="flex cursor-pointer items-start gap-2.5 border-t border-[#C99A3A]/20 pt-2">
               <Checkbox
                 checked={emailReminder}
                 onCheckedChange={(checked) => {
                   setEmailReminder(checked === true);
                   setDeadlineError("");
                 }}
-                aria-label="Email me one month before"
+                aria-label="Advisor email reminder 30 days before"
                 className="mt-0.5"
               />
               <span className="min-w-0">
                 <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
                   <BellRing className="h-3.5 w-3.5 text-[#9A7429]" />
-                  Email me one month before
+                  Advisor email reminder · 30 days before
                 </span>
                 <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-500">
                   Sends once to your advisor sign-in email after 8:00 AM Vancouver time. It is never sent to the client.
