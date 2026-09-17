@@ -1,9 +1,9 @@
 // components/dashboard/UpcomingPremiums.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarClock, Mail, MailX, RotateCcw, Send, Trash2 } from "lucide-react";
+import { CalendarClock, CheckCircle2, Mail, MailX, RotateCcw, Send, ShieldAlert, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useData } from "@/components/providers/DataProvider";
@@ -39,6 +39,19 @@ import { cn } from "@/lib/utils";
 
 const WINDOW_DAYS = PREMIUM_REMINDER_WINDOW_DAYS;
 
+type DeliveryReview = {
+  id: string;
+  dedupeKey: string;
+  type: string;
+  status: string;
+  canResolve: boolean;
+};
+
+type ReviewResolution = {
+  task: DeliveryReview;
+  action: "retry" | "confirm-sent";
+};
+
 export function UpcomingPremiums() {
   const {
     policies,
@@ -46,6 +59,7 @@ export function UpcomingPremiums() {
     emailReminderSends,
     recordEmailReminderSend,
     markEmailReminderSendsSeen,
+    reloadData,
   } = useData();
   const { settings } = useSettings();
   const renewalTpl = settings.templates.find((t) => t.id === "renewal") ?? { subject: "", body: "", attachments: [] };
@@ -97,6 +111,34 @@ export function UpcomingPremiums() {
   const [sentPreview, setSentPreview] = useState<EmailHistoryPreview | null>(null);
   const [dismissingReminderId, setDismissingReminderId] = useState<string | null>(null);
   const [bulkRemoveOpen, setBulkRemoveOpen] = useState(false);
+  const [deliveryReviews, setDeliveryReviews] = useState<DeliveryReview[]>([]);
+  const [reviewResolution, setReviewResolution] = useState<ReviewResolution | null>(null);
+
+  const loadDeliveryReviews = useCallback(async () => {
+    try {
+      const response = await fetch("/api/settings/automation-status", { cache: "no-store" });
+      if (!response.ok) return;
+      const data = (await response.json()) as { tasks?: DeliveryReview[] };
+      setDeliveryReviews(
+        (data.tasks ?? []).filter(
+          (task) => task.type === "premium" && task.status === "review" && task.canResolve
+        )
+      );
+    } catch {
+      // The reminder list remains usable when the diagnostic endpoint is unavailable.
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadDeliveryReviews();
+    const timer = window.setInterval(() => void loadDeliveryReviews(), 60_000);
+    return () => window.clearInterval(timer);
+  }, [loadDeliveryReviews]);
+
+  const reviewByDedupeKey = useMemo(
+    () => new Map(deliveryReviews.map((task) => [task.dedupeKey, task])),
+    [deliveryReviews]
+  );
 
   useEffect(() => {
     if (activeTab !== "completed" || unseenCompletedIds.length === 0) return;
@@ -108,7 +150,9 @@ export function UpcomingPremiums() {
     return () => window.clearTimeout(timer);
   }, [activeTab, markEmailReminderSendsSeen, unseenCompletedIds]);
 
-  const allIds = upcomingRows.map((r) => r.id);
+  const allIds = upcomingRows
+    .filter((row) => !reviewByDedupeKey.has(row.dedupeKey))
+    .map((row) => row.id);
   const allChecked = allIds.length > 0 && allIds.every((id) => selected.has(id));
   const someChecked = selected.size > 0 && !allChecked;
   const selectedRows = Array.from(selected)
@@ -281,6 +325,30 @@ export function UpcomingPremiums() {
     });
   }
 
+  async function handleReviewResolution() {
+    if (!reviewResolution) return;
+    const response = await fetch("/api/settings/automation-status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        taskId: reviewResolution.task.id,
+        resolution: reviewResolution.action,
+      }),
+    });
+    const result = (await response.json().catch(() => null)) as { error?: string } | null;
+    if (!response.ok) throw new Error(result?.error || "Could not resolve delivery review");
+    await Promise.all([reloadData(), loadDeliveryReviews()]);
+    if (reviewResolution.action === "retry") {
+      toast.success("Reminder restored for retry", {
+        description: "The next automation check will retry this reminder once.",
+      });
+    } else {
+      toast.success("Delivery marked as completed", {
+        description: "The reminder and customer Activity have been updated.",
+      });
+    }
+  }
+
   return (
     <>
       <WidgetCard
@@ -377,18 +445,26 @@ export function UpcomingPremiums() {
                   const canEmail = canSendToEmail(client?.email);
                   const hasPlaceholderEmail = isPlaceholderEmail(client?.email);
                   const isChecked = selected.has(row.id);
+                  const reviewTask = reviewByDedupeKey.get(row.dedupeKey);
                   return (
                     <li
                       key={row.id}
                       className={cn(
                         "flex items-center gap-3 px-5 py-2 md:px-6 transition-colors",
-                        isChecked ? "bg-accent-blue/5" : "hover:bg-slate-50/80"
+                        reviewTask
+                          ? "bg-amber-50/55"
+                          : isChecked
+                            ? "bg-accent-blue/5"
+                            : "hover:bg-slate-50/80"
                       )}
                     >
-                      <Checkbox aria-label={`Select ${clientName}`} checked={isChecked} onCheckedChange={(c) => toggleOne(row.id, c === true)} />
+                      <Checkbox aria-label={`Select ${clientName}`} checked={isChecked} disabled={!!reviewTask} onCheckedChange={(c) => toggleOne(row.id, c === true)} />
                       <UniversalDataCard
-                        accentColor={CARRIER_COLORS[p.carrier]}
-                        className="flex-1 rounded-lg border border-slate-100 bg-white/70 p-3 shadow-none"
+                        accentColor={reviewTask ? "#D6A84F" : CARRIER_COLORS[p.carrier]}
+                        className={cn(
+                          "flex-1 rounded-lg border bg-white/70 p-3 shadow-none",
+                          reviewTask ? "border-amber-200" : "border-slate-100"
+                        )}
                         contentClassName="min-w-0"
                         title={
                           client ? (
@@ -404,9 +480,15 @@ export function UpcomingPremiums() {
                             <span>{clientName}</span>
                           )
                         }
-                        subtitle={`${row.stageLabel} · ${row.isJointRecipient ? "Joint Policy · " : ""}${p.carrier} · ${p.productName || p.productType} · #${p.policyNumber} · ${formatCurrency(p.premium)} · ${formatRelative(row.dueDate)}`}
+                        subtitle={`${row.stageLabel} · ${row.isJointRecipient ? "Joint Policy · " : ""}${p.carrier} · ${p.productName || p.productType} · #${p.policyNumber} · ${formatCurrency(p.premium)} · ${formatRelative(row.dueDate)}${reviewTask ? " · Check Gmail Sent before choosing an action" : ""}`}
                         badges={
-                          p.category === "Investment" && p.isInvestmentLoan ? (
+                          reviewTask ? (
+                            <StatusBadge
+                              kind="custom"
+                              label="NEEDS REVIEW"
+                              className="bg-amber-50 text-amber-800 ring-amber-200"
+                            />
+                          ) : p.category === "Investment" && p.isInvestmentLoan ? (
                             <StatusBadge kind="loan" lender={p.lender} />
                           ) : (
                             <StatusBadge kind={p.category === "Investment" ? "investment" : "insurance"} />
@@ -414,7 +496,28 @@ export function UpcomingPremiums() {
                         }
                         actions={
                           <div className="flex items-center gap-1">
-                            {canEmail ? (
+                            {reviewTask ? (
+                              <>
+                                <Button
+                                  type="button"
+                                  size="xs"
+                                  variant="outline"
+                                  className="border-amber-200 text-amber-800 hover:bg-amber-50"
+                                  onClick={() => setReviewResolution({ task: reviewTask, action: "retry" })}
+                                >
+                                  <RotateCcw className="h-3 w-3" /> Retry
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="xs"
+                                  variant="ghost"
+                                  className="text-slate-600"
+                                  onClick={() => setReviewResolution({ task: reviewTask, action: "confirm-sent" })}
+                                >
+                                  <CheckCircle2 className="h-3 w-3" /> Found in Sent
+                                </Button>
+                              </>
+                            ) : canEmail ? (
                               <button type="button" aria-label={`Email ${clientName}`} onClick={() => openSingle(row.id)}
                                 className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-accent-blue/10 hover:text-accent-blue">
                                 <Mail className="h-4 w-4" />
@@ -428,7 +531,7 @@ export function UpcomingPremiums() {
                                 No Email
                               </span>
                             )}
-                            {client ? (
+                            {client && !reviewTask ? (
                               <button
                                 type="button"
                                 aria-label={`Remove reminder for ${clientName}`}
@@ -601,6 +704,26 @@ export function UpcomingPremiums() {
         }
         confirmLabel="Remove Selected"
         onConfirm={handleBulkRemove}
+      />
+      <ConfirmDialog
+        open={!!reviewResolution}
+        onOpenChange={(open) => {
+          if (!open) setReviewResolution(null);
+        }}
+        title={reviewResolution?.action === "retry" ? "Retry this reminder?" : "Confirm it was sent?"}
+        description={
+          reviewResolution?.action === "retry" ? (
+            <span className="inline-flex items-start gap-2">
+              <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+              Only retry after checking Gmail Sent and confirming the email is not there. The next automation check will send it once and record the customer Activity.
+            </span>
+          ) : (
+            "Use this only when the email is visible in Gmail Sent. The CRM will mark the reminder completed and add it to the customer Activity without sending another copy."
+          )
+        }
+        confirmLabel={reviewResolution?.action === "retry" ? "Confirm Retry" : "Mark Completed"}
+        tone="primary"
+        onConfirm={handleReviewResolution}
       />
     </>
   );

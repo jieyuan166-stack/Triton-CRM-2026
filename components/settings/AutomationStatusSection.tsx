@@ -1,13 +1,17 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { RefreshCw } from "lucide-react";
+import { CheckCircle2, RefreshCw, RotateCcw } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui-shared/ConfirmDialog";
 
 type Run = { kind: string; startedAt: string; lastSuccessAt: string | null; sent: number; skipped: number; failed: number; review: number; reasons: string };
+type DeliveryTask = { id: string; dedupeKey: string; type: string; stage: string | null; status: string; startedAt: string; errorCode: string | null;
+  clientName: string | null; clientHref: string | null; policyNumber: string | null; policyLabel: string | null; canResolve: boolean };
 type State = { runs: Run[]; nextCheck: string; nextDigest: string | null; nextBackup: string | null;
   premiumEnabled: boolean; birthdayEnabled: boolean; digestEnabled: boolean; followUpReminderCount: number; backupEnabled: boolean;
-  tasks: { id: string; type: string; stage: string | null; status: string; startedAt: string; errorCode: string | null; clientName: string | null; clientHref: string | null }[] };
+  tasks: DeliveryTask[] };
 const stamp = (value?: string | null) => value ? new Date(value).toLocaleString("en-CA", { timeZone: "America/Vancouver" }) : "Not recorded";
 const parseReasons = (value?: string) => {
   if (!value) return {} as Record<string, number>;
@@ -28,6 +32,7 @@ export function AutomationStatusSection() {
   const [data, setData] = useState<State | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [reviewAction, setReviewAction] = useState<{ task: DeliveryTask; resolution: "retry" | "confirm-sent" } | null>(null);
   const refresh = useCallback(async () => {
     setLoading(true);
     try { const response = await fetch("/api/settings/automation-status", { cache: "no-store" });
@@ -37,6 +42,20 @@ export function AutomationStatusSection() {
     finally { setLoading(false); }
   }, []);
   useEffect(() => { void refresh(); const timer = setInterval(() => void refresh(), 60_000); return () => clearInterval(timer); }, [refresh]);
+
+  async function resolveReview() {
+    if (!reviewAction) return;
+    const response = await fetch("/api/settings/automation-status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ taskId: reviewAction.task.id, resolution: reviewAction.resolution }),
+    });
+    const result = (await response.json().catch(() => null)) as { error?: string } | null;
+    if (!response.ok) throw new Error(result?.error || "Could not resolve delivery review");
+    await refresh();
+    toast.success(reviewAction.resolution === "retry" ? "Delivery restored for retry" : "Delivery marked completed");
+  }
+
   return <div className="space-y-5 min-w-0">
     <div className="flex items-center justify-between gap-3"><h2 className="text-lg font-semibold text-navy">Automation status</h2>
       <Button variant="outline" size="icon" title="Refresh status" aria-label="Refresh status" disabled={loading} onClick={refresh}><RefreshCw className="h-4 w-4" /></Button></div>
@@ -69,10 +88,33 @@ export function AutomationStatusSection() {
         {data.tasks.length === 0 && <p className="text-sm text-slate-500">No delivery tasks recorded yet.</p>}
         {data.tasks.map((task) => <div key={task.id} className="py-3 flex flex-wrap justify-between gap-2 text-xs">
           <div className="min-w-0"><p className="font-medium break-words">{task.clientHref ? <Link href={task.clientHref} className="text-navy underline">{task.clientName}</Link> : "Advisor digest"}</p>
-            <p className="text-slate-500">{task.type} {task.stage} · {stamp(task.startedAt)}</p></div>
-          <span className={task.status === "review" || task.status === "failed" ? "text-amber-700 font-semibold" : "text-slate-500"}>{task.status === "review" ? "Needs review in mailbox Sent" : task.status}</span>
+            <p className="text-slate-500">{task.type} {task.stage} · {stamp(task.startedAt)}</p>
+            {task.policyLabel ? <p className="mt-0.5 text-slate-500">{task.policyLabel}{task.policyNumber ? ` · #${task.policyNumber}` : ""}</p> : null}
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <span className={task.status === "review" || task.status === "failed" ? "text-amber-700 font-semibold" : "text-slate-500"}>{task.status === "review" ? "Needs review in Gmail Sent" : task.status}</span>
+            {task.status === "review" && task.canResolve ? <>
+              <Button size="xs" variant="outline" className="border-amber-200 text-amber-800" onClick={() => setReviewAction({ task, resolution: "retry" })}>
+                <RotateCcw /> Retry
+              </Button>
+              <Button size="xs" variant="ghost" onClick={() => setReviewAction({ task, resolution: "confirm-sent" })}>
+                <CheckCircle2 /> Found in Sent
+              </Button>
+            </> : null}
+          </div>
         </div>)}
       </div>
     </>}
+    <ConfirmDialog
+      open={!!reviewAction}
+      onOpenChange={(open) => { if (!open) setReviewAction(null); }}
+      title={reviewAction?.resolution === "retry" ? "Retry this delivery?" : "Confirm this delivery?"}
+      description={reviewAction?.resolution === "retry"
+        ? "First check Gmail Sent. Confirm Retry only when the email is not there; the next automation run will retry it once."
+        : "Use this only when the email is visible in Gmail Sent. The CRM will record it as completed without sending another copy."}
+      confirmLabel={reviewAction?.resolution === "retry" ? "Confirm Retry" : "Mark Completed"}
+      tone="primary"
+      onConfirm={resolveReview}
+    />
   </div>;
 }
