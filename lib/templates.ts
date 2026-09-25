@@ -15,9 +15,12 @@ import type { EmailSignature, EmailTemplate } from "./settings-types";
 import { sanitizeEmailHtml } from "./security/sanitize-html";
 
 export const BIRTHDAY_CARD_TOKEN = "[Birthday Card]";
+export const FESTIVAL_CARD_TOKEN = "[Festival Card]";
+export const MID_AUTUMN_CAMPAIGN_KEY = "mid-autumn-2026";
 // Keep a versioned public URL for Gmail's image proxy. Replacing a file at a
 // stable path can leave Gmail mobile showing a stale, unrelated image.
 export const BIRTHDAY_CARD_IMAGE_URL = "https://crm.tritonwealth.ca/email/birthday-greeting-v4.png";
+export const MID_AUTUMN_CARD_IMAGE_URL = "https://crm.tritonwealth.ca/email/mid-autumn-2026-v1.jpg";
 const BIRTHDAY_CARD_ADVISOR_EMAILS = new Set(["jieyuan165@gmail.com"]);
 
 export function shouldIncludeBirthdayCardForAdvisor(email?: string | null): boolean {
@@ -28,6 +31,10 @@ export function birthdayCardImageHtml(): string {
   // A numeric width attribute is required for Gmail mobile. Percentage width
   // attributes on images are inconsistently interpreted by its image proxy.
   return `<img src="${BIRTHDAY_CARD_IMAGE_URL}" width="600" alt="Happy Birthday from Triton Wealth" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;border-radius:12px;" />`;
+}
+
+export function festivalCardImageHtml(): string {
+  return `<img src="${MID_AUTUMN_CARD_IMAGE_URL}" width="520" alt="Mid-Autumn Festival greetings from Triton Wealth" style="display:block;width:100%;max-width:520px;height:auto;border:0;outline:none;text-decoration:none;border-radius:10px;" />`;
 }
 
 export const LEGACY_DEFAULT_TEMPLATE_COPY: Record<string, { subject: string; body: string }> = {
@@ -81,9 +88,9 @@ export const DEFAULT_TEMPLATES: EmailTemplate[] = [
   {
     id: "festival",
     label: "Festival",
-    subject: "Holiday Greetings from Jeffrey Yuan",
+    subject: "月满中秋，阖家安康｜Happy Mid-Autumn Festival",
     body:
-      "Dear [Client Name],\n\nWishing you and your family a joyful and peaceful holiday season.\n\nThank you for your continued trust in Jeffrey Yuan. It is truly a privilege to support you on your financial journey, and we sincerely appreciate the opportunity to serve you.\n\nMay the coming year bring you happiness, good health, and continued prosperity.\n\nWarm regards,\n\n尊敬的 [Client Name]，\n\n值此佳节来临之际，谨向您和您的家人致以最诚挚的节日祝福，愿您度过一个温馨、快乐的假期。\n\n感谢您一直以来对 Jeffrey Yuan 的信任与支持。能够陪伴并协助您实现财务目标，是我们的荣幸，我们也衷心感谢您给予我们的信赖。\n\n祝愿您在新的一年里身体健康、阖家幸福、事业顺利、万事兴旺！\n\n诚挚问候",
+      "尊敬的 [Client Name]：\n\n金秋送爽，丹桂飘香。值此中秋佳节，谨向您及家人致以最诚挚的节日祝福。\n\n愿一轮明月寄托团圆与美好，愿您阖家安康、喜乐常伴、万事顺遂。\n\n感谢您一直以来对富瑞财富及我的信任与支持。祝您中秋快乐，月圆人团圆！\n\n诚挚问候，\n\nDear [Client Name],\n\nAs the full moon lights up the Mid-Autumn Festival, I would like to extend my warmest wishes to you and your family.\n\nMay this season of reunion bring you good health, happiness, peace, and continued success.\n\nThank you sincerely for your continued trust and support. Wishing you and your loved ones a joyful Mid-Autumn Festival filled with warmth and togetherness.\n\nWarm regards,\n\n[Festival Card]",
     attachments: [],
     variables: ["[Client Name]"],
   },
@@ -125,7 +132,7 @@ export function renderEmailBody(
   vars: Record<string, string | undefined>,
   signature?: { enabled: boolean; text: string }
 ): string {
-  const filled = applyTemplate(body, vars);
+  const filled = removeEmailMediaTokens(applyTemplate(body, vars));
   if (!signature?.enabled || !signature.text.trim()) return filled;
   return `${filled}\n\n${signature.text}`;
 }
@@ -140,7 +147,7 @@ export function escapeHtml(text: string): string {
 }
 
 export function plainTextToEmailHtml(text: string): string {
-  return escapeHtml(removeBirthdayCardToken(text))
+  return escapeHtml(removeEmailMediaTokens(text))
     .replace(/&lt;sub&gt;/gi, '<sub style="font-size: 11px; color: #64748B;">')
     .replace(/&lt;\/sub&gt;/gi, "</sub>")
     .replace(/\r\n/g, "\n")
@@ -153,6 +160,17 @@ export function removeBirthdayCardToken(text: string): string {
     .replace(new RegExp(`\\n{0,2}${escapeRegExp(BIRTHDAY_CARD_TOKEN)}\\n{0,2}`, "g"), "\n\n")
     .replace(/\n{3,}/g, "\n\n")
     .trimEnd();
+}
+
+export function removeFestivalCardToken(text: string): string {
+  return text
+    .replace(new RegExp(`\\n{0,2}${escapeRegExp(FESTIVAL_CARD_TOKEN)}\\n{0,2}`, "g"), "\n\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trimEnd();
+}
+
+export function removeEmailMediaTokens(text: string): string {
+  return removeFestivalCardToken(removeBirthdayCardToken(text));
 }
 
 function escapeRegExp(text: string): string {
@@ -190,7 +208,9 @@ export function renderEmailHtml(
   }
 ): string {
   const rawFilled = applyTemplate(body, vars);
-  const filled = options?.template === "birthday" ? removeBirthdayCardToken(rawFilled) : rawFilled;
+  const hasFestivalCard =
+    options?.template === "festival" && rawFilled.includes(FESTIVAL_CARD_TOKEN);
+  const filled = removeEmailMediaTokens(rawFilled);
   const bodyHtml = emphasizeHtmlTerms(
     plainTextToEmailHtml(filled),
     options?.emphasizedTerms
@@ -204,23 +224,27 @@ export function renderEmailHtml(
   const signatureHtml = rawSignatureHtml
     ? prepareSignatureForEmail(sanitizeEmailHtml(rawSignatureHtml))
     : "";
-  const cardHtml =
+  const birthdayCardHtml =
     options?.template === "birthday" && options.birthdayCardEnabled !== false
       ? birthdayCardImageHtml()
       : "";
+  const festivalCardHtml = hasFestivalCard ? festivalCardImageHtml() : "";
   const inlineHtmlBeforeSignature = options?.inlineHtmlBeforeSignature?.trim() ?? "";
   const rows = [
     bodyHtml
       ? `<tr><td style="font-family:Geist,-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#0F172A;word-break:normal;overflow-wrap:anywhere;">${bodyHtml}</td></tr>`
       : "",
-    cardHtml
-      ? `<tr><td align="center" style="padding:18px 0 12px;">${cardHtml}</td></tr>`
+    birthdayCardHtml
+      ? `<tr><td align="center" style="padding:18px 0 12px;">${birthdayCardHtml}</td></tr>`
+      : "",
+    festivalCardHtml
+      ? `<tr><td align="center" style="padding:20px 0 12px;">${festivalCardHtml}</td></tr>`
       : "",
     inlineHtmlBeforeSignature
       ? `<tr><td style="padding-top:12px;">${inlineHtmlBeforeSignature}</td></tr>`
       : "",
     signatureHtml
-      ? `<tr><td style="padding-top:${bodyHtml || cardHtml || inlineHtmlBeforeSignature ? "20px" : "0"};">${signatureHtml}</td></tr>`
+      ? `<tr><td style="padding-top:${bodyHtml || birthdayCardHtml || festivalCardHtml || inlineHtmlBeforeSignature ? "20px" : "0"};">${signatureHtml}</td></tr>`
       : "",
   ]
     .filter(Boolean)

@@ -96,6 +96,7 @@ export interface EmailPreviewPayload {
   emphasizedTerms?: string[];
   attachments?: EmailTemplateAttachment[];
   templateVars?: Record<string, string | undefined>;
+  campaignKey?: string;
 }
 
 export interface EmailPreviewBatchItem {
@@ -114,6 +115,7 @@ export interface EmailPreviewBatchItem {
   reminderCycleKey?: string;
   reminderDedupeKey?: string;
   emphasizedTerms?: string[];
+  campaignKey?: string;
 }
 
 /** Result handed to onSent so callers can perform additional bookkeeping
@@ -615,6 +617,7 @@ export function EmailPreviewDialog({
       reminderDedupeKey?: string;
       emphasizedTerms?: string[];
       bcc?: string[];
+      campaignKey?: string;
     }) {
       const prepared = applyReminderStageFallback(message);
       const key = `${message.clientId ?? message.to}:${message.policyId ?? ""}`;
@@ -645,6 +648,7 @@ export function EmailPreviewDialog({
             policyIds: message.policyContexts?.map((item) => item.policyId).filter(Boolean) ?? (message.policyId ? [message.policyId] : []),
             communicationType: message.communicationType,
             saveToActivity, resend: activePayload.resend ?? false,
+            campaignKey: message.campaignKey,
             reminderDedupeKey: message.reminderDedupeKey,
             draftEntryId: activePayload.draftEntryId, attachments: attachmentMetadata(),
           },
@@ -670,44 +674,73 @@ export function EmailPreviewDialog({
         ok?: boolean;
         error?: string;
         messageId?: string;
+        status?: "sent" | "skipped" | "failed" | "review";
       };
       if (!res.ok || !json.ok) {
-        throw new Error(json.error ?? `Server responded ${res.status}`);
+        const error = new Error(json.error ?? `Server responded ${res.status}`) as Error & {
+          deliveryStatus?: string;
+        };
+        error.deliveryStatus = json.status;
+        throw error;
       }
 
-      return { clientId: message.clientId, template: message.template, subject: prepared.subject, body: prepared.body };
+      return {
+        clientId: message.clientId,
+        template: message.template,
+        subject: prepared.subject,
+        body: prepared.body,
+        status: json.status === "skipped" ? "skipped" : "sent",
+      };
     }
 
     try {
       if (isBatch) {
         let sent = 0;
+        let skipped = 0;
+        let failed = 0;
+        let pausedForReview = false;
         for (const item of batch) {
-          await sendOne({
-            to: item.to,
-            subject: applyTemplate(subject, item.variables ?? {}),
-            body: applyTemplate(body, item.variables ?? {}),
-            clientId: item.clientId,
-            template: item.template,
-            policyId: item.policyId,
-            emphasizedTerms: item.emphasizedTerms,
-            reminderStage: item.reminderStage,
-            reminderCycleKey: item.reminderCycleKey,
-            reminderDedupeKey: item.reminderDedupeKey,
-          });
-          sent += 1;
+          try {
+            const result = await sendOne({
+              to: item.to,
+              subject: applyTemplate(subject, item.variables ?? {}),
+              body: applyTemplate(body, item.variables ?? {}),
+              clientId: item.clientId,
+              template: item.template,
+              policyId: item.policyId,
+              emphasizedTerms: item.emphasizedTerms,
+              reminderStage: item.reminderStage,
+              reminderCycleKey: item.reminderCycleKey,
+              reminderDedupeKey: item.reminderDedupeKey,
+              campaignKey: item.campaignKey,
+            });
+            if (result.status === "skipped") skipped += 1;
+            else sent += 1;
+          } catch (error) {
+            failed += 1;
+            if ((error as Error & { deliveryStatus?: string }).deliveryStatus === "review") {
+              pausedForReview = true;
+              break;
+            }
+          }
         }
 
         await reloadData().catch(() =>
           toast.warning("Emails sent and logged. Refresh to see the latest activity.")
         );
 
-        toast.success("Emails sent successfully", {
-          description: `${sent} individualized emails delivered.`,
-        });
+        const summary = `${sent} sent · ${skipped} already sent · ${failed} failed`;
+        if (failed > 0) {
+          toast.warning(pausedForReview ? "Campaign paused for delivery review" : "Campaign finished with issues", {
+            description: summary,
+          });
+          return;
+        }
+        toast.success("Emails sent successfully", { description: summary });
         onSent?.({
           via: "smtp",
           to: batch.map((item) => item.to).join(", "),
-          subject: `${sent} individualized emails`,
+          subject: `${sent} sent · ${skipped} already sent`,
           body: "Individualized bulk send",
         });
         onOpenChange(false);
@@ -739,6 +772,7 @@ export function EmailPreviewDialog({
         reminderCycleKey: activePayload.reminderCycleKey,
         reminderDedupeKey: activePayload.reminderDedupeKey,
         emphasizedTerms: activePayload.emphasizedTerms,
+        campaignKey: activePayload.campaignKey,
       });
       await reloadData().catch(() =>
         toast.warning("Email sent and logged. Refresh to see the latest activity.")

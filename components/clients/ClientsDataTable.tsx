@@ -44,7 +44,7 @@ import type { EmailTemplateId } from "@/lib/settings-types";
 import { clientPath } from "@/lib/client-slug";
 import { getDynamicTagReasons } from "@/lib/client-tags";
 import { canSendToEmail } from "@/lib/email-address";
-import { applyTemplate } from "@/lib/templates";
+import { applyTemplate, MID_AUTUMN_CAMPAIGN_KEY } from "@/lib/templates";
 import {
   queryClients,
   type ClientSortKey,
@@ -324,7 +324,10 @@ export function ClientsDataTable() {
     }
 
     const formatTemplateVars = (client: Client) => {
-      const clientName = `${client.firstName} ${client.lastName}`.trim();
+      const clientName =
+        client.companyName?.trim() ||
+        `${client.firstName} ${client.lastName}`.trim() ||
+        "Valued Client";
 
       return {
         clientName,
@@ -350,7 +353,11 @@ export function ClientsDataTable() {
 
     if (!singleClient) {
       const templateKind =
-        selectedTemplate.id === "birthday" ? "birthday" : "custom";
+        selectedTemplate.id === "birthday"
+          ? "birthday"
+          : selectedTemplate.id === "festival"
+            ? "festival"
+            : "custom";
       const advisorEmail =
         settings.email.fromEmail ||
         settings.profile.email ||
@@ -359,9 +366,6 @@ export function ClientsDataTable() {
         toast.error("Advisor email is missing.");
         return;
       }
-      const bccList = selectedClientsWithEmail
-        .map((client) => client.email.trim())
-        .join(", ");
       const vars = {
         "Client Name": "Valued Client",
         Date: new Date().toLocaleDateString("en-CA", {
@@ -378,14 +382,27 @@ export function ClientsDataTable() {
       };
 
       setEmailPayload({
-        contextLabel: `${selectedClientsWithEmail.length} clients · BCC`,
+        contextLabel: `${selectedClientsWithEmail.length} individualized emails`,
         to: advisorEmail,
-        bcc: bccList,
-        subject: applyTemplate(selectedTemplate.subject, vars),
-        body: applyTemplate(selectedTemplate.body, vars),
+        subject: selectedTemplate.subject,
+        body: selectedTemplate.body,
         attachments: selectedTemplate.attachments ?? [],
         template: templateKind,
         templateVars: vars,
+        batch: selectedClientsWithEmail.map((client) => {
+          const { clientName, vars: clientVars } = formatTemplateVars(client);
+          return {
+            contextLabel: clientName,
+            to: client.email.trim(),
+            subject: selectedTemplate.subject,
+            body: selectedTemplate.body,
+            variables: clientVars,
+            clientId: client.id,
+            template: templateKind,
+            campaignKey:
+              templateKind === "festival" ? MID_AUTUMN_CAMPAIGN_KEY : undefined,
+          };
+        }),
       });
       setEmailDialogOpen(true);
       return;
@@ -400,7 +417,14 @@ export function ClientsDataTable() {
       body: applyTemplate(selectedTemplate.body, vars),
       attachments: selectedTemplate.attachments ?? [],
       clientId: singleClient.id,
-      template: selectedTemplate.id === "birthday" ? "birthday" : "custom",
+      template:
+        selectedTemplate.id === "birthday"
+          ? "birthday"
+          : selectedTemplate.id === "festival"
+            ? "festival"
+            : "custom",
+      campaignKey:
+        selectedTemplate.id === "festival" ? MID_AUTUMN_CAMPAIGN_KEY : undefined,
     });
     setEmailDialogOpen(true);
   }

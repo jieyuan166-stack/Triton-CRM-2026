@@ -85,14 +85,6 @@ export async function POST(request: Request) {
   const session = await requireSession();
   if (!session) return unauthorized();
 
-  const limited = rateLimit(`send-email:${session.user.id}:${getClientIp(request)}`, {
-    limit: 30,
-    windowMs: 60 * 60 * 1000,
-  });
-  if (!limited.ok) {
-    return NextResponse.json({ ok: false, error: "Too many emails sent recently" }, { status: 429 });
-  }
-
   let payload: unknown;
   try {
     payload = await request.json();
@@ -115,6 +107,13 @@ export async function POST(request: Request) {
     );
   }
   const data = parsed.data;
+  const limited = rateLimit(`send-email:${session.user.id}:${getClientIp(request)}`, {
+    limit: data.context?.campaignKey ? 300 : 30,
+    windowMs: 60 * 60 * 1000,
+  });
+  if (!limited.ok) {
+    return NextResponse.json({ ok: false, error: "Too many emails sent recently" }, { status: 429 });
+  }
 
   const user = await db.user.findUniqueOrThrow({ where: { id: session.user.id } });
   const defaults = buildDefaultSettingsForUser(user);
@@ -192,8 +191,14 @@ export async function POST(request: Request) {
     const allAttachments = [...attachments, ...userAttachments];
     const result = await deliverOnce({
       userId: user.id, clientId: data.clientId, policyId: reminder?.policyId,
-      dedupeKey: reminder && !context?.resend ? reminder.dedupeKey : `manual:${user.id}:${data.requestId}`,
-      type: reminder?.type ?? "manual-email", cycleKey: reminder?.cycleKey ?? data.requestId, stage: reminder?.stage,
+      dedupeKey: reminder && !context?.resend
+        ? reminder.dedupeKey
+        : context?.campaignKey && data.clientId
+          ? `campaign:${user.id}:${context.campaignKey}:${data.clientId}`
+          : `manual:${user.id}:${data.requestId}`,
+      type: reminder?.type ?? (context?.campaignKey ? "campaign" : "manual-email"),
+      cycleKey: reminder?.cycleKey ?? context?.campaignKey ?? data.requestId,
+      stage: reminder?.stage,
     }, () => transporter.sendMail({
       from,
       to: data.to,
@@ -233,6 +238,7 @@ export async function POST(request: Request) {
       ok: true,
       messageId: result.messageId,
       clientId: data.clientId ?? null,
+      status: result.status,
     });
   } catch (e) {
     const error = e instanceof Error ? e.message : "Send failed";

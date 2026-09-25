@@ -12,6 +12,13 @@ import {
   followUpReminderDue,
   nextAnnualDeadline,
 } from "../lib/follow-up-reminders";
+import {
+  DEFAULT_TEMPLATES,
+  FESTIVAL_CARD_TOKEN,
+  MID_AUTUMN_CARD_IMAGE_URL,
+  renderEmailBody,
+  renderEmailHtml,
+} from "../lib/templates";
 
 before(async () => {
   assert.match(process.env.DATABASE_URL ?? "", /triton-core-test-/);
@@ -62,6 +69,26 @@ test("recipient and stage have independent premium dedupe keys", () => {
   assert.equal(getPremiumReminderStage(-1), null);
   const keys = ["owner", "joint"].flatMap((clientId) => ["first", "second"].map((stage) => premiumReminderDedupeKey({ clientId, policyId: "p", cycleKey: "p:2026-09-30", stage: stage as "first" | "second" })));
   assert.equal(new Set(keys).size, 4);
+});
+test("festival template is Chinese-first and renders one responsive poster before the signature", () => {
+  const template = DEFAULT_TEMPLATES.find((item) => item.id === "festival");
+  assert.ok(template);
+  assert.equal(template.subject, "月满中秋，阖家安康｜Happy Mid-Autumn Festival");
+  assert.ok(template.body.startsWith("尊敬的 [Client Name]："));
+  assert.ok(template.body.includes(FESTIVAL_CARD_TOKEN));
+  const html = renderEmailHtml(template.body, { "Client Name": "Jeffrey Yuan" }, {
+    enabled: true,
+    text: "Jeffrey Yuan",
+    html: "<strong>Jeffrey Yuan</strong>",
+  }, { template: "festival" });
+  assert.equal(html.split(MID_AUTUMN_CARD_IMAGE_URL).length - 1, 1);
+  assert.ok(html.indexOf(MID_AUTUMN_CARD_IMAGE_URL) < html.indexOf("<strong>Jeffrey Yuan</strong>"));
+  assert.ok(!html.includes(FESTIVAL_CARD_TOKEN));
+  assert.ok(!renderEmailBody(template.body, { "Client Name": "Jeffrey Yuan" }).includes(FESTIVAL_CARD_TOKEN));
+});
+test("campaign keys are validated before email delivery", () => {
+  assert.equal(sendContextSchema.parse({ body: "text", campaignKey: "mid-autumn-2026" }).campaignKey, "mid-autumn-2026");
+  assert.throws(() => sendContextSchema.parse({ body: "text", campaignKey: "../../unsafe" }));
 });
 test("birthdays catch up on the current local day only, across provinces and DST", () => {
   assert.equal(Object.keys(PROVINCE_TIMEZONES).length, 13);

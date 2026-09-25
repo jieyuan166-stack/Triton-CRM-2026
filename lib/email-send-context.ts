@@ -12,6 +12,7 @@ export const sendContextSchema = z.object({
   communicationType: z.string().max(200).optional(),
   saveToActivity: z.boolean().default(true),
   resend: z.boolean().default(false),
+  campaignKey: z.string().regex(/^[a-z0-9][a-z0-9:_-]{1,100}$/).optional(),
   reminderDedupeKey: z.string().max(500).optional(),
   draftEntryId: z.string().optional(),
   attachments: z.array(z.object({ filename: z.string().max(255), contentType: z.string().max(100), size: z.number().int().nonnegative().max(20 * 1024 * 1024) })).max(10).default([]),

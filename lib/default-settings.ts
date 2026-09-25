@@ -177,6 +177,16 @@ function mergeEmailTemplates(input: unknown, defaults: AppSettings): AppSettings
             },
           ]
         : [];
+    const previousFestivalDefaults =
+      defaultTemplate.id === "festival"
+        ? [
+            {
+              subject: "Holiday Greetings from Jeffrey Yuan",
+              body:
+                "Dear [Client Name],\n\nWishing you and your family a joyful and peaceful holiday season.\n\nThank you for your continued trust in Jeffrey Yuan. It is truly a privilege to support you on your financial journey, and we sincerely appreciate the opportunity to serve you.\n\nMay the coming year bring you happiness, good health, and continued prosperity.\n\nWarm regards,\n\n尊敬的 [Client Name]，\n\n值此佳节来临之际，谨向您和您的家人致以最诚挚的节日祝福，愿您度过一个温馨、快乐的假期。\n\n感谢您一直以来对 Jeffrey Yuan 的信任与支持。能够陪伴并协助您实现财务目标，是我们的荣幸，我们也衷心感谢您给予我们的信赖。\n\n祝愿您在新的一年里身体健康、阖家幸福、事业顺利、万事兴旺！\n\n诚挚问候",
+            },
+          ]
+        : [];
     const savedSubject = typeof saved.subject === "string" ? saved.subject : undefined;
     const savedBody = typeof saved.body === "string" ? saved.body : undefined;
     const isEnglishFirstSystemTemplate = isEnglishFirstBilingualSystemTemplate(
@@ -188,13 +198,15 @@ function mergeEmailTemplates(input: unknown, defaults: AppSettings): AppSettings
       savedBody === legacy?.body ||
       isEnglishFirstSystemTemplate ||
       previousRenewalDefaults.some((template) => savedSubject === template.subject || savedBody === template.body) ||
-      previousBirthdayDefaults.some((template) => savedSubject === template.subject || savedBody === template.body);
+      previousBirthdayDefaults.some((template) => savedSubject === template.subject || savedBody === template.body) ||
+      previousFestivalDefaults.some((template) => savedSubject === template.subject || savedBody === template.body);
     const subject =
       typeof saved.subject === "string" &&
       saved.subject !== legacy?.subject &&
       !isEnglishFirstSystemTemplate &&
       !previousRenewalDefaults.some((template) => saved.subject === template.subject) &&
-      !previousBirthdayDefaults.some((template) => saved.subject === template.subject)
+      !previousBirthdayDefaults.some((template) => saved.subject === template.subject) &&
+      !previousFestivalDefaults.some((template) => saved.subject === template.subject)
         ? saved.subject
         : defaultTemplate.subject;
     const body =
@@ -202,7 +214,8 @@ function mergeEmailTemplates(input: unknown, defaults: AppSettings): AppSettings
       saved.body !== legacy?.body &&
       !isEnglishFirstSystemTemplate &&
       !previousRenewalDefaults.some((template) => saved.body === template.body) &&
-      !previousBirthdayDefaults.some((template) => saved.body === template.body)
+      !previousBirthdayDefaults.some((template) => saved.body === template.body) &&
+      !previousFestivalDefaults.some((template) => saved.body === template.body)
         ? saved.body
         : defaultTemplate.body;
 
