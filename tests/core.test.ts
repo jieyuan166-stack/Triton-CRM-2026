@@ -7,6 +7,8 @@ import { resolveEmailContext, sendContextSchema } from "../lib/email-send-contex
 import { buildUserSnapshot } from "../lib/user-backup-snapshots";
 import { getPremiumReminderStage, premiumReminderDedupeKey } from "../lib/premium-reminders";
 import { buildWeeklyDigest } from "../lib/weekly-digest";
+import { calculatePortfolioMetrics } from "../lib/portfolio-metrics";
+import type { Policy } from "../lib/types";
 import {
   followUpReminderDedupeKey,
   followUpReminderDue,
@@ -69,6 +71,41 @@ test("recipient and stage have independent premium dedupe keys", () => {
   assert.equal(getPremiumReminderStage(-1), null);
   const keys = ["owner", "joint"].flatMap((clientId) => ["first", "second"].map((stage) => premiumReminderDedupeKey({ clientId, policyId: "p", cycleKey: "p:2026-09-30", stage: stage as "first" | "second" })));
   assert.equal(new Set(keys).size, 4);
+});
+test("live portfolio totals exclude lapsed and pending insurance and investments", () => {
+  const policy = (
+    id: string,
+    category: Policy["category"],
+    status: Policy["status"],
+    amount: number,
+  ): Policy => ({
+    id,
+    clientId: "test-a-client",
+    carrier: "Manulife",
+    category,
+    productType: category === "Investment" ? "TFSA" : "Term Insurance",
+    productName: `${status} ${category}`,
+    policyNumber: id,
+    sumAssured: amount,
+    premium: category === "Insurance" ? 100 : 0,
+    paymentFrequency: "Annual",
+    effectiveDate: "2026-01-01",
+    status,
+    beneficiaries: [],
+  });
+  const metrics = calculatePortfolioMetrics([
+    policy("active-insurance", "Insurance", "active", 100_000),
+    policy("lapsed-insurance", "Insurance", "lapsed", 900_000),
+    policy("pending-insurance", "Insurance", "pending", 800_000),
+    policy("active-investment", "Investment", "active", 25_000),
+    policy("lapsed-investment", "Investment", "lapsed", 75_000),
+    policy("pending-investment", "Investment", "pending", 50_000),
+  ]);
+
+  assert.equal(metrics.insuranceFaceAmount, 100_000);
+  assert.equal(metrics.investmentAum, 25_000);
+  assert.equal(metrics.activeInsuranceCount, 1);
+  assert.equal(metrics.activeInvestmentCount, 1);
 });
 test("festival template is Chinese-first and renders one responsive poster before the signature", () => {
   const template = DEFAULT_TEMPLATES.find((item) => item.id === "festival");
