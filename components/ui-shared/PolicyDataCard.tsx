@@ -247,14 +247,14 @@ export function PolicyDataCard({
   return (
     <UniversalDataCard
       href={href}
-      accentColor={isLapsed ? "#94A3B8" : CARRIER_COLORS[policy.carrier]}
+      accentColor={isLapsed ? "#64748B" : CARRIER_COLORS[policy.carrier]}
       muted={isLapsed}
       title={policy.productName || policy.productType}
       subtitle={
         <>
           <span className="inline-flex flex-wrap items-center gap-x-1.5 gap-y-1">
             <span className="inline-flex items-center gap-1.5">
-              <span className={cn(isLapsed ? "grayscale opacity-70" : "")}>
+              <span className={cn(isLapsed ? "grayscale opacity-45" : "")}>
                 <CarrierLogoBadge carrier={policy.carrier} size="sm" />
               </span>
               <span className={cn("font-semibold", isLapsed ? "text-slate-500" : "text-slate-700")}>
@@ -308,7 +308,7 @@ export function PolicyDataCard({
             : "sm:grid-cols-2 lg:grid-cols-3"
           : "sm:grid-cols-3"
       }
-      className={cn(className, isLapsed && "border-slate-200 bg-slate-50")}
+      className={cn(className, isLapsed && "border-slate-300 bg-slate-100/90")}
     />
   );
 }

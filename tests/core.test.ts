@@ -8,6 +8,7 @@ import { buildUserSnapshot } from "../lib/user-backup-snapshots";
 import { getPremiumReminderStage, premiumReminderDedupeKey } from "../lib/premium-reminders";
 import { buildWeeklyDigest } from "../lib/weekly-digest";
 import { calculatePortfolioMetrics } from "../lib/portfolio-metrics";
+import { compareLapsedLast } from "../lib/policy-status";
 import type { Policy } from "../lib/types";
 import {
   followUpReminderDedupeKey,
@@ -106,6 +107,21 @@ test("live portfolio totals exclude lapsed and pending insurance and investments
   assert.equal(metrics.investmentAum, 25_000);
   assert.equal(metrics.activeInsuranceCount, 1);
   assert.equal(metrics.activeInvestmentCount, 1);
+});
+test("lapsed policies sort last without changing the order of live policies", () => {
+  const policies = [
+    { id: "lapsed-older", status: "lapsed" as const },
+    { id: "active", status: "active" as const },
+    { id: "pending", status: "pending" as const },
+    { id: "lapsed-newer", status: "lapsed" as const },
+  ];
+
+  policies.sort(compareLapsedLast);
+
+  assert.deepEqual(
+    policies.map((policy) => policy.id),
+    ["active", "pending", "lapsed-older", "lapsed-newer"]
+  );
 });
 test("festival template is Chinese-first and renders one responsive poster before the signature", () => {
   const template = DEFAULT_TEMPLATES.find((item) => item.id === "festival");

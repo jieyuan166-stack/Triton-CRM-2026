@@ -45,8 +45,8 @@ export function UniversalDataCard({
         "block border-l-[3px] p-5 transition-colors",
         muted
           ? href
-            ? "bg-slate-50 hover:bg-slate-100"
-            : "bg-slate-50"
+            ? "bg-slate-100/90 hover:bg-slate-200/80"
+            : "bg-slate-100/90"
           : href
             ? "bg-card hover:bg-[#F8F0E2]"
             : "bg-card",

@@ -27,6 +27,7 @@ import { formatDate, formatMonthDay } from "@/lib/date-utils";
 import { formatCurrencyShort } from "@/lib/format";
 import { getPolicyPortfolioAmount, isPortfolioActivePolicy } from "@/lib/portfolio-metrics";
 import { displayPolicyNumberWithHash } from "@/lib/policy-number";
+import { compareLapsedLast } from "@/lib/policy-status";
 import { cn } from "@/lib/utils";
 
 export default function PoliciesPage() {
@@ -151,6 +152,9 @@ function PoliciesContent() {
         );
       })
       .sort((a, b) => {
+        const statusDiff = compareLapsedLast(a, b);
+        if (statusDiff !== 0) return statusDiff;
+
         const dateDiff =
           policySortDate(b, newMoneyYear !== null) -
           policySortDate(a, newMoneyYear !== null);
@@ -494,7 +498,7 @@ function PoliciesTable({
                 key={policy.id}
                 className={cn(
                   "transition-colors",
-                  isLapsed ? "bg-slate-50 hover:bg-slate-100" : "hover:bg-slate-50"
+                  isLapsed ? "bg-slate-100/90 hover:bg-slate-200/80" : "hover:bg-slate-50"
                 )}
               >
                 <td className="px-5 py-3">
@@ -528,7 +532,7 @@ function PoliciesTable({
                 </td>
                 <td className="px-4 py-3">
                   <span className="inline-flex items-center gap-2">
-                    <span className={cn(isLapsed ? "grayscale opacity-70" : "")}>
+                    <span className={cn(isLapsed ? "grayscale opacity-45" : "")}>
                       <CarrierLogoBadge carrier={policy.carrier} size="sm" />
                     </span>
                     <span className={cn("font-medium", isLapsed ? "text-slate-500" : "text-slate-700")}>
@@ -627,7 +631,7 @@ function ClientGroupedPolicies({
                   className={cn(
                     "flex flex-col gap-2 rounded-lg border px-3 py-2 transition-colors md:flex-row md:items-center md:justify-between",
                     policy.status === "lapsed"
-                      ? "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100"
+                      ? "border-slate-300 bg-slate-100/90 text-slate-500 hover:bg-slate-200/80"
                       : "border-slate-100 bg-slate-50/40 hover:bg-white"
                   )}
                 >

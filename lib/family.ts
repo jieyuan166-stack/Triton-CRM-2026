@@ -9,6 +9,7 @@ import {
   dedupePolicies,
   getPolicyPortfolioAmount,
 } from "@/lib/portfolio-metrics";
+import { compareLapsedLast } from "@/lib/policy-status";
 
 export interface VisibleFamilyLink {
   relationshipId: string;
@@ -117,7 +118,8 @@ export function buildFamilySummary(
       return owner ? [{ ...policy, owner }] : [];
     })
     .sort((a, b) => {
-      if (a.status !== b.status) return a.status === "active" ? -1 : 1;
+      const statusDiff = compareLapsedLast(a, b);
+      if (statusDiff !== 0) return statusDiff;
       return `${a.owner.lastName} ${a.carrier}`.localeCompare(
         `${b.owner.lastName} ${b.carrier}`
       );

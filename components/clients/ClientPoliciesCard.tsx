@@ -24,6 +24,7 @@ import { formatDate, formatMonthDay } from "@/lib/date-utils";
 import { formatCurrency } from "@/lib/format";
 import { insuranceProductTone, investmentProductTone } from "@/lib/investment-product-style";
 import { displayPolicyNumberWithHash } from "@/lib/policy-number";
+import { compareLapsedLast } from "@/lib/policy-status";
 import {
   getAccruedOngoingInvestmentAmount,
   getOngoingInvestmentContributionCount,
@@ -57,6 +58,9 @@ type PolicyCategory = keyof typeof CATEGORY_SECTION_STYLE;
 
 function clusterByCarrier(items: Policy[]) {
   return [...items].sort((a, b) => {
+    const statusOrder = compareLapsedLast(a, b);
+    if (statusOrder !== 0) return statusOrder;
+
     const carrierOrder = CARRIERS.indexOf(a.carrier) - CARRIERS.indexOf(b.carrier);
     if (carrierOrder !== 0) return carrierOrder;
     return (a.productName || a.productType).localeCompare(b.productName || b.productType);
@@ -315,7 +319,7 @@ function CompactPolicyRow({
     <div
       className={cn(
         "transition-colors",
-        isLapsed ? "bg-slate-50 hover:bg-slate-100" : className
+        isLapsed ? "bg-slate-100/90 hover:bg-slate-200/80" : className
       )}
     >
       <div className="grid grid-cols-1 gap-3 px-5 py-3 lg:grid-cols-[minmax(0,1fr)_9.5rem_9.5rem_8rem_4.75rem] lg:items-center lg:gap-4 md:px-6">
@@ -340,7 +344,7 @@ function CompactPolicyRow({
           </button>
           <div className="min-w-0 flex-1 select-text">
             <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-              <span className={cn(isLapsed ? "grayscale opacity-70" : "")}>
+              <span className={cn(isLapsed ? "grayscale opacity-45" : "")}>
                 <CarrierLogoBadge carrier={policy.carrier} size="sm" />
               </span>
               <span className={cn("text-sm font-medium", isLapsed ? "text-slate-500" : "text-slate-900")}>
@@ -445,7 +449,14 @@ function CompactPolicyRow({
       </div>
 
       {expanded ? (
-        <div className="border-t border-slate-100 bg-slate-50/40 px-5 py-3 md:px-6">
+        <div
+          className={cn(
+            "border-t px-5 py-3 md:px-6",
+            isLapsed
+              ? "border-slate-300 bg-slate-100/80"
+              : "border-slate-100 bg-slate-50/40"
+          )}
+        >
           <PolicyDataCard
             policy={policy}
             href={`/policies/${policy.id}`}
